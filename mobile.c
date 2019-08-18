@@ -1,9 +1,9 @@
 #include "mobile.h"
 
+#include "commands.h"
+
 #include <stdint.h>
 #include <string.h>
-
-#define MOBILE_DATA_MAX_LENGTH 0xFF
 
 enum mobile_adapter {
     MOBILE_ADAPTER_BLUE = 0x88,
@@ -12,32 +12,9 @@ enum mobile_adapter {
     MOBILE_ADAPTER_RED
 };
 
-enum mobile_command {
-    MOBILE_COMMAND_BEGIN_SESSION = 0x10,
-    MOBILE_COMMAND_END_SESSION,
-    MOBILE_COMMAND_DIAL_TELEPHONE,
-    MOBILE_COMMAND_HANG_UP_TELEPHONE,
-    MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL,
-    MOBILE_COMMAND_TRANSFER_DATA,
-    MOBILE_COMMAND_TELEPHONE_STATUS = 0x17,
-    MOBILE_COMMAND_READ_CONFIGURATION_DATA = 0x19,
-    MOBILE_COMMAND_WRITE_CONFIGURATION_DATA,
-    MOBILE_COMMAND_ISP_LOGIN = 0x21,
-    MOBILE_COMMAND_ISP_LOGOUT,
-    MOBILE_COMMAND_OPEN_TCP_CONNECTION,
-    MOBILE_COMMAND_CLOSE_TCP_CONNECTION,
-    MOBILE_COMMAND_DNS_QUERY = 0x28
-};
-
 enum mobile_error {
     MOBILE_ERROR_UNKNOWN = 0xF0,
     MOBILE_ERROR_CHECKSUM,
-};
-
-struct mobile_packet {
-    enum mobile_command command;
-    int length;
-    char data[MOBILE_DATA_MAX_LENGTH];
 };
 
 static volatile enum {
@@ -53,7 +30,7 @@ static volatile enum {
 
 static enum mobile_adapter adapter = MOBILE_ADAPTER_BLUE;
 
-static unsigned char buffer[4 + MOBILE_DATA_MAX_LENGTH + 2];
+static unsigned char buffer[4 + MOBILE_MAX_DATA_LENGTH + 2];
 static unsigned index;
 static unsigned data_length;
 
@@ -186,22 +163,12 @@ void mobile_loop(void)
 {
     if (state != STATE_RESPONSE_WAITING) return;
 
-    struct mobile_packet packet;
-    parse_packet(&packet, buffer);
+    struct mobile_packet receive;
+    parse_packet(&receive, buffer);
 
-    switch (packet.command) {
-    case MOBILE_COMMAND_BEGIN_SESSION:
-    case MOBILE_COMMAND_END_SESSION:
-    default:
-        // Just echo the same thing back
-        break;
+    struct mobile_packet *send = mobile_process_packet(&receive);
+    create_packet(buffer, send);
 
-    case MOBILE_COMMAND_TELEPHONE_STATUS:
-        packet.length = 1;
-        packet.data[0] = 0x00;  // TODO: 0x05 if busy
-    }
-
-    create_packet(buffer, &packet);
     state = STATE_RESPONSE_START;
 }
 
