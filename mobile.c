@@ -165,8 +165,10 @@ void mobile_loop(void)
 
     struct mobile_packet receive;
     parse_packet(&receive, buffer);
+    mobile_board_debug_cmd(0, &receive);
 
     struct mobile_packet *send = mobile_process_packet(&receive);
+    mobile_board_debug_cmd(1, send);
     create_packet(buffer, send);
 
     state = STATE_RESPONSE_START;

@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-#include "mobile.h"
+#define MOBILE_MAX_DATA_LENGTH 0xFF
 
 enum mobile_command {
     MOBILE_COMMAND_BEGIN_SESSION = 0x10,
@@ -20,13 +20,14 @@ enum mobile_command {
     MOBILE_COMMAND_ISP_LOGOUT,
     MOBILE_COMMAND_OPEN_TCP_CONNECTION,
     MOBILE_COMMAND_CLOSE_TCP_CONNECTION,
-    MOBILE_COMMAND_DNS_QUERY = 0x28
+    MOBILE_COMMAND_DNS_QUERY = 0x28,
+    MOBILE_COMMAND_WAIT = 0x6E
 };
 
 struct mobile_packet {
     enum mobile_command command;
     int length;
-    char data[MOBILE_MAX_DATA_LENGTH];
+    unsigned char data[MOBILE_MAX_DATA_LENGTH];
 };
 
 struct mobile_packet *mobile_process_packet(struct mobile_packet *packet);
