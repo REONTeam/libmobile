@@ -1,7 +1,7 @@
 // This file provides an example implementation of mobile_board_debug_cmd
 //   that you can conditionally compile.
 
-static void hex_dump(unsigned char *buf, int len)
+static void hex_dump(const unsigned char *buf, const int len)
 {
     for (int i = 0; i < len; i += 0x10) {
         printf("\r\n    ");
@@ -11,7 +11,7 @@ static void hex_dump(unsigned char *buf, int len)
     }
 }
 
-void mobile_board_debug_cmd(int send, struct mobile_packet *packet)
+void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
 {
     if (!send) printf(">>> ");
     else printf("<<< ");
@@ -36,11 +36,13 @@ void mobile_board_debug_cmd(int send, struct mobile_packet *packet)
         break;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
+    case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
+        printf(packet->command == MOBILE_COMMAND_READ_CONFIGURATION_DATA ? "Read" : "Write");
         if (!send) {
-            printf("Read configuration data (offset: %02X; size: %02X)", packet->data[0], packet->data[1]);
+            printf(" configuration data (offset: %02X; size: %02X)", packet->data[0], packet->data[1]);
         } else {
-            printf("Read configuration data");
-            hex_dump(packet->data, packet->length);
+            printf(" configuration data");
+            hex_dump(packet->data + 1, packet->length - 1);
         }
         break;
 
@@ -67,6 +69,10 @@ void mobile_board_debug_cmd(int send, struct mobile_packet *packet)
     case MOBILE_COMMAND_TRANSFER_DATA:
         printf("Transfer data");
         hex_dump(packet->data, packet->length);
+        break;
+
+    case MOBILE_COMMAND_WAIT:
+        printf("Wait %02X", packet->data[0]);
         break;
 
     default:
