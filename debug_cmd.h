@@ -32,23 +32,29 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         printf("Telephone status");
-        if (send) printf(": %02X", packet->data[0]);
+        if (send && packet->length >= 1) printf(": %02X", packet->data[0]);
         break;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
+        printf("Read configuration data");
+        if (!send && packet->length >= 2) {
+            printf(" (offset: %02X; size: %02X)", packet->data[0], packet->data[1]);
+        } else if (packet->length >= 1) {
+            hex_dump(packet->data + 1, packet->length - 1);
+        }
+        break;
+
     case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
-        printf(packet->command == MOBILE_COMMAND_READ_CONFIGURATION_DATA ? "Read" : "Write");
-        if (!send) {
-            printf(" configuration data (offset: %02X; size: %02X)", packet->data[0], packet->data[1]);
-        } else {
-            printf(" configuration data");
+        printf("Write configuration data");
+        if (!send && packet->length >= 1) {
+            printf("(offset: %02X; size: %02X)", packet->data[0], packet->length - 1);
             hex_dump(packet->data + 1, packet->length - 1);
         }
         break;
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
         printf("Dial telephone");
-        if (!send) {
+        if (!send && packet->length >= 1) {
             printf(" #");
             unsigned i = 1;
             while (packet->data[i] == '#') i++;
@@ -72,7 +78,8 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
         break;
 
     case MOBILE_COMMAND_WAIT:
-        printf("Wait %02X", packet->data[0]);
+        printf("Wait");
+        if (packet->length >= 1) printf(" %02X", packet->data[0]);
         break;
 
     default:
