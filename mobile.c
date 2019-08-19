@@ -174,8 +174,30 @@ void mobile_loop(void)
     }
 }
 
+#if MOBILE_CONFIG_DATA_SIZE >= MOBILE_MAX_DATA_LENGTH
+#error
+#endif
+static void config_clear(void)
+{
+    memset(buffer, 0, MOBILE_CONFIG_DATA_SIZE);
+    mobile_board_config_write(buffer, 0, MOBILE_CONFIG_DATA_SIZE);
+}
+
+static int config_verify(void)
+{
+    mobile_board_config_read(buffer, 0, MOBILE_CONFIG_DATA_SIZE);
+    if (buffer[0] != 'M' || buffer[1] != 'A' || buffer[2] != 0x81) return 0;
+    checksum = 0;
+    for (unsigned i = 0; i < MOBILE_CONFIG_DATA_SIZE - 2; i++) checksum += buffer[i];
+    uint16_t config_checksum = buffer[MOBILE_CONFIG_DATA_SIZE - 2] << 8 |
+                               buffer[MOBILE_CONFIG_DATA_SIZE - 1]; 
+    return checksum == config_checksum;
+}
+
 void mobile_init(void)
 {
+    if (!config_verify()) config_clear();
+
     mobile_board_reset_spi();
     error = 0;
     index = 0;
