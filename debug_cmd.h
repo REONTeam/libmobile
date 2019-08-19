@@ -1,11 +1,11 @@
 // This file provides an example implementation of mobile_board_debug_cmd
 //   that you can conditionally compile.
 
-static void hex_dump(const unsigned char *buf, const int len)
+static void hex_dump(const unsigned char *buf, const unsigned len)
 {
-    for (int i = 0; i < len; i += 0x10) {
+    for (unsigned i = 0; i < len; i += 0x10) {
         printf("\r\n    ");
-        for (int x = i; x < i + 0x10 && x < len; x++)  {
+        for (unsigned x = i; x < i + 0x10 && x < len; x++)  {
             printf("%02X ", buf[x]);
         }
     }
@@ -20,7 +20,7 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
     switch(packet->command) {
     case MOBILE_COMMAND_BEGIN_SESSION:
         printf("Begin session: ");
-        for (int i = 0; i < packet->length; i++){
+        for (unsigned i = 0; i < packet->length; i++){
             printf("%c", packet->data[i]);
         }
         break;
@@ -50,7 +50,7 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
         printf("Dial telephone");
         if (!send) {
             printf(" #");
-            int i = 1;
+            unsigned i = 1;
             while (packet->data[i] == '#') i++;
             for (; i < packet->length; i++) {
                 printf("%c", packet->data[i]);

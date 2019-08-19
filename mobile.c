@@ -152,7 +152,7 @@ static void create_packet(unsigned char *buffer, const struct mobile_packet *pac
     memcpy(buffer + 4, packet->data, packet->length);
 
     uint16_t checksum = 0;
-    for (int i = 0; i < packet->length + 4; i++) {
+    for (unsigned i = 0; i < packet->length + 4; i++) {
         checksum += buffer[i];
     }
     buffer[packet->length + 4] = (checksum >> 8) & 0xFF;
@@ -161,17 +161,17 @@ static void create_packet(unsigned char *buffer, const struct mobile_packet *pac
 
 void mobile_loop(void)
 {
-    if (state != STATE_RESPONSE_WAITING) return;
+    if (state == STATE_RESPONSE_WAITING) {
+        struct mobile_packet receive;
+        parse_packet(&receive, buffer);
+        mobile_board_debug_cmd(0, &receive);
 
-    struct mobile_packet receive;
-    parse_packet(&receive, buffer);
-    mobile_board_debug_cmd(0, &receive);
+        struct mobile_packet *send = mobile_process_packet(&receive);
+        mobile_board_debug_cmd(1, send);
+        create_packet(buffer, send);
 
-    struct mobile_packet *send = mobile_process_packet(&receive);
-    mobile_board_debug_cmd(1, send);
-    create_packet(buffer, send);
-
-    state = STATE_RESPONSE_START;
+        state = STATE_RESPONSE_START;
+    }
 }
 
 void mobile_init(void)

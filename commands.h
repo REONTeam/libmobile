@@ -4,6 +4,7 @@
 extern "C" {
 #endif
 
+#define MOBILE_CONFIG_DATA_SIZE 0xC0
 #define MOBILE_MAX_DATA_LENGTH 0xFF
 
 enum mobile_command {
@@ -26,7 +27,7 @@ enum mobile_command {
 
 struct mobile_packet {
     enum mobile_command command;
-    int length;
+    unsigned length;
     unsigned char data[MOBILE_MAX_DATA_LENGTH];
 };
 
