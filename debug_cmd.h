@@ -55,6 +55,9 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
     case MOBILE_COMMAND_DIAL_TELEPHONE:
         printf("Dial telephone");
         if (!send && packet->length >= 1) {
+            printf(" (unkn %02X)", packet->data[0]);
+        }
+        if (!send && packet->length >= 2) {
             printf(" #");
             unsigned i = 1;
             while (packet->data[i] == '#') i++;
