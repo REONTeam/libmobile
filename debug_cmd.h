@@ -80,9 +80,9 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
         hex_dump(packet->data, packet->length);
         break;
 
-    case MOBILE_COMMAND_WAIT:
-        printf("Wait");
-        if (packet->length >= 1) printf(" %02X", packet->data[0]);
+    case MOBILE_COMMAND_ERROR:
+        printf("Error");
+        if (packet->length >= 2) printf(" %02X", packet->data[1]);
         break;
 
     default:

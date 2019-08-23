@@ -3,6 +3,7 @@
 #include "commands.h"
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 
 enum mobile_adapter {
@@ -17,6 +18,12 @@ enum mobile_error {
     MOBILE_ERROR_CHECKSUM,
 };
 
+// This is used to indicate whether we want to listen for commands other than
+//   MOBILE_COMMAND_BEGIN_SESSION. Its state is modified in commands.c
+bool mobile_session_begun;
+
+static enum mobile_adapter adapter = MOBILE_ADAPTER_BLUE;
+
 static volatile enum {
     STATE_WAITING,
     STATE_DATA,
@@ -27,26 +34,25 @@ static volatile enum {
     STATE_RESPONSE_DATA,
     STATE_RESPONSE_ACKNOWLEDGE
 } state;
-
-static enum mobile_adapter adapter = MOBILE_ADAPTER_BLUE;
-
+static volatile unsigned index;
 static unsigned char buffer[4 + MOBILE_MAX_DATA_LENGTH + 2];
-static unsigned index;
-static unsigned data_length;
-
-static uint16_t checksum;
-static enum mobile_error error;
-static int send_retry;
 
 unsigned char mobile_transfer(unsigned char c)
 {
+    static unsigned data_length;
+    static uint16_t checksum;
+    static enum mobile_error error;
+    static int send_retry;
+
     switch (state) {
     case STATE_WAITING:
         if (c == 0x99) {
             index = 1;
         } else if (c == 0x66 && index == 1) {
             index = 0;
+            data_length = 0;
             checksum = 0;
+            error = 0;
             state = STATE_DATA;
         } else {
             index = 0;
@@ -58,6 +64,10 @@ unsigned char mobile_transfer(unsigned char c)
         checksum += c;
         if (index == 4) {
             data_length = buffer[3];
+            if (!mobile_session_begun && buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
+                index = 0;
+                state = STATE_WAITING;
+            }
         } else if (index >= data_length + 4) {
             state = STATE_CHECKSUM;
         }
@@ -74,21 +84,12 @@ unsigned char mobile_transfer(unsigned char c)
         break;
 
     case STATE_ACKNOWLEDGE:
-        if (error) {
-            c = error;
-            error = 0;
-            index = 0;
-            state = STATE_WAITING;
-            return c;
-        }
-        if (c != 0x80) {
-            index = 0;
-            state = STATE_WAITING;
-            return MOBILE_ERROR_UNKNOWN;
-        }
+        index = 0;
+        state = STATE_WAITING;
+        if (error) return error;
+        if (c != 0x80) return MOBILE_ERROR_UNKNOWN;
 
         send_retry = 0;
-        index = 0;
         state = STATE_RESPONSE_WAITING;
         return buffer[0] ^ 0x80;
 
@@ -162,7 +163,7 @@ static void create_packet(unsigned char *buffer, const struct mobile_packet *pac
 void mobile_loop(void)
 {
     if (state == STATE_RESPONSE_WAITING) {
-        struct mobile_packet receive;
+        static struct mobile_packet receive;
         parse_packet(&receive, buffer);
         mobile_board_debug_cmd(0, &receive);
 
@@ -187,7 +188,7 @@ static int config_verify(void)
 {
     mobile_board_config_read(buffer, 0, MOBILE_CONFIG_DATA_SIZE);
     if (buffer[0] != 'M' || buffer[1] != 'A' || buffer[2] != 0x81) return 0;
-    checksum = 0;
+    uint16_t checksum = 0;
     for (unsigned i = 0; i < MOBILE_CONFIG_DATA_SIZE - 2; i++) checksum += buffer[i];
     uint16_t config_checksum = buffer[MOBILE_CONFIG_DATA_SIZE - 2] << 8 |
                                buffer[MOBILE_CONFIG_DATA_SIZE - 1]; 
@@ -199,7 +200,7 @@ void mobile_init(void)
     if (!config_verify()) config_clear();
 
     mobile_board_reset_spi();
-    error = 0;
+    mobile_session_begun = false;
     index = 0;
     state = STATE_WAITING;
 }
