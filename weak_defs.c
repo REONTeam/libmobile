@@ -1,4 +1,7 @@
+#include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
+
 #include "mobile.h"
 
 // This file contains weakly-linked definitions of the board-specific functions.
@@ -18,5 +21,10 @@ A_WEAK void mobile_board_config_read(unsigned char *dest, A_UNUSED const uintptr
     memset(dest, 0xFF, size);
 }
 A_WEAK void mobile_board_config_write(A_UNUSED const unsigned char *src, A_UNUSED const uintptr_t offset, A_UNUSED const size_t size) {}
+A_WEAK void mobile_board_time_latch(void) {}
+A_WEAK bool mobile_board_time_check_ms(A_UNUSED unsigned int ms)
+{
+    return false;
+}
 
 #endif

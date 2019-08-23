@@ -55,12 +55,6 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
         // TODO: Actually implement
-        // Errors (in crystal):
-        // 0 returns 12-000 - Phone is busy
-        // 1 returns 13-000 - Could not make call
-        // 2 returns 17-000 - General communication error
-        // 3 returns 13-000 - Could not make call
-        // 4-5-... returns 13-000
         return error_packet(packet, 3);  // No phone is connected
         //packet->length = 0;
         //return packet;
@@ -82,8 +76,10 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         // TODO: Actually implement
-        packet->length = 1;
-        packet->data[0] = 0x00;
+        packet->length = 3;
+        packet->data[0] = 0x00;  // 0xFF if phone is disconnected
+        packet->data[1] = 0x4D;  // Some kind of serial code?
+        packet->data[2] = 0x00;
         return packet;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA: {

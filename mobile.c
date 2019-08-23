@@ -1,10 +1,10 @@
 #include "mobile.h"
 
-#include "commands.h"
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+
+#include "commands.h"
 
 enum mobile_adapter {
     MOBILE_ADAPTER_BLUE = 0x88,
@@ -162,12 +162,13 @@ static void create_packet(unsigned char *buffer, const struct mobile_packet *pac
 
 void mobile_loop(void)
 {
-    if (state == STATE_RESPONSE_WAITING) {
-        static struct mobile_packet receive;
-        parse_packet(&receive, buffer);
-        mobile_board_debug_cmd(0, &receive);
+    static struct mobile_packet packet;
 
-        struct mobile_packet *send = mobile_process_packet(&receive);
+    if (state == STATE_RESPONSE_WAITING) {
+        parse_packet(&packet, buffer);
+        mobile_board_debug_cmd(0, &packet);
+
+        struct mobile_packet *send = mobile_process_packet(&packet);
         mobile_board_debug_cmd(1, send);
         create_packet(buffer, send);
 
@@ -184,12 +185,15 @@ static void config_clear(void)
     mobile_board_config_write(buffer, 0, MOBILE_CONFIG_DATA_SIZE);
 }
 
-static int config_verify(void)
+static bool config_verify(void)
 {
     mobile_board_config_read(buffer, 0, MOBILE_CONFIG_DATA_SIZE);
-    if (buffer[0] != 'M' || buffer[1] != 'A' || buffer[2] != 0x81) return 0;
+    if (buffer[0] != 'M' || buffer[1] != 'A' || buffer[2] != 0x81) return false;
+
     uint16_t checksum = 0;
-    for (unsigned i = 0; i < MOBILE_CONFIG_DATA_SIZE - 2; i++) checksum += buffer[i];
+    for (unsigned i = 0; i < MOBILE_CONFIG_DATA_SIZE - 2; i++) {
+        checksum += buffer[i];
+    }
     uint16_t config_checksum = buffer[MOBILE_CONFIG_DATA_SIZE - 2] << 8 |
                                buffer[MOBILE_CONFIG_DATA_SIZE - 1]; 
     return checksum == config_checksum;
