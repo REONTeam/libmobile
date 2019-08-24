@@ -23,7 +23,7 @@ A_WEAK void mobile_board_config_read(unsigned char *dest, A_UNUSED const uintptr
 }
 A_WEAK void mobile_board_config_write(A_UNUSED const unsigned char *src, A_UNUSED const uintptr_t offset, A_UNUSED const size_t size) {}
 A_WEAK void mobile_board_time_latch(void) {}
-A_WEAK bool mobile_board_time_check_ms(A_UNUSED unsigned int ms)
+A_WEAK bool mobile_board_time_check_ms(A_UNUSED unsigned ms)
 {
     return false;
 }

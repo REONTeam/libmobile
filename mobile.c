@@ -189,6 +189,11 @@ void mobile_loop(void)
         packet.command = MOBILE_COMMAND_END_SESSION;
         packet.length = 0;
         mobile_board_debug_cmd(1, &packet);
+    } else if (state == STATE_WAITING && !mobile_session_begun &&
+            mobile_board_time_check_ms(500)) {
+        mobile_board_disable_spi();
+        mobile_board_time_latch();
+        mobile_board_enable_spi();
     }
 }
 
