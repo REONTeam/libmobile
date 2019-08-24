@@ -22,7 +22,7 @@ enum mobile_error {
 //   MOBILE_COMMAND_BEGIN_SESSION. Its state is modified in commands.c
 bool mobile_session_begun;
 
-static enum mobile_adapter adapter = MOBILE_ADAPTER_BLUE;
+static const enum mobile_adapter adapter = MOBILE_ADAPTER_BLUE;
 
 static volatile enum {
     STATE_WAITING,
@@ -43,6 +43,8 @@ unsigned char mobile_transfer(unsigned char c)
     static uint16_t checksum;
     static enum mobile_error error;
     static int send_retry;
+
+    mobile_board_time_latch();
 
     switch (state) {
     case STATE_WAITING:
@@ -173,6 +175,20 @@ void mobile_loop(void)
         create_packet(buffer, send);
 
         state = STATE_RESPONSE_START;
+    } else if ((state != STATE_WAITING && mobile_board_time_check_ms(500)) ||
+            (mobile_session_begun && mobile_board_time_check_ms(2000))) {
+        // If the adapter is stuck waiting, with no signal from the game,
+        //   put it out of its misery.
+        mobile_board_disable_spi();
+        mobile_session_begun = false;
+        index = 0;
+        state = STATE_WAITING;
+        mobile_board_enable_spi();
+
+        // Notify the debugger somehow.
+        packet.command = MOBILE_COMMAND_END_SESSION;
+        packet.length = 0;
+        mobile_board_debug_cmd(1, &packet);
     }
 }
 
@@ -203,8 +219,9 @@ void mobile_init(void)
 {
     if (!config_verify()) config_clear();
 
-    mobile_board_reset_spi();
+    mobile_board_disable_spi();
     mobile_session_begun = false;
     index = 0;
     state = STATE_WAITING;
+    mobile_board_enable_spi();
 }

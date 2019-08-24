@@ -24,8 +24,9 @@ extern bool mobile_session_begun;
 //     that doesn't begin the session, when the session hasn't been begun)
 // - What happens when reading/writing configuration data with a size of 0?
 //     What if the requested address is outside of the config area?
-// - What happens when you try writing configuration data but the packet is
-//     too small?
+
+// UNKERR is used to indicate calls to error_packet for which I'm unsure What
+//   the proper error value/behavior is.
 
 static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned char error)
 {
@@ -61,12 +62,12 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
 
     case MOBILE_COMMAND_HANG_UP_TELEPHONE:
         // TODO: Actually implement
-        return error_packet(packet, 0);  // TODO: Figure out the proper error
+        return error_packet(packet, 0);  // UNKERR
+        //return packet;
 
     case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
         // TODO: Actually implement
         return error_packet(packet, 0);  // No phone is connected
-        //packet->length = 0;
         //return packet;
 
     case MOBILE_COMMAND_TRANSFER_DATA:
@@ -78,11 +79,12 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // TODO: Actually implement
         packet->length = 3;
         packet->data[0] = 0x00;  // 0xFF if phone is disconnected
-        packet->data[1] = 0x4D;  // Some kind of serial code?
+        packet->data[1] = 0x4D;
         packet->data[2] = 0x00;
         return packet;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA: {
+        if (packet->length != 2) return error_packet(packet, 0);  // UNKERR
         unsigned offset = packet->data[0];
         unsigned size = packet->data[1];
         if (offset + size > MOBILE_CONFIG_DATA_SIZE) {
@@ -98,10 +100,10 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         if (packet->data[0] + packet->length > MOBILE_CONFIG_DATA_SIZE) {
             return error_packet(packet, 2);
         }
-        if (packet->length > 1) {
-            mobile_board_config_write(packet->data + 1, packet->data[0],
-                                      packet->length);
-        }
+        if (packet->length < 2) return error_packet(packet, 1);  // UNKERR
+
+        mobile_board_config_write(packet->data + 1, packet->data[0],
+                                  packet->length - 1);
         packet->length = 0;
         return packet;
 
@@ -111,15 +113,15 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
 
     case MOBILE_COMMAND_ISP_LOGOUT:
         // TODO: Actually implement
-        return error_packet(packet, 0);  // TODO: Figure out the proper error
+        return error_packet(packet, 0);  // UNKERR
 
     case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
         // TODO: Actually implement
-        return error_packet(packet, 0);  // TODO: Figure out the proper error
+        return error_packet(packet, 0);  // UNKERR
 
     case MOBILE_COMMAND_DNS_QUERY:
         // TODO: Actually implement
-        return error_packet(packet, 0);  // TODO: Figure out the proper error
+        return error_packet(packet, 0);  // UNKERR
 
     default:
         // Just echo the same thing back
