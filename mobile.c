@@ -34,7 +34,7 @@ static volatile enum {
     STATE_RESPONSE_DATA,
     STATE_RESPONSE_ACKNOWLEDGE
 } state;
-static volatile unsigned index;
+static volatile unsigned current;
 static unsigned char buffer[4 + MOBILE_MAX_DATA_LENGTH + 2];
 
 unsigned char mobile_transfer(unsigned char c)
@@ -49,36 +49,36 @@ unsigned char mobile_transfer(unsigned char c)
     switch (state) {
     case STATE_WAITING:
         if (c == 0x99) {
-            index = 1;
-        } else if (c == 0x66 && index == 1) {
-            index = 0;
+            current = 1;
+        } else if (c == 0x66 && current == 1) {
+            current = 0;
             data_length = 0;
             checksum = 0;
             error = 0;
             state = STATE_DATA;
         } else {
-            index = 0;
+            current = 0;
         }
         break;
 
     case STATE_DATA:
-        buffer[index++] = c;
+        buffer[current++] = c;
         checksum += c;
-        if (index == 4) {
+        if (current == 4) {
             data_length = buffer[3];
             if (!mobile_session_begun && buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
-                index = 0;
+                current = 0;
                 state = STATE_WAITING;
             }
-        } else if (index >= data_length + 4) {
+        } else if (current >= data_length + 4) {
             state = STATE_CHECKSUM;
         }
         break;
 
     case STATE_CHECKSUM:
-        buffer[index++] = c;
-        if (index >= data_length + 6) {
-            uint16_t in_checksum = buffer[index - 2] << 8 | buffer[index - 1];
+        buffer[current++] = c;
+        if (current >= data_length + 6) {
+            uint16_t in_checksum = buffer[current - 2] << 8 | buffer[current - 1];
             if (checksum != in_checksum) error = MOBILE_ERROR_CHECKSUM;
             state = STATE_ACKNOWLEDGE;
             return adapter;
@@ -86,7 +86,7 @@ unsigned char mobile_transfer(unsigned char c)
         break;
 
     case STATE_ACKNOWLEDGE:
-        index = 0;
+        current = 0;
         state = STATE_WAITING;
         if (error) return error;
         if (c != 0x80) return MOBILE_ERROR_UNKNOWN;
@@ -100,38 +100,38 @@ unsigned char mobile_transfer(unsigned char c)
         break;
 
     case STATE_RESPONSE_START:
-        if (index++ == 0) {
+        if (current++ == 0) {
             return 0x99;
         } else {
             data_length = buffer[3];
-            index = 0;
+            current = 0;
             state = STATE_RESPONSE_DATA;
             return 0x66;
         }
 
     case STATE_RESPONSE_DATA:
-        c = buffer[index++];
-        if (index > data_length + 6) {
-            index = 0;
+        c = buffer[current++];
+        if (current > data_length + 6) {
+            current = 0;
             state = STATE_RESPONSE_ACKNOWLEDGE;
             return adapter;
         }
         return c;
 
     case STATE_RESPONSE_ACKNOWLEDGE:
-        if (index++ == 0) {
+        if (current++ == 0) {
             return 0;
         } else {
             // TODO: Actually parse the error code.
             if ((c ^ 0x80) != buffer[0]) {
                 if (++send_retry < 4) {
-                    index = 1;
+                    current = 1;
                     state = STATE_RESPONSE_START;
                     return 0x99;
                 }
             }
 
-            index = 0;
+            current = 0;
             state = STATE_WAITING;
         }
     }
@@ -181,7 +181,7 @@ void mobile_loop(void)
         //   put it out of its misery.
         mobile_board_disable_spi();
         mobile_session_begun = false;
-        index = 0;
+        current = 0;
         state = STATE_WAITING;
         mobile_board_enable_spi();
 
@@ -226,7 +226,7 @@ void mobile_init(void)
 
     mobile_board_disable_spi();
     mobile_session_begun = false;
-    index = 0;
+    current = 0;
     state = STATE_WAITING;
     mobile_board_enable_spi();
 }

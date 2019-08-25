@@ -51,6 +51,7 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         return packet;
 
     case MOBILE_COMMAND_END_SESSION:
+        // TODO: What happens if the packet has a body? Probably nothing.
         mobile_session_begun = false;
         return packet;
 

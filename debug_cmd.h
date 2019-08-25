@@ -30,6 +30,34 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
         if (send) printf("\r\n");
         break;
 
+    case MOBILE_COMMAND_DIAL_TELEPHONE:
+        printf("Dial telephone");
+        if (!send && packet->length >= 1) {
+            printf(" (unkn %02X)", packet->data[0]);
+        }
+        if (!send && packet->length >= 2) {
+            printf(" #");
+            unsigned i = 1;
+            while (packet->data[i] == '#') i++;
+            for (; i < packet->length; i++) {
+                printf("%c", packet->data[i]);
+            }
+        }
+        break;
+
+    case MOBILE_COMMAND_HANG_UP_TELEPHONE:
+        printf("Hang up telephone");
+        break;
+
+    case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
+        printf("Wait for telephone call");
+        break;
+
+    case MOBILE_COMMAND_TRANSFER_DATA:
+        printf("Transfer data");
+        hex_dump(packet->data, packet->length);
+        break;
+
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         printf("Telephone status");
         if (send && packet->length >= 1) printf(": %02X", packet->data[0]);
@@ -50,34 +78,6 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
             printf("(offset: %02X; size: %02X)", packet->data[0], packet->length - 1);
             hex_dump(packet->data + 1, packet->length - 1);
         }
-        break;
-
-    case MOBILE_COMMAND_DIAL_TELEPHONE:
-        printf("Dial telephone");
-        if (!send && packet->length >= 1) {
-            printf(" (unkn %02X)", packet->data[0]);
-        }
-        if (!send && packet->length >= 2) {
-            printf(" #");
-            unsigned i = 1;
-            while (packet->data[i] == '#') i++;
-            for (; i < packet->length; i++) {
-                printf("%c", packet->data[i]);
-            }
-        }
-        break;
-
-    case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
-        printf("Wait for telephone call");
-        break;
-
-    case MOBILE_COMMAND_HANG_UP_TELEPHONE:
-        printf("Hang up telephone");
-        break;
-
-    case MOBILE_COMMAND_TRANSFER_DATA:
-        printf("Transfer data");
-        hex_dump(packet->data, packet->length);
         break;
 
     case MOBILE_COMMAND_ERROR:
