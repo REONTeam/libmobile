@@ -98,11 +98,10 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
     }
 
     case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
-        if (packet->data[0] + packet->length > MOBILE_CONFIG_DATA_SIZE) {
+        if (packet->length < 2) return error_packet(packet, 1);  // UNKERR
+        if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_DATA_SIZE) {
             return error_packet(packet, 2);
         }
-        if (packet->length < 2) return error_packet(packet, 1);  // UNKERR
-
         mobile_board_config_write(packet->data + 1, packet->data[0],
                                   packet->length - 1);
         packet->length = 0;
