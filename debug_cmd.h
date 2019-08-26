@@ -36,10 +36,8 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
             printf(" (unkn %02X)", packet->data[0]);
         }
         if (!send && packet->length >= 2) {
-            printf(" #");
-            unsigned i = 1;
-            while (packet->data[i] == '#') i++;
-            for (; i < packet->length; i++) {
+            printf(" ");
+            for (unsigned i = 0; i < packet->length; i++) {
                 printf("%c", packet->data[i]);
             }
         }
@@ -55,7 +53,10 @@ void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
 
     case MOBILE_COMMAND_TRANSFER_DATA:
         printf("Transfer data");
-        hex_dump(packet->data, packet->length);
+        if (packet->length >= 1) {
+            printf(" (unkn %02X)", packet->data[0]);
+            hex_dump(packet->data + 1, packet->length - 1);
+        }
         break;
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:

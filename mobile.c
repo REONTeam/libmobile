@@ -209,7 +209,7 @@ static void config_clear(void)
 static bool config_verify(void)
 {
     mobile_board_config_read(buffer, 0, MOBILE_CONFIG_DATA_SIZE);
-    if (buffer[0] != 'M' || buffer[1] != 'A' || buffer[2] != 0x81) return false;
+    if (buffer[0] != 'M' || buffer[1] != 'A') return false;
 
     uint16_t checksum = 0;
     for (unsigned i = 0; i < MOBILE_CONFIG_DATA_SIZE - 2; i++) {

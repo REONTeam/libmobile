@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "mobile.h"
 
@@ -27,6 +28,14 @@ extern bool mobile_session_begun;
 
 // UNKERR is used to indicate calls to error_packet for which I'm unsure What
 //   the proper error value/behavior is.
+// OURERR is used to indicate an error code that we made up ourselves for
+//   purposes that weren't applicable to the original adapter.
+
+static enum {
+    CONNECTION_NONE,
+    CONNECTION_P2P,
+    CONNECTION_TCP
+} connection;
 
 static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned char error)
 {
@@ -56,25 +65,58 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         return packet;
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
-        // TODO: Actually implement
+        if (packet->length == 6 && memcmp(packet->data + 1, "#9677", 5) == 0) {
+            packet->length = 0;
+            return packet;
+        }
+        if (packet->length == 11 && memcmp(packet->data + 1, "0077487751", 10) == 0) {
+            packet->length = 0;
+            return packet;
+        }
+
+        // Interpret the number as an IP and connect to someone.
+        if (packet->length == 13) {
+            unsigned arr[4];
+            sscanf((char *)packet->data + 1, "%03u%03u%03u%03u",
+                    &arr[0], &arr[1], &arr[2], &arr[3]);
+            for (int i = 0; i < 4; i++) {
+                if (arr[i] > 0xFF) return error_packet(packet, 1);  // OURERR
+            }
+            char address[17];
+            sprintf(address, "%d.%d.%d.%d", arr[0], arr[1], arr[2], arr[3]);
+            if (mobile_board_tcp_connect(address, 8766)) {
+                packet->length = 0;
+                return packet;
+            }
+        }
+
+        // TODO: What error is returned when the phone is connected but
+        //       can't reach anything?
+        // TODO: What happens if the packet has a body? Probably nothing.
         return error_packet(packet, 3);  // No phone is connected
-        //packet->length = 0;
-        //return packet;
 
     case MOBILE_COMMAND_HANG_UP_TELEPHONE:
         // TODO: Actually implement
-        return error_packet(packet, 0);  // UNKERR
-        //return packet;
+        //return error_packet(packet, 0);  // UNKERR
+        return packet;
 
     case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
-        // TODO: Actually implement
+        if (mobile_board_tcp_listen(8766)) {
+            return packet;
+        }
         return error_packet(packet, 0);  // No phone is connected
-        //return packet;
 
     case MOBILE_COMMAND_TRANSFER_DATA:
-        // TODO: Actually implement
-        return error_packet(packet, 1);  // No transfer has been started
-        //return packet;
+        // TODO: Check if transfer was started
+        //return error_packet(packet, 1);  // No transfer has been started
+        if (packet->length < 1) return error_packet(packet, 1);  // UNKERR
+        unsigned char data[MOBILE_MAX_DATA_LENGTH - 1];
+        unsigned size = packet->length - 1;
+        memcpy(data, packet->data + 1, size);
+        unsigned char *recv_data = mobile_board_tcp_transfer(data, &size);
+        memcpy(packet->data + 1, recv_data, size);
+        packet->length = size + 1;
+        return packet;
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         // TODO: Actually implement
@@ -93,7 +135,11 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         }
         packet->length = size + 1;
         packet->data[0] = offset;
-        if (size) mobile_board_config_read(packet->data + 1, offset, size);
+        if (size) {
+            if (!mobile_board_config_read(packet->data + 1, offset, size)) {
+                return error_packet(packet, 0);  // OURERR
+            }
+        }
         return packet;
     }
 
@@ -102,8 +148,10 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_DATA_SIZE) {
             return error_packet(packet, 2);
         }
-        mobile_board_config_write(packet->data + 1, packet->data[0],
-                                  packet->length - 1);
+        if (!mobile_board_config_write(packet->data + 1, packet->data[0],
+                    packet->length - 1)) {
+            return error_packet(packet, 0);  // OURERR
+        }
         packet->length = 0;
         return packet;
 
