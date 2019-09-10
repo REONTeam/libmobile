@@ -5,7 +5,8 @@ extern "C" {
 #endif
 
 #define MOBILE_CONFIG_DATA_SIZE 0xC0
-#define MOBILE_MAX_DATA_LENGTH 0xFF
+#define MOBILE_MAX_DATA_SIZE 0xFF
+#define MOBILE_MAX_TCP_SIZE (MOBILE_MAX_DATA_SIZE - 1)
 
 enum mobile_command {
     MOBILE_COMMAND_BEGIN_SESSION = 0x10,
@@ -29,7 +30,7 @@ enum mobile_command {
 struct mobile_packet {
     enum mobile_command command;
     unsigned length;
-    unsigned char data[MOBILE_MAX_DATA_LENGTH];
+    unsigned char data[MOBILE_MAX_DATA_SIZE];
 };
 
 struct mobile_packet *mobile_process_packet(struct mobile_packet *packet);

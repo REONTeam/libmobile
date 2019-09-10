@@ -35,7 +35,7 @@ static volatile enum {
     STATE_RESPONSE_ACKNOWLEDGE
 } state;
 static volatile unsigned current;
-static unsigned char buffer[4 + MOBILE_MAX_DATA_LENGTH + 2];
+static unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2];
 
 unsigned char mobile_transfer(unsigned char c)
 {
@@ -183,12 +183,13 @@ void mobile_loop(void)
         mobile_session_begun = false;
         current = 0;
         state = STATE_WAITING;
-        mobile_board_enable_spi();
 
-        // Notify the debugger somehow.
+        // "Emulate" a regular end session.
         packet.command = MOBILE_COMMAND_END_SESSION;
         packet.length = 0;
-        mobile_board_debug_cmd(1, &packet);
+        struct mobile_packet *send = mobile_process_packet(&packet);
+        mobile_board_debug_cmd(1, send);
+        mobile_board_enable_spi();
     } else if (state == STATE_WAITING && !mobile_session_begun &&
             mobile_board_time_check_ms(500)) {
         mobile_board_disable_spi();
@@ -197,7 +198,7 @@ void mobile_loop(void)
     }
 }
 
-#if MOBILE_CONFIG_DATA_SIZE >= MOBILE_MAX_DATA_LENGTH
+#if MOBILE_CONFIG_DATA_SIZE >= MOBILE_MAX_DATA_SIZE
 #error
 #endif
 static void config_clear(void)

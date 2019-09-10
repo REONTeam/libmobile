@@ -27,22 +27,26 @@ A_WEAK bool mobile_board_config_write(A_UNUSED const unsigned char *src, A_UNUSE
     return true;
 }
 A_WEAK void mobile_board_time_latch(void) {}
-A_WEAK bool mobile_board_time_check_ms(A_UNUSED unsigned ms)
+A_WEAK bool mobile_board_time_check_ms(A_UNUSED const unsigned ms)
 {
     return false;
 }
-A_WEAK bool mobile_board_tcp_connect(A_UNUSED const char *host, A_UNUSED unsigned port)
+A_WEAK bool mobile_board_tcp_connect(A_UNUSED const char *host, A_UNUSED const char *port)
 {
     return true;
 }
-bool mobile_board_tcp_listen(A_UNUSED unsigned port)
+A_WEAK bool mobile_board_tcp_listen(A_UNUSED const char *port)
 {
     return true;
 }
-void mobile_board_tcp_disconnect(void) {}
-unsigned char *mobile_board_tcp_transfer(unsigned char *data, A_UNUSED unsigned *size)
+A_WEAK void mobile_board_tcp_disconnect(void) {}
+A_WEAK bool mobile_board_tcp_send(A_UNUSED const void *data, A_UNUSED const unsigned size)
 {
-    return data;
+    return true;
+}
+A_WEAK int mobile_board_tcp_receive(A_UNUSED void *data)
+{
+    return -10;
 }
 
 #endif

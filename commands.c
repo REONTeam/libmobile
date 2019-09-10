@@ -6,6 +6,8 @@
 
 #include "mobile.h"
 
+#define MOBILE_P2P_PORT "2415"
+
 extern bool mobile_session_begun;
 
 // A bunch of details about the communication protocol are unknown,
@@ -25,6 +27,8 @@ extern bool mobile_session_begun;
 //     that doesn't begin the session, when the session hasn't been begun)
 // - What happens when reading/writing configuration data with a size of 0?
 //     What if the requested address is outside of the config area?
+// - Does the session "end" when an error is returned from, for example,
+//     Dial Telephone? Try sending a session begin packet after such an error.
 
 // UNKERR is used for errors of which we don't really know if they exist, and
 //   if so what error code they return, but have been implemented just in case.
@@ -32,13 +36,12 @@ extern bool mobile_session_begun;
 //   indicate something that couldn't happen with the real adapter.
 
 static enum {
-    CONNECTION_NONE,
-    CONNECTION_LISTEN,
+    CONNECTION_DISCONNECTED,
+    CONNECTION_LISTENING,
     CONNECTION_CONNECTING,
-    CONNECTION_CONNECTED,
-    CONNECTION_P2P,
-    CONNECTION_TCP
-} connection;
+    CONNECTION_CONNECTED
+} connection = CONNECTION_DISCONNECTED;
+static unsigned connection_sent = 0;  // Amount of messages sent in synchronized mode.
 
 static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned char error)
 {
@@ -48,6 +51,61 @@ static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned
     packet->data[0] = command;
     packet->data[1] = error;
     return packet;
+}
+
+static bool parse_address(char *address, char *data)
+{
+    // Converts a 0-padded string of 12 characters to a '.'-separated IP address.
+    // It also checks for the validity of the address while doing so.
+    // The output string will be at most 17 bytes long including the terminator.
+
+    char *cur_data = data;
+    char *cur_addr = address;
+    for (unsigned y = 0; y < 4; y++) {
+        if (y) *cur_addr++ = '.';
+        bool copy = false;
+        unsigned cur_num = 0;
+        for (unsigned x = 0; x < 3; x++) {
+            if (*cur_data < '0' || *cur_data > '9') return false;
+            if (!copy && *cur_data != '0') copy = true;
+            if (copy) *cur_addr++ = *cur_data;
+            cur_num *= 10;
+            cur_num += *cur_data++ - '0';
+        }
+        if (cur_num > 255) return false;
+        if (cur_num == 0) *cur_addr++ = '0';
+    }
+    *cur_addr = '\0';
+    return true;
+}
+
+static bool transfer_data(unsigned char *data, unsigned *size)
+{
+    // Pokémon Crystal expects communications to be "synchronized".
+    // For this, we only try to receive packets when we've sent one.
+    // Maybe the first byte in the packet has something to do with it?
+    // TODO: Check other games with peer to peer functionality.
+
+    int recv_size = 0;
+    if (data[0] == 0xFF) {
+        // Synchronized mode
+        if (!mobile_board_tcp_send(data + 1, *size - 1)) return false;
+        if (*size > 1) connection_sent++;
+        if (connection_sent) {
+            recv_size = mobile_board_tcp_receive(data + 1);
+            if (recv_size != 0) connection_sent--;
+        }
+    } else {
+        // Normal mode
+        if (!mobile_board_tcp_send(data + 1, *size - 1)) return false;
+        recv_size = mobile_board_tcp_receive(data + 1);
+    }
+    if (recv_size == -10) return true;  // Allow echoing the packet (weak_defs.c)
+    if (recv_size < 0) return false;
+
+    // Echoing data[0]...
+    *size = (unsigned)recv_size + 1;
+    return true;
 }
 
 struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
@@ -65,11 +123,16 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
             return error_packet(packet, 1);
         }
         mobile_session_begun = true;
+        connection = CONNECTION_DISCONNECTED;
         return packet;
 
     case MOBILE_COMMAND_END_SESSION:
         // TODO: What happens if the packet has a body? Probably nothing.
         mobile_session_begun = false;
+        if (connection != CONNECTION_DISCONNECTED) {
+            mobile_board_tcp_disconnect();
+            connection = CONNECTION_DISCONNECTED;
+        }
         return packet;
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
@@ -79,42 +142,39 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // 2 - (from crystal) Communication error
         // 3 - Phone is not connected
 
+        // TODO: Should we even interpret the number here at all,
+        //     or should we let the implementation handle it?
+        //   That way the implementation can decide what port to use, where
+        //     to connect to, etc.
+
+        if (connection != CONNECTION_DISCONNECTED &&
+                connection != CONNECTION_CONNECTING) {
+            return error_packet(packet, 2);  // UNKERR
+        }
+
         // Ignore the default phone numbers for now
         if (packet->length == 6 && memcmp(packet->data + 1, "#9677", 5) == 0) {
+            //connection = CONNECTION_CONNECTED;
+            //connection_sent = 0;
             packet->length = 0;
             return packet;
         }
         if (packet->length == 11 && memcmp(packet->data + 1, "0077487751", 10) == 0) {
+            //connection = CONNECTION_CONNECTED;
+            //connection_sent = 0;
             packet->length = 0;
             return packet;
         }
 
         // Interpret the number as an IP and connect to someone.
-        if (packet->length == 13) {
-            // Parsing numbers manually to avoid pulling in heavy printf-style
-            //   libraries on underpowered boards.
-            unsigned arr[4] = {0};
+        if (packet->length == 3 * 4 + 1) {
             char address[17];
-            unsigned char *cur_data = packet->data + 1;
-            char *cur_addr = address;
-            for (unsigned y = 0; y < 4; y++) {
-                if (y) *cur_addr++ = '.';
-                bool copy = false;
-                for (unsigned x = 0; x < 3; x++) {
-                    if (*cur_data < '0' || *cur_data > '9') {
-                        return error_packet(packet, 1);  // NEWERR
-                    }
-                    if (!copy && *cur_data != '0') copy = true;
-                    if (copy) *cur_addr++ = *cur_data;
-                    arr[y] *= 10;
-                    arr[y] += *cur_data++ - '0';
-                }
+            if (!parse_address(address, (char *)packet->data + 1)) {
+                return error_packet(packet, 1);  // NEWERR
             }
-            *cur_addr = '\0';
-            for (unsigned i = 0; i < 4; i++) {
-                if (arr[i] > 0xFF) return error_packet(packet, 1);  // NEWERR
-            }
-            if (mobile_board_tcp_connect(address, 8766)) {
+            if (mobile_board_tcp_connect(address, MOBILE_P2P_PORT)) {
+                connection = CONNECTION_CONNECTED;
+                connection_sent = 0;
                 packet->length = 0;
                 return packet;
             }
@@ -129,14 +189,33 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // TODO: Actually implement
         //return error_packet(packet, 0);  // UNKERR
         // TODO: What happens if the packet has a body? Probably nothing.
+        // TODO: What happens if hanging up a non-existing connection?
+        if (connection != CONNECTION_DISCONNECTED) {
+            mobile_board_tcp_disconnect();
+            connection = CONNECTION_DISCONNECTED;
+        }
         return packet;
 
     case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
+        // Errors:
+        // 0 - Phone is not connected / No call received
+        // 1 - ???
+        // 2 - NEWERR: Invalid use (already connecting/connected)
+
         // TODO: What happens if the packet has a body? Probably nothing.
-        if (mobile_board_tcp_listen(8766)) {
+
+        if (connection != CONNECTION_DISCONNECTED &&
+                connection != CONNECTION_LISTENING) {
+            return error_packet(packet, 2);  // NEWERR
+        }
+
+        if (mobile_board_tcp_listen(MOBILE_P2P_PORT)) {
+            connection = CONNECTION_CONNECTED;
+            connection_sent = 0;
             return packet;
         }
-        return error_packet(packet, 0);  // No phone is connected
+        connection = CONNECTION_LISTENING;
+        return error_packet(packet, 0);
 
     case MOBILE_COMMAND_TRANSFER_DATA:
         // Errors:
@@ -144,22 +223,22 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // 1 - Invalid use (Call was ended/never made)
         // 2 - UNKERR: Invalid contents
 
-        // TODO: Check if transfer was started
         if (packet->length < 1) return error_packet(packet, 2);  // UNKERR
-        unsigned char data[MOBILE_MAX_DATA_LENGTH - 1];
-        unsigned size = packet->length - 1;
-        memcpy(data, packet->data + 1, size);
-        unsigned char *recv_data = mobile_board_tcp_transfer(data, &size);
-        memcpy(packet->data + 1, recv_data, size);
-        packet->length = size + 1;
+        if (connection != CONNECTION_CONNECTED) return error_packet(packet, 1);
+
+        if (!transfer_data(packet->data, &packet->length)) {
+            mobile_board_tcp_disconnect();
+            connection = CONNECTION_DISCONNECTED;
+            return error_packet(packet, 1);
+        }
         return packet;
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         // TODO: Actually implement
         packet->length = 3;
         packet->data[0] = 0x00;  // 0xFF if phone is disconnected
-        packet->data[1] = 0x4D;
-        packet->data[2] = 0x00;
+        packet->data[1] = 0x4D;  // Blue adapter (0x48 for yellow, others unknown)
+        packet->data[2] = 0x00;  // 0xF0 signals Crystal to bypass time limits.
         return packet;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA: {
@@ -187,7 +266,7 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
     case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
         // Errors:
         // 0 - NEWERR: Internal error (Failed to write config)
-        // 1 - ???
+        // 1 - UNKERR: Invalid contents
         // 2 - Invalid use (Tried to write outside of configuration area)
 
         if (packet->length < 2) return error_packet(packet, 1);  // UNKERR
