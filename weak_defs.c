@@ -31,11 +31,11 @@ A_WEAK bool mobile_board_time_check_ms(A_UNUSED const unsigned ms)
 {
     return false;
 }
-A_WEAK bool mobile_board_tcp_connect(A_UNUSED const char *host, A_UNUSED const char *port)
+A_WEAK bool mobile_board_tcp_connect(A_UNUSED const unsigned char *host, A_UNUSED const unsigned port)
 {
     return true;
 }
-A_WEAK bool mobile_board_tcp_listen(A_UNUSED const char *port)
+A_WEAK bool mobile_board_tcp_listen(A_UNUSED const unsigned port)
 {
     return true;
 }

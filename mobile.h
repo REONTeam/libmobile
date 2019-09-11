@@ -19,8 +19,8 @@ bool mobile_board_config_read(unsigned char *dest, const uintptr_t offset, const
 bool mobile_board_config_write(const unsigned char *src, const uintptr_t offset, const size_t size);
 void mobile_board_time_latch(void);
 bool mobile_board_time_check_ms(const unsigned ms);
-bool mobile_board_tcp_connect(const char *host, const char *port);
-bool mobile_board_tcp_listen(const char *port);
+bool mobile_board_tcp_connect(const unsigned char *host, const unsigned port);
+bool mobile_board_tcp_listen(const unsigned port);
 void mobile_board_tcp_disconnect(void);
 bool mobile_board_tcp_send(const void *data, const unsigned size);
 int mobile_board_tcp_receive(void *data);

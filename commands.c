@@ -6,7 +6,7 @@
 
 #include "mobile.h"
 
-#define MOBILE_P2P_PORT "2415"
+#define MOBILE_P2P_PORT 2415
 
 extern bool mobile_session_begun;
 
@@ -53,29 +53,24 @@ static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned
     return packet;
 }
 
-static bool parse_address(char *address, char *data)
+static bool parse_address(unsigned char *address, char *data)
 {
-    // Converts a 0-padded string of 12 characters to a '.'-separated IP address.
-    // It also checks for the validity of the address while doing so.
-    // The output string will be at most 17 bytes long including the terminator.
+    // Converts a string of 12 characters to a binary representation for an IP
+    // address. It also checks for the validity of the address while doing so.
+    // The output will be a buffer of 4 bytes, representing the address.
 
     char *cur_data = data;
     char *cur_addr = address;
     for (unsigned y = 0; y < 4; y++) {
-        if (y) *cur_addr++ = '.';
-        bool copy = false;
         unsigned cur_num = 0;
         for (unsigned x = 0; x < 3; x++) {
             if (*cur_data < '0' || *cur_data > '9') return false;
-            if (!copy && *cur_data != '0') copy = true;
-            if (copy) *cur_addr++ = *cur_data;
             cur_num *= 10;
             cur_num += *cur_data++ - '0';
         }
         if (cur_num > 255) return false;
-        if (cur_num == 0) *cur_addr++ = '0';
+        *cur_addr++ = cur_num;
     }
-    *cur_addr = '\0';
     return true;
 }
 
@@ -168,7 +163,7 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
 
         // Interpret the number as an IP and connect to someone.
         if (packet->length == 3 * 4 + 1) {
-            char address[17];
+            unsigned char address[4];
             if (!parse_address(address, (char *)packet->data + 1)) {
                 return error_packet(packet, 1);  // NEWERR
             }
