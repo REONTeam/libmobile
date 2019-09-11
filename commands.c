@@ -8,8 +8,6 @@
 
 #define MOBILE_P2P_PORT 2415
 
-extern bool mobile_session_begun;
-
 // A bunch of details about the communication protocol are unknown,
 //   and would be necessary to complete this implementation properly:
 // - What is the effect of calling a number starting with a `#` sign?
@@ -34,6 +32,10 @@ extern bool mobile_session_begun;
 //   if so what error code they return, but have been implemented just in case.
 // NEWERR is used to indicate an error code that we made up ourselves to
 //   indicate something that couldn't happen with the real adapter.
+
+// This is used to indicate whether we want to listen for commands other than
+//   MOBILE_COMMAND_BEGIN_SESSION. Its state is checked in spi.c
+bool mobile_session_begun;
 
 static enum {
     CONNECTION_DISCONNECTED,
@@ -60,7 +62,7 @@ static bool parse_address(unsigned char *address, char *data)
     // The output will be a buffer of 4 bytes, representing the address.
 
     char *cur_data = data;
-    char *cur_addr = address;
+    unsigned char *cur_addr = address;
     for (unsigned y = 0; y < 4; y++) {
         unsigned cur_num = 0;
         for (unsigned x = 0; x < 3; x++) {
@@ -203,7 +205,6 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
                 connection != CONNECTION_LISTENING) {
             return error_packet(packet, 2);  // NEWERR
         }
-
         if (mobile_board_tcp_listen(MOBILE_P2P_PORT)) {
             connection = CONNECTION_CONNECTED;
             connection_sent = 0;
@@ -220,7 +221,6 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
 
         if (packet->length < 1) return error_packet(packet, 2);  // UNKERR
         if (connection != CONNECTION_CONNECTED) return error_packet(packet, 1);
-
         if (!transfer_data(packet->data, &packet->length)) {
             mobile_board_tcp_disconnect();
             connection = CONNECTION_DISCONNECTED;
@@ -245,7 +245,7 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         if (packet->length != 2) return error_packet(packet, 1);  // UNKERR
         unsigned offset = packet->data[0];
         unsigned size = packet->data[1];
-        if (offset + size > MOBILE_CONFIG_DATA_SIZE) {
+        if (offset + size > MOBILE_CONFIG_SIZE) {
             return error_packet(packet, 2);
         }
         packet->length = size + 1;
@@ -265,7 +265,7 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // 2 - Invalid use (Tried to write outside of configuration area)
 
         if (packet->length < 2) return error_packet(packet, 1);  // UNKERR
-        if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_DATA_SIZE) {
+        if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_SIZE) {
             return error_packet(packet, 2);
         }
         if (!mobile_board_config_write(packet->data + 1, packet->data[0],

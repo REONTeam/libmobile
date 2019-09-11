@@ -4,7 +4,9 @@
 extern "C" {
 #endif
 
-#define MOBILE_CONFIG_DATA_SIZE 0xC0
+#include <stdbool.h>
+
+#define MOBILE_CONFIG_SIZE 0xC0
 #define MOBILE_MAX_DATA_SIZE 0xFF
 #define MOBILE_MAX_TCP_SIZE (MOBILE_MAX_DATA_SIZE - 1)
 
@@ -32,6 +34,8 @@ struct mobile_packet {
     unsigned length;
     unsigned char data[MOBILE_MAX_DATA_SIZE];
 };
+
+extern bool mobile_session_begun;
 
 struct mobile_packet *mobile_process_packet(struct mobile_packet *packet);
 

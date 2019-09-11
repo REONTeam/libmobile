@@ -8,7 +8,15 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "spi.h"
 #include "commands.h"
+
+enum mobile_adapter {
+    MOBILE_ADAPTER_BLUE = 0x88,
+    MOBILE_ADAPTER_YELLOW,
+    MOBILE_ADAPTER_GREEN,
+    MOBILE_ADAPTER_RED
+};
 
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 // TODO: Actually document these functions, with expectations and assumptions.
@@ -25,7 +33,6 @@ void mobile_board_tcp_disconnect(void);
 bool mobile_board_tcp_send(const void *data, const unsigned size);
 int mobile_board_tcp_receive(void *data);
 
-unsigned char mobile_transfer(unsigned char c);
 void mobile_loop(void);
 void mobile_init(void);
 
