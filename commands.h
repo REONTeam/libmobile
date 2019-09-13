@@ -1,10 +1,8 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
+
+struct mobile_adapter;
 
 #define MOBILE_CONFIG_SIZE 0xC0
 #define MOBILE_MAX_DATA_SIZE 0xFF
@@ -29,6 +27,19 @@ enum mobile_command {
     MOBILE_COMMAND_ERROR = 0x6E
 };
 
+enum mobile_connection_state {
+    MOBILE_CONNECTION_DISCONNECTED,
+    MOBILE_CONNECTION_LISTENING,
+    MOBILE_CONNECTION_CONNECTING,
+    MOBILE_CONNECTION_CONNECTED
+};
+
+struct mobile_adapter_commands {
+    bool session_begun;
+    enum mobile_connection_state connection;
+    unsigned packets_sent;
+};
+
 struct mobile_packet {
     enum mobile_command command;
     unsigned length;
@@ -37,8 +48,4 @@ struct mobile_packet {
 
 extern bool mobile_session_begun;
 
-struct mobile_packet *mobile_process_packet(struct mobile_packet *packet);
-
-#ifdef __cplusplus
-}
-#endif
+struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, struct mobile_packet *packet);

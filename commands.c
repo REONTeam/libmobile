@@ -33,18 +33,6 @@
 // NEWERR is used to indicate an error code that we made up ourselves to
 //   indicate something that couldn't happen with the real adapter.
 
-// This is used to indicate whether we want to listen for commands other than
-//   MOBILE_COMMAND_BEGIN_SESSION. Its state is checked in spi.c
-bool mobile_session_begun;
-
-static enum {
-    CONNECTION_DISCONNECTED,
-    CONNECTION_LISTENING,
-    CONNECTION_CONNECTING,
-    CONNECTION_CONNECTED
-} connection = CONNECTION_DISCONNECTED;
-static unsigned connection_sent = 0;  // Amount of messages sent in synchronized mode.
-
 static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned char error)
 {
     enum mobile_command command = packet->command;
@@ -76,7 +64,7 @@ static bool parse_address(unsigned char *address, char *data)
     return true;
 }
 
-static bool transfer_data(unsigned char *data, unsigned *size)
+static bool transfer_data(unsigned char *data, unsigned *size, unsigned *sync_sent)
 {
     // Pokémon Crystal expects communications to be "synchronized".
     // For this, we only try to receive packets when we've sent one.
@@ -87,10 +75,10 @@ static bool transfer_data(unsigned char *data, unsigned *size)
     if (data[0] == 0xFF) {
         // Synchronized mode
         if (!mobile_board_tcp_send(data + 1, *size - 1)) return false;
-        if (*size > 1) connection_sent++;
-        if (connection_sent) {
+        if (*size > 1) (*sync_sent)++;
+        if (*sync_sent) {
             recv_size = mobile_board_tcp_receive(data + 1);
-            if (recv_size != 0) connection_sent--;
+            if (recv_size != 0) (*sync_sent)--;
         }
     } else {
         // Normal mode
@@ -105,8 +93,10 @@ static bool transfer_data(unsigned char *data, unsigned *size)
     return true;
 }
 
-struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
+struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
+    struct mobile_adapter_commands *s = &adapter->commands;
+
     switch (packet->command) {
     case MOBILE_COMMAND_BEGIN_SESSION:
         // Errors:
@@ -114,21 +104,21 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // 1 - Invalid contents
         // 2 - Invalid use (Already begun a session)
 
-        if (mobile_session_begun) return error_packet(packet, 2);
+        if (s->session_begun) return error_packet(packet, 2);
         if (packet->length != 8) return error_packet(packet, 1);
         if (memcmp(packet->data, "NINTENDO", 8) != 0) {
             return error_packet(packet, 1);
         }
-        mobile_session_begun = true;
-        connection = CONNECTION_DISCONNECTED;
+        s->session_begun = true;
+        s->connection = MOBILE_CONNECTION_DISCONNECTED;
         return packet;
 
     case MOBILE_COMMAND_END_SESSION:
         // TODO: What happens if the packet has a body? Probably nothing.
-        mobile_session_begun = false;
-        if (connection != CONNECTION_DISCONNECTED) {
+        s->session_begun = false;
+        if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
             mobile_board_tcp_disconnect();
-            connection = CONNECTION_DISCONNECTED;
+            s->connection = MOBILE_CONNECTION_DISCONNECTED;
         }
         return packet;
 
@@ -144,21 +134,23 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         //   That way the implementation can decide what port to use, where
         //     to connect to, etc.
 
-        if (connection != CONNECTION_DISCONNECTED &&
-                connection != CONNECTION_CONNECTING) {
+        if (s->connection != MOBILE_CONNECTION_DISCONNECTED &&
+                s->connection != MOBILE_CONNECTION_CONNECTING) {
             return error_packet(packet, 2);  // UNKERR
         }
 
         // Ignore the default phone numbers for now
-        if (packet->length == 6 && memcmp(packet->data + 1, "#9677", 5) == 0) {
-            //connection = CONNECTION_CONNECTED;
-            //connection_sent = 0;
+        if (packet->length == 6 &&
+                memcmp(packet->data + 1, "#9677", 5) == 0) {
+            //s->connection = MOBILE_CONNECTION_CONNECTED;
+            //s->packets_sent = 0;
             packet->length = 0;
             return packet;
         }
-        if (packet->length == 11 && memcmp(packet->data + 1, "0077487751", 10) == 0) {
-            //connection = CONNECTION_CONNECTED;
-            //connection_sent = 0;
+        if (packet->length == 11 &&
+                memcmp(packet->data + 1, "0077487751", 10) == 0) {
+            //s->connection = MOBILE_CONNECTION_CONNECTED;
+            //s->packets_sent = 0;
             packet->length = 0;
             return packet;
         }
@@ -170,8 +162,8 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
                 return error_packet(packet, 1);  // NEWERR
             }
             if (mobile_board_tcp_connect(address, MOBILE_P2P_PORT)) {
-                connection = CONNECTION_CONNECTED;
-                connection_sent = 0;
+                s->connection = MOBILE_CONNECTION_CONNECTED;
+                s->packets_sent = 0;
                 packet->length = 0;
                 return packet;
             }
@@ -187,9 +179,9 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         //return error_packet(packet, 0);  // UNKERR
         // TODO: What happens if the packet has a body? Probably nothing.
         // TODO: What happens if hanging up a non-existing connection?
-        if (connection != CONNECTION_DISCONNECTED) {
+        if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
             mobile_board_tcp_disconnect();
-            connection = CONNECTION_DISCONNECTED;
+            s->connection = MOBILE_CONNECTION_DISCONNECTED;
         }
         return packet;
 
@@ -201,16 +193,16 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
 
         // TODO: What happens if the packet has a body? Probably nothing.
 
-        if (connection != CONNECTION_DISCONNECTED &&
-                connection != CONNECTION_LISTENING) {
+        if (s->connection != MOBILE_CONNECTION_DISCONNECTED &&
+                s->connection != MOBILE_CONNECTION_LISTENING) {
             return error_packet(packet, 2);  // NEWERR
         }
         if (mobile_board_tcp_listen(MOBILE_P2P_PORT)) {
-            connection = CONNECTION_CONNECTED;
-            connection_sent = 0;
+            s->connection = MOBILE_CONNECTION_CONNECTED;
+            s->packets_sent = 0;
             return packet;
         }
-        connection = CONNECTION_LISTENING;
+        s->connection = MOBILE_CONNECTION_LISTENING;
         return error_packet(packet, 0);
 
     case MOBILE_COMMAND_TRANSFER_DATA:
@@ -220,10 +212,12 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // 2 - UNKERR: Invalid contents
 
         if (packet->length < 1) return error_packet(packet, 2);  // UNKERR
-        if (connection != CONNECTION_CONNECTED) return error_packet(packet, 1);
-        if (!transfer_data(packet->data, &packet->length)) {
+        if (s->connection != MOBILE_CONNECTION_CONNECTED) {
+            return error_packet(packet, 1);
+        }
+        if (!transfer_data(packet->data, &packet->length, &s->packets_sent)) {
             mobile_board_tcp_disconnect();
-            connection = CONNECTION_DISCONNECTED;
+            s->connection = MOBILE_CONNECTION_DISCONNECTED;
             return error_packet(packet, 1);
         }
         return packet;
@@ -232,7 +226,11 @@ struct mobile_packet *mobile_process_packet(struct mobile_packet *packet)
         // TODO: Actually implement
         packet->length = 3;
         packet->data[0] = 0x00;  // 0xFF if phone is disconnected
-        packet->data[1] = 0x4D;  // Blue adapter (0x48 for yellow, others unknown)
+        switch (adapter->device) {
+            default:  // TODO: What are the others?
+            case MOBILE_ADAPTER_BLUE: packet->data[1] = 0x4D; break;
+            case MOBILE_ADAPTER_YELLOW: packet->data[1] = 0x48; break;
+        }
         packet->data[2] = 0x00;  // 0xF0 signals Crystal to bypass time limits.
         return packet;
 

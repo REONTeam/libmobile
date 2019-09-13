@@ -1,10 +1,9 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdint.h>
 
 #include "commands.h"
+struct mobile_adapter;
 
 enum mobile_spi_state {
     MOBILE_SPI_WAITING,
@@ -17,12 +16,20 @@ enum mobile_spi_state {
     MOBILE_SPI_RESPONSE_ACKNOWLEDGE
 };
 
-extern unsigned char mobile_spi_buffer[4 + MOBILE_MAX_DATA_SIZE + 2];
-extern volatile enum mobile_spi_state mobile_spi_state;
-extern volatile unsigned mobile_spi_current;
+enum mobile_spi_error {
+    MOBILE_SPI_ERROR_UNKNOWN = 0xF0,
+    MOBILE_SPI_ERROR_CHECKSUM,
+};
 
-unsigned char mobile_transfer(unsigned char c);
+struct mobile_adapter_spi {
+    enum mobile_spi_state state;
+    unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2];  // header, content, checksum
+    unsigned current;
+    unsigned data_size;
+    uint16_t checksum;
+    enum mobile_spi_error error;
+    unsigned retries;
+};
 
-#ifdef __cplusplus
-}
-#endif
+void mobile_spi_reset(struct mobile_adapter *a);
+unsigned char mobile_transfer(struct mobile_adapter *a, unsigned char c);

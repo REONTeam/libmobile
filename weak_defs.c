@@ -17,12 +17,12 @@
 A_WEAK void mobile_board_disable_spi(void) {}
 A_WEAK void mobile_board_enable_spi(void) {}
 A_WEAK void mobile_board_debug_cmd(A_UNUSED const int send, A_UNUSED const struct mobile_packet *packet) {}
-A_WEAK bool mobile_board_config_read(unsigned char *dest, A_UNUSED const uintptr_t offset, const size_t size)
+A_WEAK bool mobile_board_config_read(void *dest, A_UNUSED const uintptr_t offset, const size_t size)
 {
     memset(dest, 0xFF, size);
     return true;
 }
-A_WEAK bool mobile_board_config_write(A_UNUSED const unsigned char *src, A_UNUSED const uintptr_t offset, A_UNUSED const size_t size)
+A_WEAK bool mobile_board_config_write(A_UNUSED const void *src, A_UNUSED const uintptr_t offset, A_UNUSED const size_t size)
 {
     return true;
 }
