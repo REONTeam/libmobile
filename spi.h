@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdatomic.h>
 
 #include "commands.h"
 struct mobile_adapter;
@@ -14,7 +15,12 @@ enum mobile_spi_state {
     MOBILE_SPI_RESPONSE_START,
     MOBILE_SPI_RESPONSE_DATA,
     MOBILE_SPI_RESPONSE_ACKNOWLEDGE
+#ifdef __GNUC__
+// Required for AVR _Atomic.
+} __attribute__((__packed__));
+#else
 };
+#endif
 
 enum mobile_spi_error {
     MOBILE_SPI_ERROR_UNKNOWN = 0xF0,
@@ -22,7 +28,7 @@ enum mobile_spi_error {
 };
 
 struct mobile_adapter_spi {
-    enum mobile_spi_state state;
+    _Atomic volatile enum mobile_spi_state state;
     unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2];  // header, content, checksum
     unsigned current;
     unsigned data_size;

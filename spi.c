@@ -12,8 +12,6 @@ void mobile_spi_reset(struct mobile_adapter *adapter)
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
 {
     struct mobile_adapter_spi *s = &adapter->spi;
-    bool session_begun =
-        ((volatile struct mobile_adapter *)adapter)->commands.session_begun;
 
     mobile_board_time_latch();
 
@@ -45,7 +43,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
 
             // If we haven't begun a session, this is as good as any place to
             //   stop parsing, as we shouldn't react to this.
-            if (!session_begun &&
+            if (!adapter->commands.session_begun &&
                     s->buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
                 mobile_spi_reset(adapter);
             }

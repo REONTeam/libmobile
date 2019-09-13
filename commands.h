@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdatomic.h>
 
 struct mobile_adapter;
 
@@ -35,7 +36,7 @@ enum mobile_connection_state {
 };
 
 struct mobile_adapter_commands {
-    bool session_begun;
+    _Atomic bool session_begun;
     enum mobile_connection_state connection;
     unsigned packets_sent;
 };

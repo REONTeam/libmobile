@@ -34,10 +34,7 @@ void mobile_loop(struct mobile_adapter *adapter)
 {
     struct mobile_packet packet;
 
-    enum mobile_spi_state state =
-        ((volatile struct mobile_adapter *)adapter)->spi.state;
-
-    if (state == MOBILE_SPI_RESPONSE_WAITING) {
+    if (adapter->spi.state == MOBILE_SPI_RESPONSE_WAITING) {
         packet_parse(&packet, adapter->spi.buffer);
         mobile_board_debug_cmd(0, &packet);
 
@@ -46,7 +43,7 @@ void mobile_loop(struct mobile_adapter *adapter)
         packet_create(adapter->spi.buffer, send);
 
         adapter->spi.state = MOBILE_SPI_RESPONSE_START;
-    } else if ((state != MOBILE_SPI_WAITING &&
+    } else if ((adapter->spi.state != MOBILE_SPI_WAITING &&
                 mobile_board_time_check_ms(500)) ||
             (adapter->commands.session_begun &&
              mobile_board_time_check_ms(2000))) {
@@ -62,7 +59,7 @@ void mobile_loop(struct mobile_adapter *adapter)
         struct mobile_packet *send = mobile_packet_process(adapter, &packet);
         mobile_board_debug_cmd(1, send);
         mobile_board_enable_spi();
-    } else if (state == MOBILE_SPI_WAITING &&
+    } else if (adapter->spi.state == MOBILE_SPI_WAITING &&
             !adapter->commands.session_begun &&
             mobile_board_time_check_ms(500)) {
         // Reset the SPI state every few if we haven't established a
