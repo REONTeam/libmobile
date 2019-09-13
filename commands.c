@@ -64,8 +64,11 @@ static bool parse_address(unsigned char *address, char *data)
     return true;
 }
 
-static bool transfer_data(unsigned char *data, unsigned *size, unsigned *sync_sent)
+static bool transfer_data(struct mobile_adapter *adapter, unsigned char *data, unsigned *size)
 {
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
     // Pokémon Crystal expects communications to be "synchronized".
     // For this, we only try to receive packets when we've sent one.
     // Maybe the first byte in the packet has something to do with it?
@@ -74,16 +77,16 @@ static bool transfer_data(unsigned char *data, unsigned *size, unsigned *sync_se
     int recv_size = 0;
     if (data[0] == 0xFF) {
         // Synchronized mode
-        if (!mobile_board_tcp_send(data + 1, *size - 1)) return false;
-        if (*size > 1) (*sync_sent)++;
-        if (*sync_sent) {
-            recv_size = mobile_board_tcp_receive(data + 1);
-            if (recv_size != 0) (*sync_sent)--;
+        if (!mobile_board_tcp_send(_u, data + 1, *size - 1)) return false;
+        if (*size > 1) s->packets_sent++;
+        if (s->packets_sent) {
+            recv_size = mobile_board_tcp_receive(_u, data + 1);
+            if (recv_size != 0) s->packets_sent--;
         }
     } else {
         // Normal mode
-        if (!mobile_board_tcp_send(data + 1, *size - 1)) return false;
-        recv_size = mobile_board_tcp_receive(data + 1);
+        if (!mobile_board_tcp_send(_u, data + 1, *size - 1)) return false;
+        recv_size = mobile_board_tcp_receive(_u, data + 1);
     }
     if (recv_size == -10) return true;  // Allow echoing the packet (weak_defs.c)
     if (recv_size < 0) return false;
@@ -96,6 +99,7 @@ static bool transfer_data(unsigned char *data, unsigned *size, unsigned *sync_se
 struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
 
     switch (packet->command) {
     case MOBILE_COMMAND_BEGIN_SESSION:
@@ -117,7 +121,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // TODO: What happens if the packet has a body? Probably nothing.
         s->session_begun = false;
         if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
-            mobile_board_tcp_disconnect();
+            mobile_board_tcp_disconnect(_u);
             s->connection = MOBILE_CONNECTION_DISCONNECTED;
         }
         return packet;
@@ -161,7 +165,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             if (!parse_address(address, (char *)packet->data + 1)) {
                 return error_packet(packet, 1);  // NEWERR
             }
-            if (mobile_board_tcp_connect(address, MOBILE_P2P_PORT)) {
+            if (mobile_board_tcp_connect(_u, address, MOBILE_P2P_PORT)) {
                 s->connection = MOBILE_CONNECTION_CONNECTED;
                 s->packets_sent = 0;
                 packet->length = 0;
@@ -180,7 +184,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // TODO: What happens if the packet has a body? Probably nothing.
         // TODO: What happens if hanging up a non-existing connection?
         if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
-            mobile_board_tcp_disconnect();
+            mobile_board_tcp_disconnect(_u);
             s->connection = MOBILE_CONNECTION_DISCONNECTED;
         }
         return packet;
@@ -197,7 +201,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
                 s->connection != MOBILE_CONNECTION_LISTENING) {
             return error_packet(packet, 2);  // NEWERR
         }
-        if (mobile_board_tcp_listen(MOBILE_P2P_PORT)) {
+        if (mobile_board_tcp_listen(_u, MOBILE_P2P_PORT)) {
             s->connection = MOBILE_CONNECTION_CONNECTED;
             s->packets_sent = 0;
             return packet;
@@ -215,8 +219,8 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         if (s->connection != MOBILE_CONNECTION_CONNECTED) {
             return error_packet(packet, 1);
         }
-        if (!transfer_data(packet->data, &packet->length, &s->packets_sent)) {
-            mobile_board_tcp_disconnect();
+        if (!transfer_data(adapter, packet->data, &packet->length)) {
+            mobile_board_tcp_disconnect(_u);
             s->connection = MOBILE_CONNECTION_DISCONNECTED;
             return error_packet(packet, 1);
         }
@@ -249,7 +253,8 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         packet->length = size + 1;
         packet->data[0] = offset;
         if (size) {
-            if (!mobile_board_config_read(packet->data + 1, offset, size)) {
+            if (!mobile_board_config_read(_u, packet->data + 1, offset,
+                        size)) {
                 return error_packet(packet, 0);  // NEWERR
             }
         }
@@ -266,7 +271,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_SIZE) {
             return error_packet(packet, 2);
         }
-        if (!mobile_board_config_write(packet->data + 1, packet->data[0],
+        if (!mobile_board_config_write(_u, packet->data + 1, packet->data[0],
                     packet->length - 1)) {
             return error_packet(packet, 0);  // NEWERR
         }

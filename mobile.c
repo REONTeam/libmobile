@@ -32,24 +32,25 @@ static void packet_create(unsigned char *buffer, const struct mobile_packet *pac
 
 void mobile_loop(struct mobile_adapter *adapter)
 {
+    void *_u = adapter->user;
     struct mobile_packet packet;
 
     if (adapter->spi.state == MOBILE_SPI_RESPONSE_WAITING) {
         packet_parse(&packet, adapter->spi.buffer);
-        mobile_board_debug_cmd(0, &packet);
+        mobile_board_debug_cmd(_u, 0, &packet);
 
         struct mobile_packet *send = mobile_packet_process(adapter, &packet);
-        mobile_board_debug_cmd(1, send);
+        mobile_board_debug_cmd(_u, 1, send);
         packet_create(adapter->spi.buffer, send);
 
         adapter->spi.state = MOBILE_SPI_RESPONSE_START;
     } else if ((adapter->spi.state != MOBILE_SPI_WAITING &&
-                mobile_board_time_check_ms(500)) ||
+                mobile_board_time_check_ms(_u, 500)) ||
             (adapter->commands.session_begun &&
-             mobile_board_time_check_ms(2000))) {
+             mobile_board_time_check_ms(_u, 2000))) {
         // If the adapter is stuck waiting, with no signal from the game,
         //   put it out of its misery.
-        mobile_board_disable_spi();
+        mobile_board_disable_spi(_u);
         adapter->commands.session_begun = false;
         mobile_spi_reset(adapter);
 
@@ -57,29 +58,29 @@ void mobile_loop(struct mobile_adapter *adapter)
         packet.command = MOBILE_COMMAND_END_SESSION;
         packet.length = 0;
         struct mobile_packet *send = mobile_packet_process(adapter, &packet);
-        mobile_board_debug_cmd(1, send);
-        mobile_board_enable_spi();
+        mobile_board_debug_cmd(_u, 1, send);
+        mobile_board_enable_spi(_u);
     } else if (adapter->spi.state == MOBILE_SPI_WAITING &&
             !adapter->commands.session_begun &&
-            mobile_board_time_check_ms(500)) {
+            mobile_board_time_check_ms(_u, 500)) {
         // Reset the SPI state every few if we haven't established a
         //   connection yet. This fixes connectivity issues on hardware.
-        mobile_board_disable_spi();
-        mobile_board_time_latch();
-        mobile_board_enable_spi();
+        mobile_board_disable_spi(_u);
+        mobile_board_time_latch(_u);
+        mobile_board_enable_spi(_u);
     }
 }
 
-static void config_clear(void)
+static void config_clear(void *user)
 {
-    char buffer[MOBILE_CONFIG_SIZE] = {0};
-    mobile_board_config_write(buffer, 0, MOBILE_CONFIG_SIZE);
+    unsigned char buffer[MOBILE_CONFIG_SIZE] = {0};
+    mobile_board_config_write(user, buffer, 0, MOBILE_CONFIG_SIZE);
 }
 
-static bool config_verify(void)
+static bool config_verify(void *user)
 {
-    char buffer[MOBILE_CONFIG_SIZE];
-    mobile_board_config_read(buffer, 0, MOBILE_CONFIG_SIZE);
+    unsigned char buffer[MOBILE_CONFIG_SIZE];
+    mobile_board_config_read(user, buffer, 0, MOBILE_CONFIG_SIZE);
     if (buffer[0] != 'M' || buffer[1] != 'A') {
         return false;
     }
@@ -93,13 +94,13 @@ static bool config_verify(void)
     return checksum == config_checksum;
 }
 
-void mobile_init(struct mobile_adapter *adapter)
+void mobile_init(struct mobile_adapter *adapter, void *user)
 {
-    if (!config_verify()) config_clear();
+    if (!config_verify(user)) config_clear(user);
 
-    mobile_board_disable_spi();
+    adapter->user = user;
     adapter->device = MOBILE_ADAPTER_BLUE;
     adapter->commands.session_begun = false;
     mobile_spi_reset(adapter);
-    mobile_board_enable_spi();
+    mobile_board_enable_spi(user);
 }

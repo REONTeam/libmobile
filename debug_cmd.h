@@ -11,7 +11,11 @@ static void hex_dump(const unsigned char *buf, const unsigned len)
     }
 }
 
-void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet)
+void mobile_board_debug_cmd(
+#ifdef __GNUC__
+        __attribute__((unused))
+#endif
+        void *user, const int send, const struct mobile_packet *packet)
 {
     if (!send) printf(">>> ");
     else printf("<<< ");

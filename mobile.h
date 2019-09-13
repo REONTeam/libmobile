@@ -23,7 +23,7 @@ enum mobile_adapter_device {
 };
 
 struct mobile_adapter {
-    void *userdata;
+    void *user;
     enum mobile_adapter_device device;
     struct mobile_adapter_spi spi;
     struct mobile_adapter_commands commands;
@@ -31,21 +31,21 @@ struct mobile_adapter {
 
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 // TODO: Actually document these functions, with expectations and assumptions.
-void mobile_board_disable_spi(void);
-void mobile_board_enable_spi(void);
-void mobile_board_debug_cmd(const int send, const struct mobile_packet *packet);
-bool mobile_board_config_read(void *dest, const uintptr_t offset, const size_t size);
-bool mobile_board_config_write(const void *src, const uintptr_t offset, const size_t size);
-void mobile_board_time_latch(void);
-bool mobile_board_time_check_ms(const unsigned ms);
-bool mobile_board_tcp_connect(const unsigned char *host, const unsigned port);
-bool mobile_board_tcp_listen(const unsigned port);
-void mobile_board_tcp_disconnect(void);
-bool mobile_board_tcp_send(const void *data, const unsigned size);
-int mobile_board_tcp_receive(void *data);
+void mobile_board_disable_spi(void *user);
+void mobile_board_enable_spi(void *user);
+void mobile_board_debug_cmd(void *user, const int send, const struct mobile_packet *packet);
+bool mobile_board_config_read(void *user, void *dest, const uintptr_t offset, const size_t size);
+bool mobile_board_config_write(void *user, const void *src, const uintptr_t offset, const size_t size);
+void mobile_board_time_latch(void *user);
+bool mobile_board_time_check_ms(void *user, const unsigned ms);
+bool mobile_board_tcp_connect(void *user, const unsigned char *host, const unsigned port);
+bool mobile_board_tcp_listen(void *user, const unsigned port);
+void mobile_board_tcp_disconnect(void *user);
+bool mobile_board_tcp_send(void *user, const void *data, const unsigned size);
+int mobile_board_tcp_receive(void *user, void *data);
 
-void mobile_loop(struct mobile_adapter *a);
-void mobile_init(struct mobile_adapter *a);
+void mobile_loop(struct mobile_adapter *adapter);
+void mobile_init(struct mobile_adapter *adapter, void *user);
 
 #ifdef __cplusplus
 }

@@ -13,7 +13,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
 {
     struct mobile_adapter_spi *s = &adapter->spi;
 
-    mobile_board_time_latch();
+    mobile_board_time_latch(adapter->user);
 
     switch (s->state) {
     case MOBILE_SPI_WAITING:

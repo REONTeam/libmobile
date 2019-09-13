@@ -1,7 +1,12 @@
 #pragma once
 
 #include <stdint.h>
+
+#ifndef __cplusplus
 #include <stdatomic.h>
+#else
+#define _Atomic
+#endif
 
 #include "commands.h"
 struct mobile_adapter;
@@ -17,7 +22,7 @@ enum mobile_spi_state {
     MOBILE_SPI_RESPONSE_ACKNOWLEDGE
 #ifdef __GNUC__
 // Required for AVR _Atomic.
-} __attribute__((__packed__));
+} __attribute__((packed));
 #else
 };
 #endif
@@ -37,5 +42,5 @@ struct mobile_adapter_spi {
     unsigned retries;
 };
 
-void mobile_spi_reset(struct mobile_adapter *a);
-unsigned char mobile_transfer(struct mobile_adapter *a, unsigned char c);
+void mobile_spi_reset(struct mobile_adapter *adapter);
+unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);

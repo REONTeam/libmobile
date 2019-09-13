@@ -1,7 +1,12 @@
 #pragma once
 
 #include <stdbool.h>
+
+#ifndef __cplusplus
 #include <stdatomic.h>
+#else
+#define _Atomic
+#endif
 
 struct mobile_adapter;
 
