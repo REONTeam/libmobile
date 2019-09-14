@@ -8,7 +8,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "spi.h"
+#include "serial.h"
 #include "commands.h"
 
 enum mobile_adapter_device {
@@ -25,14 +25,14 @@ enum mobile_adapter_device {
 struct mobile_adapter {
     void *user;
     enum mobile_adapter_device device;
-    struct mobile_adapter_spi spi;
+    struct mobile_adapter_serial serial;
     struct mobile_adapter_commands commands;
 };
 
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 // TODO: Actually document these functions, with expectations and assumptions.
-void mobile_board_disable_spi(void *user);
-void mobile_board_enable_spi(void *user);
+void mobile_board_serial_disable(void *user);
+void mobile_board_serial_enable(void *user);
 void mobile_board_debug_cmd(void *user, const int send, const struct mobile_packet *packet);
 bool mobile_board_config_read(void *user, void *dest, const uintptr_t offset, const size_t size);
 bool mobile_board_config_write(void *user, const void *src, const uintptr_t offset, const size_t size);

@@ -1,22 +1,22 @@
-#include "spi.h"
+#include "serial.h"
 
 #include "mobile.h"
 #include "commands.h"
 
-void mobile_spi_reset(struct mobile_adapter *adapter)
+void mobile_serial_reset(struct mobile_adapter *adapter)
 {
-    adapter->spi.current = 0;
-    adapter->spi.state = MOBILE_SPI_WAITING;
+    adapter->serial.current = 0;
+    adapter->serial.state = MOBILE_SERIAL_WAITING;
 }
 
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
 {
-    struct mobile_adapter_spi *s = &adapter->spi;
+    struct mobile_adapter_serial *s = &adapter->serial;
 
     mobile_board_time_latch(adapter->user);
 
     switch (s->state) {
-    case MOBILE_SPI_WAITING:
+    case MOBILE_SERIAL_WAITING:
         // Wait for the bytes that indicate a packet will be sent.
         if (c == 0x99) {
             s->current = 1;
@@ -27,13 +27,13 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             s->error = 0;
 
             s->current = 0;
-            s->state = MOBILE_SPI_DATA;
+            s->state = MOBILE_SERIAL_DATA;
         } else {
             s->current = 0;
         }
         break;
 
-    case MOBILE_SPI_DATA:
+    case MOBILE_SERIAL_DATA:
         // Receive the header and data. Calculate the checksum while at it.
         s->buffer[s->current++] = c;
         s->checksum += c;
@@ -45,69 +45,69 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             //   stop parsing, as we shouldn't react to this.
             if (!adapter->commands.session_begun &&
                     s->buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
-                mobile_spi_reset(adapter);
+                mobile_serial_reset(adapter);
             }
         } else if (s->current >= s->data_size + 4) {
-            s->state = MOBILE_SPI_CHECKSUM;
+            s->state = MOBILE_SERIAL_CHECKSUM;
         }
         break;
 
-    case MOBILE_SPI_CHECKSUM:
+    case MOBILE_SERIAL_CHECKSUM:
         // Receive the checksum, verify it when done.
         s->buffer[s->current++] = c;
         if (s->current >= s->data_size + 6) {
             uint16_t in_checksum = s->buffer[s->current - 2] << 8 |
                                    s->buffer[s->current - 1];
             if (s->checksum != in_checksum) {
-                s->error = MOBILE_SPI_ERROR_CHECKSUM;
+                s->error = MOBILE_SERIAL_ERROR_CHECKSUM;
             }
-            s->state = MOBILE_SPI_ACKNOWLEDGE;
+            s->state = MOBILE_SERIAL_ACKNOWLEDGE;
             return adapter->device | 0x80;
         }
         break;
 
-    case MOBILE_SPI_ACKNOWLEDGE:
+    case MOBILE_SERIAL_ACKNOWLEDGE:
         // Receive the acknowledgement byte, send error if applicable.
         if (c != (MOBILE_ADAPTER_GAMEBOY | 0x80)) {
-            s->error = MOBILE_SPI_ERROR_UNKNOWN;
+            s->error = MOBILE_SERIAL_ERROR_UNKNOWN;
         }
         if (s->error) {
-            mobile_spi_reset(adapter);
+            mobile_serial_reset(adapter);
             return s->error;
         }
 
         s->retries = 0;
         s->current = 0;
-        s->state = MOBILE_SPI_RESPONSE_WAITING;
+        s->state = MOBILE_SERIAL_RESPONSE_WAITING;
         return s->buffer[0] ^ 0x80;
 
-    case MOBILE_SPI_RESPONSE_WAITING:
+    case MOBILE_SERIAL_RESPONSE_WAITING:
         // Wait while processing the received packet and crafting a response.
         break;
 
-    case MOBILE_SPI_RESPONSE_START:
+    case MOBILE_SERIAL_RESPONSE_START:
         // Start sending the response.
         if (s->current++ == 0) {
             return 0x99;
         } else {
             s->data_size = s->buffer[3];
             s->current = 0;
-            s->state = MOBILE_SPI_RESPONSE_DATA;
+            s->state = MOBILE_SERIAL_RESPONSE_DATA;
             return 0x66;
         }
 
-    case MOBILE_SPI_RESPONSE_DATA:
+    case MOBILE_SERIAL_RESPONSE_DATA:
         // Send all that's in the response buffer.
         // This includes the header, content and the checksum.
         c = s->buffer[s->current++];
         if (s->current > s->data_size + 6) {
             s->current = 0;
-            s->state = MOBILE_SPI_RESPONSE_ACKNOWLEDGE;
+            s->state = MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE;
             return adapter->device | 0x80;
         }
         return c;
 
-    case MOBILE_SPI_RESPONSE_ACKNOWLEDGE:
+    case MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE:
         if (s->current++ == 0) {
             // There's nothing we can do with the received device ID.
             // In fact, the real adapter doesn't care for this value, either.
@@ -119,12 +119,12 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
                 //   if the checksum failed.
                 if (++s->retries < 4) {
                     s->current = 1;
-                    s->state = MOBILE_SPI_RESPONSE_START;
+                    s->state = MOBILE_SERIAL_RESPONSE_START;
                     return 0x99;
                 }
             }
 
-            mobile_spi_reset(adapter);
+            mobile_serial_reset(adapter);
         }
     }
 

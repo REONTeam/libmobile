@@ -14,8 +14,8 @@
 #define A_WEAK __attribute__((weak))
 #define A_UNUSED __attribute__((unused))
 
-A_WEAK void mobile_board_disable_spi(A_UNUSED void *user) {}
-A_WEAK void mobile_board_enable_spi(A_UNUSED void *user) {}
+A_WEAK void mobile_board_serial_disable(A_UNUSED void *user) {}
+A_WEAK void mobile_board_serial_enable(A_UNUSED void *user) {}
 A_WEAK void mobile_board_debug_cmd(A_UNUSED void *user, A_UNUSED const int send, A_UNUSED const struct mobile_packet *packet) {}
 A_WEAK bool mobile_board_config_read(A_UNUSED void *user, void *dest, A_UNUSED const uintptr_t offset, const size_t size)
 {
