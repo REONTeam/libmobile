@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "mobile.h"
+#include "commands.h"
 
 // This file contains weakly-linked definitions of the board-specific functions.
 // They're meant to provide a working default for implementations that haven't

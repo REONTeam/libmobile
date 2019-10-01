@@ -58,7 +58,18 @@ void mobile_board_debug_cmd(
     case MOBILE_COMMAND_TRANSFER_DATA:
         printf("Transfer data");
         if (packet->length >= 1) {
-            printf(" (unkn %02X)", packet->data[0]);
+            switch (packet->data[0]) {
+            case 0:
+                break;
+
+            case 0xFF:
+                printf(" (sync)");
+                break;
+
+            default:
+                printf(" (unkn %02X)", packet->data[0]);
+                break;
+            }
             hex_dump(packet->data + 1, packet->length - 1);
         }
         break;

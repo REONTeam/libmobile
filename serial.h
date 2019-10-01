@@ -2,14 +2,12 @@
 
 #include <stdint.h>
 
-#ifndef __cplusplus
-#include <stdatomic.h>
-#else
-#define _Atomic
-#endif
-
 #include "commands.h"
 struct mobile_adapter;
+
+#ifdef __cplusplus
+#define _Atomic
+#endif
 
 enum mobile_serial_state {
     MOBILE_SERIAL_WAITING,
@@ -33,9 +31,9 @@ enum mobile_serial_error {
 };
 
 struct mobile_adapter_serial {
-    _Atomic volatile enum mobile_serial_state state;
-    unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2];  // header, content, checksum
+    _Atomic enum mobile_serial_state state;
     unsigned current;
+    unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2];  // header, content, checksum
     unsigned data_size;
     uint16_t checksum;
     enum mobile_serial_error error;

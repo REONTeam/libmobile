@@ -2,7 +2,6 @@
 
 #include <stdbool.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "mobile.h"
 
@@ -33,7 +32,7 @@
 // NEWERR is used to indicate an error code that we made up ourselves to
 //   indicate something that couldn't happen with the real adapter.
 
-static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned char error)
+static struct mobile_packet *error_packet(struct mobile_packet *packet, const unsigned char error)
 {
     enum mobile_command command = packet->command;
     packet->command = MOBILE_COMMAND_ERROR;

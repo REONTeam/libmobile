@@ -22,6 +22,13 @@ enum mobile_adapter_device {
     MOBILE_ADAPTER_RED
 };
 
+enum mobile_action {
+    MOBILE_ACTION_NONE,
+    MOBILE_ACTION_PROCESS_PACKET,
+    MOBILE_ACTION_DROP_CONNECTION,
+    MOBILE_ACTION_RESET_SERIAL
+};
+
 struct mobile_adapter {
     void *user;
     enum mobile_adapter_device device;
@@ -44,6 +51,8 @@ void mobile_board_tcp_disconnect(void *user);
 bool mobile_board_tcp_send(void *user, const void *data, const unsigned size);
 int mobile_board_tcp_receive(void *user, void *data);
 
+enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
+void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
 void mobile_loop(struct mobile_adapter *adapter);
 void mobile_init(struct mobile_adapter *adapter, void *user);
 

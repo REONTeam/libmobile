@@ -30,12 +30,49 @@ static void packet_create(unsigned char *buffer, const struct mobile_packet *pac
     buffer[packet->length + 5] = checksum & 0xFF;
 }
 
-void mobile_loop(struct mobile_adapter *adapter)
+enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 {
     void *_u = adapter->user;
-    struct mobile_packet packet;
 
+    // Process a packet if one is waiting
     if (adapter->serial.state == MOBILE_SERIAL_RESPONSE_WAITING) {
+        return MOBILE_ACTION_PROCESS_PACKET;
+    }
+
+    // If the connection was interrupted mid-packet, drop it
+    if (adapter->serial.state != MOBILE_SERIAL_WAITING &&
+            mobile_board_time_check_ms(_u, 500)) {
+        return MOBILE_ACTION_DROP_CONNECTION;
+    }
+
+    // If the adapter is stuck waiting, with no signal from the game,
+    //   put it out of its misery.
+    if (adapter->commands.session_begun &&
+            mobile_board_time_check_ms(_u, 2000)) {
+        return MOBILE_ACTION_DROP_CONNECTION;
+    }
+
+    // If no packet is being received, and no session has yet started,
+    //   reset the serial periodically, in an attempt to synchronize.
+    if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
+            !adapter->commands.session_begun &&
+            mobile_board_time_check_ms(_u, 500)) {
+        return MOBILE_ACTION_RESET_SERIAL;
+    }
+
+    return MOBILE_ACTION_NONE;
+}
+
+void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action)
+{
+    void *_u = adapter->user;
+
+    switch (action) {
+    case MOBILE_ACTION_PROCESS_PACKET: {
+        // Pretty much everything's in a wonky state if this isn't the case...
+        if (adapter->serial.state != MOBILE_SERIAL_RESPONSE_WAITING) break;
+
+        struct mobile_packet packet;
         packet_parse(&packet, adapter->serial.buffer);
         mobile_board_debug_cmd(_u, 0, &packet);
 
@@ -44,31 +81,37 @@ void mobile_loop(struct mobile_adapter *adapter)
         packet_create(adapter->serial.buffer, send);
 
         adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
-    } else if ((adapter->serial.state != MOBILE_SERIAL_WAITING &&
-                mobile_board_time_check_ms(_u, 500)) ||
-            (adapter->commands.session_begun &&
-             mobile_board_time_check_ms(_u, 2000))) {
-        // If the adapter is stuck waiting, with no signal from the game,
-        //   put it out of its misery.
+        break;
+    }
+
+    case MOBILE_ACTION_DROP_CONNECTION: {
         mobile_board_serial_disable(_u);
-        adapter->commands.session_begun = false;
         mobile_serial_reset(adapter);
+        mobile_board_time_latch(_u);
+        mobile_board_serial_enable(_u);
 
         // "Emulate" a regular end session.
+        struct mobile_packet packet;
         packet.command = MOBILE_COMMAND_END_SESSION;
         packet.length = 0;
         struct mobile_packet *send = mobile_packet_process(adapter, &packet);
         mobile_board_debug_cmd(_u, 1, send);
-        mobile_board_serial_enable(_u);
-    } else if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
-            !adapter->commands.session_begun &&
-            mobile_board_time_check_ms(_u, 500)) {
-        // Reset the serial state every few if we haven't established a
-        //   connection yet. This fixes connectivity issues on hardware.
+        break;
+    }
+
+    case MOBILE_ACTION_RESET_SERIAL:
         mobile_board_serial_disable(_u);
         mobile_board_time_latch(_u);
         mobile_board_serial_enable(_u);
+        break;
+
+    default:
+        break;
     }
+}
+
+void mobile_loop(struct mobile_adapter *adapter) {
+    mobile_action_process(adapter, mobile_action_get(adapter));
 }
 
 static void config_clear(void *user)

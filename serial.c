@@ -15,7 +15,8 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
 
     mobile_board_time_latch(adapter->user);
 
-    switch (s->state) {
+    enum mobile_serial_state state = s->state;  // Workaround for atomic load in clang...
+    switch (state) {
     case MOBILE_SERIAL_WAITING:
         // Wait for the bytes that indicate a packet will be sent.
         if (c == 0x99) {
