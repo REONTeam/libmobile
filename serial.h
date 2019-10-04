@@ -38,6 +38,7 @@ struct mobile_adapter_serial {
     uint16_t checksum;
     enum mobile_serial_error error;
     unsigned retries;
+    enum mobile_command last_command;
 };
 
 void mobile_serial_reset(struct mobile_adapter *adapter);

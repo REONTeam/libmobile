@@ -7,6 +7,7 @@ void mobile_serial_reset(struct mobile_adapter *adapter)
 {
     adapter->serial.current = 0;
     adapter->serial.state = MOBILE_SERIAL_WAITING;
+    adapter->serial.last_command = 0;
 }
 
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
@@ -46,7 +47,8 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             //   stop parsing, as we shouldn't react to this.
             if (!adapter->commands.session_begun &&
                     s->buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
-                mobile_serial_reset(adapter);
+                s->current = 0;
+                s->state = MOBILE_SERIAL_WAITING;
             }
         } else if (s->current >= s->data_size + 4) {
             s->state = MOBILE_SERIAL_CHECKSUM;
@@ -73,7 +75,8 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             s->error = MOBILE_SERIAL_ERROR_UNKNOWN;
         }
         if (s->error) {
-            mobile_serial_reset(adapter);
+            s->current = 0;
+            s->state = MOBILE_SERIAL_WAITING;
             return s->error;
         }
 
@@ -101,19 +104,33 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
         // Send all that's in the response buffer.
         // This includes the header, content and the checksum.
         c = s->buffer[s->current++];
-        if (s->current > s->data_size + 6) {
+        if (s->current >= s->data_size + 6) {
             s->current = 0;
             s->state = MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE;
-            return adapter->device | 0x80;
         }
         return c;
 
     case MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE:
-        if (s->current++ == 0) {
+        if (s->current == 0) {
+            s->current++;
+            return adapter->device | 0x80;
+        } else if (s->current == 1) {
             // There's nothing we can do with the received device ID.
             // In fact, the real adapter doesn't care for this value, either.
+            s->current++;
             return 0;
         } else {
+            // Start over after this
+            s->current = 0;
+            s->state = MOBILE_SERIAL_WAITING;
+
+            // TODO: What does this exception of the norm mean?
+            if ((s->buffer[0] & 0x7F) == MOBILE_COMMAND_TELEPHONE_STATUS &&
+                    (c & 0x7F) == s->last_command) {
+                break;
+            }
+            s->last_command = c & 0x7F;
+
             // TODO: Actually parse the error code.
             if ((c ^ 0x80) != s->buffer[0]) {
                 // Retry sending the packet up to four times,
@@ -124,9 +141,8 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
                     return 0x99;
                 }
             }
-
-            mobile_serial_reset(adapter);
         }
+        break;
     }
 
     return 0xD2;
