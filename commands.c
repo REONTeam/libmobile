@@ -306,8 +306,13 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // Errors:
         // 0 - ???
         // 1 - Phone is not connected
+        // 2 - UNKERR: Invalid use, already logged in.
         if (s->connection != MOBILE_CONNECTION_CALL) {
             return error_packet(packet, 1);
+        }
+
+        if (s->connection == MOBILE_CONNECTION_INTERNET) {
+            return error_packet(packet, 2);  // UNKERR
         }
 
         // TODO: Actually implement?
@@ -336,12 +341,16 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // Errors:
         // 0 - UNKERR: Not connected to the internet
         // 1 - UNKERR: Invalid contents
+        // 2 - UNKERR: Already connected
 
         if (s->connection != MOBILE_CONNECTION_INTERNET) {
             return error_packet(packet, 0);  // UNKERR
         }
         if (packet->length != 6) {
             return error_packet(packet, 1);  // UNKERR
+        }
+        if (s->tcp_open) {
+            return error_packet(packet, 2);  // UNKERR
         }
 
         if (!mobile_board_tcp_connect(_u, packet->data,
@@ -351,6 +360,18 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         s->tcp_open = true;
         packet->length = 1;
         packet->data[0] = 0;
+        return packet;
+
+    case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
+        // Errors:
+        // 0 - UNKERR: Not connected
+
+        if (s->connection != MOBILE_CONNECTION_INTERNET ||
+                !s->tcp_open) {
+            return error_packet(packet, 0);
+        }
+        mobile_board_tcp_disconnect(_u);
+        s->tcp_open = false;
         return packet;
 
     case MOBILE_COMMAND_DNS_QUERY:
