@@ -32,14 +32,14 @@ enum mobile_command {
 
 enum mobile_connection_state {
     MOBILE_CONNECTION_DISCONNECTED,
-    MOBILE_CONNECTION_LISTENING,
-    MOBILE_CONNECTION_CONNECTING,
-    MOBILE_CONNECTION_CONNECTED
+    MOBILE_CONNECTION_CALL,
+    MOBILE_CONNECTION_INTERNET
 };
 
 struct mobile_adapter_commands {
     _Atomic bool session_begun;
     enum mobile_connection_state connection;
+    bool tcp_open;
     unsigned packets_sent;
 };
 

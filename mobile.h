@@ -47,6 +47,7 @@ void mobile_board_time_latch(void *user);
 bool mobile_board_time_check_ms(void *user, const unsigned ms);
 bool mobile_board_tcp_connect(void *user, const unsigned char *host, const unsigned port);
 bool mobile_board_tcp_listen(void *user, const unsigned port);
+bool mobile_board_tcp_accept(void *user);
 void mobile_board_tcp_disconnect(void *user);
 bool mobile_board_tcp_send(void *user, const void *data, const unsigned size);
 int mobile_board_tcp_receive(void *user, void *data);

@@ -116,15 +116,15 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         }
         s->session_begun = true;
         s->connection = MOBILE_CONNECTION_DISCONNECTED;
+        s->tcp_open = false;
         return packet;
 
     case MOBILE_COMMAND_END_SESSION:
         // TODO: What happens if the packet has a body? Probably nothing.
+        if (s->tcp_open) mobile_board_tcp_disconnect(_u);
         s->session_begun = false;
-        if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
-            mobile_board_tcp_disconnect(_u);
-            s->connection = MOBILE_CONNECTION_DISCONNECTED;
-        }
+        s->connection = MOBILE_CONNECTION_DISCONNECTED;
+        s->tcp_open = false;
         return packet;
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
@@ -139,23 +139,22 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         //   That way the implementation can decide what port to use, where
         //     to connect to, etc.
 
-        if (s->connection != MOBILE_CONNECTION_DISCONNECTED &&
-                s->connection != MOBILE_CONNECTION_CONNECTING) {
+        if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
             return error_packet(packet, 2);  // UNKERR
         }
 
-        // Ignore the default phone numbers for now
+        if (s->tcp_open) mobile_board_tcp_disconnect(_u);
+
+        // Ignore the ISP phone numbers for now
         if (packet->length == 6 &&
                 memcmp(packet->data + 1, "#9677", 5) == 0) {
-            //s->connection = MOBILE_CONNECTION_CONNECTED;
-            //s->packets_sent = 0;
+            s->connection = MOBILE_CONNECTION_CALL;
             packet->length = 0;
             return packet;
         }
         if (packet->length == 11 &&
                 memcmp(packet->data + 1, "0077487751", 10) == 0) {
-            //s->connection = MOBILE_CONNECTION_CONNECTED;
-            //s->packets_sent = 0;
+            s->connection = MOBILE_CONNECTION_CALL;
             packet->length = 0;
             return packet;
         }
@@ -167,7 +166,8 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
                 return error_packet(packet, 1);  // NEWERR
             }
             if (mobile_board_tcp_connect(_u, address, MOBILE_P2P_PORT)) {
-                s->connection = MOBILE_CONNECTION_CONNECTED;
+                s->connection = MOBILE_CONNECTION_CALL;
+                s->tcp_open = true;
                 s->packets_sent = 0;
                 packet->length = 0;
                 return packet;
@@ -184,10 +184,9 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         //return error_packet(packet, 0);  // UNKERR
         // TODO: What happens if the packet has a body? Probably nothing.
         // TODO: What happens if hanging up a non-existing connection?
-        if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
-            mobile_board_tcp_disconnect(_u);
-            s->connection = MOBILE_CONNECTION_DISCONNECTED;
-        }
+        if (s->tcp_open) mobile_board_tcp_disconnect(_u);
+        s->tcp_open = false;
+        s->connection = MOBILE_CONNECTION_DISCONNECTED;
         return packet;
 
     case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
@@ -198,17 +197,25 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
 
         // TODO: What happens if the packet has a body? Probably nothing.
 
-        if (s->connection != MOBILE_CONNECTION_DISCONNECTED &&
-                s->connection != MOBILE_CONNECTION_LISTENING) {
+        if (s->connection != MOBILE_CONNECTION_DISCONNECTED) {
             return error_packet(packet, 2);  // NEWERR
         }
-        if (mobile_board_tcp_listen(_u, MOBILE_P2P_PORT)) {
-            s->connection = MOBILE_CONNECTION_CONNECTED;
-            s->packets_sent = 0;
-            return packet;
+
+        if (!s->tcp_open) {
+            if (!mobile_board_tcp_listen(_u, MOBILE_P2P_PORT)) {
+                return error_packet(packet, 0);
+            }
+            s->tcp_open = true;
         }
-        s->connection = MOBILE_CONNECTION_LISTENING;
-        return error_packet(packet, 0);
+
+        if (!mobile_board_tcp_listen(_u, MOBILE_P2P_PORT)) {
+            return error_packet(packet, 0);
+        }
+
+        s->connection = MOBILE_CONNECTION_CALL;
+        s->packets_sent = 0;
+        packet->length = 0;
+        return packet;
 
     case MOBILE_COMMAND_TRANSFER_DATA:
         // Errors:
@@ -217,26 +224,42 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // 2 - UNKERR: Invalid contents
 
         if (packet->length < 1) return error_packet(packet, 2);  // UNKERR
-        if (s->connection != MOBILE_CONNECTION_CONNECTED) {
+        if (s->connection == MOBILE_CONNECTION_DISCONNECTED ||
+                !s->tcp_open) {
             return error_packet(packet, 1);
         }
+
         if (!transfer_data(adapter, packet->data, &packet->length)) {
             mobile_board_tcp_disconnect(_u);
-            s->connection = MOBILE_CONNECTION_DISCONNECTED;
-            return error_packet(packet, 1);
+            s->tcp_open = false;
+            if (s->connection == MOBILE_CONNECTION_CALL) {
+                s->connection = MOBILE_CONNECTION_DISCONNECTED;
+                return error_packet(packet, 1);
+            } else if (s->connection == MOBILE_CONNECTION_INTERNET) {
+                packet->command = MOBILE_COMMAND_TRANSFER_DATA_END;
+                packet->length = 0;
+            }
         }
         return packet;
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         // TODO: Actually implement
+        // TODO: What happens if the packet has a body? Probably nothing.
+
         packet->length = 3;
-        packet->data[0] = 0x00;  // 0xFF if phone is disconnected
+        switch (s->connection) {
+            // 0xFF if phone is disconnected
+            default:
+            case MOBILE_CONNECTION_DISCONNECTED: packet->data[0] = 0; break;
+            case MOBILE_CONNECTION_CALL: packet->data[0] = 4; break;
+            case MOBILE_CONNECTION_INTERNET: packet->data[0] = 5; break;
+        }
         switch (adapter->device) {
             default:  // TODO: What are the others?
             case MOBILE_ADAPTER_BLUE: packet->data[1] = 0x4D; break;
             case MOBILE_ADAPTER_YELLOW: packet->data[1] = 0x48; break;
         }
-        packet->data[2] = 0x00;  // 0xF0 signals Crystal to bypass time limits.
+        packet->data[2] = 0x00;  // 0xF0 sigals Crystal to bypass time limits.
         return packet;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA: {
@@ -280,20 +303,71 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         return packet;
 
     case MOBILE_COMMAND_ISP_LOGIN:
-        // TODO: Actually implement
-        return error_packet(packet, 1);  // No phone is connected
+        // Errors:
+        // 0 - ???
+        // 1 - Phone is not connected
+        if (s->connection != MOBILE_CONNECTION_CALL) {
+            return error_packet(packet, 1);
+        }
+
+        // TODO: Actually implement?
+        s->connection = MOBILE_CONNECTION_INTERNET;
+        packet->data[0] = 0;
+        packet->data[1] = 0;
+        packet->data[2] = 0;
+        packet->data[3] = 0;
+        packet->length = 4;
+        return packet;
 
     case MOBILE_COMMAND_ISP_LOGOUT:
-        // TODO: Actually implement
-        return error_packet(packet, 0);  // UNKERR
+        // TODO: What happens if the packet has a body? Probably nothing.
+        // Errors:
+        // 0 - UNKERR: Not connected to the internet
+
+        if (s->connection != MOBILE_CONNECTION_INTERNET) {
+            return error_packet(packet, 0);  // UNKERR
+        }
+
+        // TODO: Actually implement?
+        s->connection = MOBILE_CONNECTION_CALL;
+        return packet;
 
     case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
-        // TODO: Actually implement
-        return error_packet(packet, 0);  // UNKERR
+        // Errors:
+        // 0 - UNKERR: Not connected to the internet
+        // 1 - UNKERR: Invalid contents
+
+        if (s->connection != MOBILE_CONNECTION_INTERNET) {
+            return error_packet(packet, 0);  // UNKERR
+        }
+        if (packet->length != 6) {
+            return error_packet(packet, 1);  // UNKERR
+        }
+
+        if (!mobile_board_tcp_connect(_u, packet->data,
+                    packet->data[4] << 8 | packet->data[5])) {
+            return error_packet(packet, 0);
+        }
+        s->tcp_open = true;
+        packet->length = 1;
+        packet->data[0] = 0;
+        return packet;
 
     case MOBILE_COMMAND_DNS_QUERY:
+        // Errors:
+        // 0 - UNKERR: Not connected to the internet
+
+        if (s->connection != MOBILE_CONNECTION_INTERNET) {
+            return error_packet(packet, 0);  // UNKERR
+        }
+
         // TODO: Actually implement
-        return error_packet(packet, 0);  // UNKERR
+        packet->data[0] = 0;
+        packet->data[1] = 0;
+        packet->data[2] = 0;
+        packet->data[3] = 0;
+        packet->length = 4;
+        return packet;
 
     default:
         // Just echo the same thing back

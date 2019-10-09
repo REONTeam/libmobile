@@ -11,6 +11,14 @@ static void hex_dump(const unsigned char *buf, const unsigned len)
     }
 }
 
+static void packet_end(const struct mobile_packet *packet, unsigned length)
+{
+    if (packet->length > length) {
+        printf(" !!parsing failed!!");
+        hex_dump(packet->data + length, packet->length - length);
+    }
+}
+
 void mobile_board_debug_cmd(
 #ifdef __GNUC__
         __attribute__((unused))
@@ -21,6 +29,7 @@ void mobile_board_debug_cmd(
     else printf("<<< ");
 
     printf("%02X ", packet->command);
+
     switch(packet->command) {
     case MOBILE_COMMAND_BEGIN_SESSION:
         printf("Begin session: ");
@@ -31,74 +40,192 @@ void mobile_board_debug_cmd(
 
     case MOBILE_COMMAND_END_SESSION:
         printf("End session");
+        packet_end(packet, 0);
         if (send) printf("\r\n");
         break;
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
         printf("Dial telephone");
-        if (!send && packet->length >= 1) {
-            printf(" (unkn %02X)", packet->data[0]);
-        }
-        if (!send && packet->length >= 2) {
-            printf(" ");
+        if (!send) {
+            if (packet->length < 2) {
+                packet_end(packet, 0);
+                break;
+            }
+            printf(" (unkn %02X): ", packet->data[0]);
             for (unsigned i = 0; i < packet->length; i++) {
                 printf("%c", packet->data[i]);
             }
+        } else {
+            packet_end(packet, 0);
         }
         break;
 
     case MOBILE_COMMAND_HANG_UP_TELEPHONE:
         printf("Hang up telephone");
+        packet_end(packet, 0);
         break;
 
     case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
         printf("Wait for telephone call");
+        packet_end(packet, 0);
         break;
 
     case MOBILE_COMMAND_TRANSFER_DATA:
         printf("Transfer data");
-        if (packet->length >= 1) {
-            switch (packet->data[0]) {
-            case 0:
-                break;
+        if (packet->length < 1) break;
+        switch (packet->data[0]) {
+        case 0:
+            printf(" (async)");
+            break;
 
-            case 0xFF:
-                printf(" (sync)");
-                break;
+        case 0xFF:
+            printf(" (sync)");
+            break;
 
-            default:
-                printf(" (unkn %02X)", packet->data[0]);
-                break;
-            }
-            hex_dump(packet->data + 1, packet->length - 1);
+        default:
+            printf(" (unkn %02X)", packet->data[0]);
+            break;
         }
+        hex_dump(packet->data + 1, packet->length - 1);
         break;
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         printf("Telephone status");
-        if (send && packet->length >= 1) printf(": %02X", packet->data[0]);
+        if (!send) {
+            packet_end(packet, 0);
+        } else {
+            if (packet->length < 3) {
+                packet_end(packet, 0);
+                break;
+            }
+            printf(": %02X %02X %02X",
+                    packet->data[0], packet->data[1], packet->data[2]);
+            packet_end(packet, 3);
+        }
         break;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
         printf("Read configuration data");
-        if (!send && packet->length >= 2) {
+        if (!send) {
+            if (packet->length < 2) {
+                packet_end(packet, 0);
+                break;
+            }
             printf(" (offset: %02X; size: %02X)", packet->data[0], packet->data[1]);
-        } else if (packet->length >= 1) {
+            packet_end(packet, 2);
+        } else {
+            if (packet->length < 1) break;
+            printf(" (unkn %02X)", packet->data[0]);
             hex_dump(packet->data + 1, packet->length - 1);
         }
         break;
 
     case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
         printf("Write configuration data");
-        if (!send && packet->length >= 1) {
-            printf("(offset: %02X; size: %02X)", packet->data[0], packet->length - 1);
+        if (!send) {
+            if (packet->length < 1) break;
+            printf(" (offset: %02X; size: %02X)", packet->data[0], packet->length - 1);
             hex_dump(packet->data + 1, packet->length - 1);
+        } else {
+            packet_end(packet, 0);
+        }
+        break;
+
+    case MOBILE_COMMAND_ISP_LOGIN:
+        printf("ISP login");
+        if (!send) {
+            if (packet->length < 1) break;
+
+            const unsigned char *data = packet->data;
+            if (packet->data + packet->length < data + data[0] + 1) {
+                packet_end(packet, data - packet->data);
+                break;
+            }
+            printf(" (id: ");
+            for (unsigned i = 0; i < data[0]; i++) printf("%c", data[i + 1]);
+            data += 1 + data[0];
+
+            if (packet->data + packet->length < data + data[0] + 8) {
+                printf(")");
+                packet_end(packet, data - packet->data);
+                break;
+            }
+            printf("; pass: ");
+            for (unsigned i = 0; i < data[0]; i++) printf("*");  // Censor pass
+            data += 1 + data[0];
+
+            printf("; dns1: %u.%u.%u.%u; dns2: %u.%u.%u.%u)",
+                    data[0], data[1], data[2], data[3],
+                    data[4], data[5], data[6], data[7]);
+            data += 8;
+            packet_end(packet, data - packet->data);
+        } else {
+            if (packet->length < 4) {
+                packet_end(packet, 0);
+                break;
+            }
+            printf(" (ip: %u.%u.%u.%u)",
+                    packet->data[0], packet->data[1],
+                    packet->data[2], packet->data[3]);
+            packet_end(packet, 4);
+        }
+        break;
+
+    case MOBILE_COMMAND_ISP_LOGOUT:
+        printf("ISP logout");
+        packet_end(packet, 0);
+        break;
+
+    case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
+        printf("Open TCP connection");
+        if (!send) {
+            if (packet->length < 6) {
+                packet_end(packet, 0);
+                break;
+            }
+            printf(": %u.%u.%u.%u:%u",
+                    packet->data[0], packet->data[1],
+                    packet->data[2], packet->data[3],
+                    packet->data[4] << 8 | packet->data[5]);
+            packet_end(packet, 6);
+        } else {
+            if (packet->length < 1) break;
+            printf(" (unkn %02X)", packet->data[0]);
+            packet_end(packet, 1);
+        }
+        break;
+
+    case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
+        printf("Close TCP connection");
+        if (packet->length < 1) break;
+        printf(" (unkn %02X)", packet->data[0]);
+        packet_end(packet, 1);
+        break;
+
+    case MOBILE_COMMAND_DNS_QUERY:
+        printf("DNS query");
+        if (!send) {
+            packet_end(packet, 0);
+        } else {
+            if (packet->length < 4) {
+                packet_end(packet, 0);
+                break;
+            }
+            printf(": %u.%u.%u.%u",
+                    packet->data[0], packet->data[1],
+                    packet->data[2], packet->data[3]);
+            packet_end(packet, 4);
         }
         break;
 
     case MOBILE_COMMAND_ERROR:
         printf("Error");
-        if (packet->length >= 2) printf(" %02X", packet->data[1]);
+        if (packet->length < 2) {
+            packet_end(packet, 0);
+            break;
+        }
+        printf(": %02X", packet->data[1]);
+        packet_end(packet, 2);
         break;
 
     default:

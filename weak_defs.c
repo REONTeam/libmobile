@@ -40,6 +40,10 @@ A_WEAK bool mobile_board_tcp_listen(A_UNUSED void *user, A_UNUSED const unsigned
 {
     return true;
 }
+A_WEAK bool mobile_board_tcp_accept(A_UNUSED void *user)
+{
+    return true;
+}
 A_WEAK void mobile_board_tcp_disconnect(A_UNUSED void *user) {}
 A_WEAK bool mobile_board_tcp_send(A_UNUSED void *user, A_UNUSED const void *data, A_UNUSED const unsigned size)
 {
