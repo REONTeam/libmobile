@@ -81,6 +81,8 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned char *data, u
         if (s->packets_sent) {
             recv_size = mobile_board_tcp_receive(_u, data + 1);
             if (recv_size != 0) s->packets_sent--;
+        } else {
+            recv_size = mobile_board_tcp_receive(_u, NULL);
         }
     } else {
         // Normal mode
