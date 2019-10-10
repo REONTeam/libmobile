@@ -368,7 +368,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
 
         if (s->connection != MOBILE_CONNECTION_INTERNET ||
                 !s->tcp_open) {
-            return error_packet(packet, 0);
+            return error_packet(packet, 0);  // UNKERR
         }
         mobile_board_tcp_disconnect(_u);
         s->tcp_open = false;

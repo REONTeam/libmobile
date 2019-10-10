@@ -1,7 +1,7 @@
 // This file provides an example implementation of mobile_board_debug_cmd
 //   that you can conditionally compile.
 
-static void hex_dump(const unsigned char *buf, const unsigned len)
+static void dump_hex(const unsigned char *buf, const unsigned len)
 {
     for (unsigned i = 0; i < len; i += 0x10) {
         printf("\r\n    ");
@@ -11,11 +11,23 @@ static void hex_dump(const unsigned char *buf, const unsigned len)
     }
 }
 
+static void dump(const unsigned char *buf, const unsigned len)
+{
+    if (!len) return;
+
+    unsigned i;
+    for (i = 0; i < len; i++) if (buf[i] >= 0x80) break;
+    if (i < len) return dump_hex(buf, len);
+
+    printf("\n");
+    for (unsigned i = 0; i < len; i++) printf("%c", buf[i]);
+}
+
 static void packet_end(const struct mobile_packet *packet, unsigned length)
 {
     if (packet->length > length) {
         printf(" !!parsing failed!!");
-        hex_dump(packet->data + length, packet->length - length);
+        dump_hex(packet->data + length, packet->length - length);
     }
 }
 
@@ -86,7 +98,7 @@ void mobile_board_debug_cmd(
             printf(" (unkn %02X)", packet->data[0]);
             break;
         }
-        hex_dump(packet->data + 1, packet->length - 1);
+        dump(packet->data + 1, packet->length - 1);
         break;
 
     case MOBILE_COMMAND_TELEPHONE_STATUS:
@@ -116,7 +128,7 @@ void mobile_board_debug_cmd(
         } else {
             if (packet->length < 1) break;
             printf(" (unkn %02X)", packet->data[0]);
-            hex_dump(packet->data + 1, packet->length - 1);
+            dump_hex(packet->data + 1, packet->length - 1);
         }
         break;
 
@@ -125,7 +137,7 @@ void mobile_board_debug_cmd(
         if (!send) {
             if (packet->length < 1) break;
             printf(" (offset: %02X; size: %02X)", packet->data[0], packet->length - 1);
-            hex_dump(packet->data + 1, packet->length - 1);
+            dump_hex(packet->data + 1, packet->length - 1);
         } else {
             packet_end(packet, 0);
         }
@@ -230,7 +242,7 @@ void mobile_board_debug_cmd(
 
     default:
         printf("Unknown");
-        hex_dump(packet->data, packet->length);
+        dump_hex(packet->data, packet->length);
     }
 
     printf("\r\n");
