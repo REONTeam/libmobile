@@ -138,12 +138,16 @@ static bool config_verify(void *user)
     return checksum == config_checksum;
 }
 
-void mobile_init(struct mobile_adapter *adapter, void *user)
+void mobile_init(struct mobile_adapter *adapter, void *user, struct mobile_adapter_config *config)
 {
     if (!config_verify(user)) config_clear(user);
 
+    if (config) {
+        adapter->config = *config;
+    } else {
+        adapter->config = MOBILE_ADAPTER_CONFIG_DEFAULT;
+    }
     adapter->user = user;
-    adapter->device = MOBILE_ADAPTER_BLUE;
     adapter->commands.session_begun = false;
     mobile_serial_reset(adapter);
     mobile_board_serial_enable(user);

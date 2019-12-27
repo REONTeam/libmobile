@@ -29,9 +29,24 @@ enum mobile_action {
     MOBILE_ACTION_RESET_SERIAL
 };
 
+struct mobile_adapter_config {
+    enum mobile_adapter_device device;
+    unsigned p2p_port;
+
+    // Signals Pokémon Crystal (jap) that the connection isn't metered,
+    //   removing the time limit in mobile battles.
+    // We have no idea of the effects of this in other games.
+    bool unmetered;
+};
+#define MOBILE_ADAPTER_CONFIG_DEFAULT (struct mobile_adapter_config){ \
+    .device = MOBILE_ADAPTER_BLUE, \
+    .p2p_port = 2415, \
+    .unmetered = false \
+}
+
 struct mobile_adapter {
     void *user;
-    enum mobile_adapter_device device;
+    struct mobile_adapter_config config;
     struct mobile_adapter_serial serial;
     struct mobile_adapter_commands commands;
 };
@@ -56,7 +71,7 @@ bool mobile_board_dns_query(unsigned char *ip, const char *host, const unsigned 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
 void mobile_loop(struct mobile_adapter *adapter);
-void mobile_init(struct mobile_adapter *adapter, void *user);
+void mobile_init(struct mobile_adapter *adapter, void *user, struct mobile_adapter_config *config);
 
 #ifdef __cplusplus
 }

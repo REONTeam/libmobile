@@ -5,9 +5,6 @@
 
 #include "mobile.h"
 
-// TODO: make this configurable
-#define MOBILE_P2P_PORT 2415
-
 // A bunch of details about the communication protocol are unknown,
 //   and would be necessary to complete this implementation properly:
 // - What is the effect of calling a number starting with a `#` sign?
@@ -170,7 +167,8 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             if (!parse_address(address, (char *)packet->data + 1)) {
                 return error_packet(packet, 1);  // NEWERR
             }
-            if (mobile_board_tcp_connect(_u, 0, address, MOBILE_P2P_PORT)) {
+            if (mobile_board_tcp_connect(_u, 0, address,
+                    adapter->config.p2p_port)) {
                 s->state = MOBILE_CONNECTION_CALL;
                 s->connections[0] = true;
                 s->call_packets_sent = 0;
@@ -209,7 +207,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         }
 
         if (!s->connections[0]) {
-            if (!mobile_board_tcp_listen(_u, 0, MOBILE_P2P_PORT)) {
+            if (!mobile_board_tcp_listen(_u, 0, adapter->config.p2p_port)) {
                 return error_packet(packet, 0);
             }
             s->connections[0] = true;
@@ -276,12 +274,16 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             case MOBILE_CONNECTION_CALL: packet->data[0] = 4; break;
             case MOBILE_CONNECTION_INTERNET: packet->data[0] = 5; break;
         }
-        switch (adapter->device) {
+        switch (adapter->config.device) {
             default:  // TODO: What are the others?
             case MOBILE_ADAPTER_BLUE: packet->data[1] = 0x4D; break;
             case MOBILE_ADAPTER_YELLOW: packet->data[1] = 0x48; break;
         }
-        packet->data[2] = 0x00;  // 0xF0 sigals Crystal to bypass time limits.
+        if (!adapter->config.unmetered) {
+            packet->data[2] = 0x00;  // 0xF0 sigals Crystal to bypass time limits.
+        } else {
+            packet->data[2] = 0xF0;
+        }
         return packet;
 
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA:

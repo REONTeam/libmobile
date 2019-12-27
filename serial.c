@@ -65,7 +65,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
                 s->error = MOBILE_SERIAL_ERROR_CHECKSUM;
             }
             s->state = MOBILE_SERIAL_ACKNOWLEDGE;
-            return adapter->device | 0x80;
+            return adapter->config.device | 0x80;
         }
         break;
 
@@ -113,7 +113,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
     case MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE:
         if (s->current == 0) {
             s->current++;
-            return adapter->device | 0x80;
+            return adapter->config.device | 0x80;
         } else if (s->current == 1) {
             // There's nothing we can do with the received device ID.
             // In fact, the real adapter doesn't care for this value, either.
