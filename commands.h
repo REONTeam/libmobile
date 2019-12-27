@@ -11,6 +11,8 @@ struct mobile_adapter;
 #define MOBILE_MAX_DATA_SIZE 0xFF
 #define MOBILE_MAX_TCP_SIZE (MOBILE_MAX_DATA_SIZE - 1)
 
+#define MOBILE_MAX_CONNECTIONS 16
+
 enum mobile_command {
     MOBILE_COMMAND_BEGIN_SESSION = 0x10,
     MOBILE_COMMAND_END_SESSION,
@@ -38,9 +40,11 @@ enum mobile_connection_state {
 
 struct mobile_adapter_commands {
     _Atomic bool session_begun;
-    enum mobile_connection_state connection;
-    bool tcp_open;
-    unsigned packets_sent;
+    enum mobile_connection_state state;
+    bool connections[MOBILE_MAX_CONNECTIONS];
+    unsigned call_packets_sent;
+    unsigned char dns1[4];
+    unsigned char dns2[4];
 };
 
 struct mobile_packet {

@@ -68,36 +68,37 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
     void *_u = adapter->user;
 
     switch (action) {
-    case MOBILE_ACTION_PROCESS_PACKET: {
+    case MOBILE_ACTION_PROCESS_PACKET:
         // Pretty much everything's in a wonky state if this isn't the case...
         if (adapter->serial.state != MOBILE_SERIAL_RESPONSE_WAITING) break;
+        {
+            struct mobile_packet packet;
+            packet_parse(&packet, adapter->serial.buffer);
+            mobile_board_debug_cmd(_u, 0, &packet);
 
-        struct mobile_packet packet;
-        packet_parse(&packet, adapter->serial.buffer);
-        mobile_board_debug_cmd(_u, 0, &packet);
+            struct mobile_packet *send = mobile_packet_process(adapter, &packet);
+            mobile_board_debug_cmd(_u, 1, send);
+            packet_create(adapter->serial.buffer, send);
 
-        struct mobile_packet *send = mobile_packet_process(adapter, &packet);
-        mobile_board_debug_cmd(_u, 1, send);
-        packet_create(adapter->serial.buffer, send);
-
-        adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
+            adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
+        }
         break;
-    }
 
-    case MOBILE_ACTION_DROP_CONNECTION: {
+    case MOBILE_ACTION_DROP_CONNECTION:
         mobile_board_serial_disable(_u);
         mobile_serial_reset(adapter);
         mobile_board_time_latch(_u);
         mobile_board_serial_enable(_u);
 
-        // "Emulate" a regular end session.
-        struct mobile_packet packet;
-        packet.command = MOBILE_COMMAND_END_SESSION;
-        packet.length = 0;
-        struct mobile_packet *send = mobile_packet_process(adapter, &packet);
-        mobile_board_debug_cmd(_u, 1, send);
+        {
+            // "Emulate" a regular end session.
+            struct mobile_packet packet;
+            packet.command = MOBILE_COMMAND_END_SESSION;
+            packet.length = 0;
+            struct mobile_packet *send = mobile_packet_process(adapter, &packet);
+            mobile_board_debug_cmd(_u, 1, send);
+        }
         break;
-    }
 
     case MOBILE_ACTION_RESET_SERIAL:
         mobile_board_serial_disable(_u);

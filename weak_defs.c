@@ -32,26 +32,31 @@ A_WEAK bool mobile_board_time_check_ms(A_UNUSED void *user, A_UNUSED const unsig
 {
     return false;
 }
-A_WEAK bool mobile_board_tcp_connect(A_UNUSED void *user, A_UNUSED const unsigned char *host, A_UNUSED const unsigned port)
+A_WEAK bool mobile_board_tcp_connect(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const unsigned char *host, A_UNUSED const unsigned port)
 {
     return true;
 }
-A_WEAK bool mobile_board_tcp_listen(A_UNUSED void *user, A_UNUSED const unsigned port)
+A_WEAK bool mobile_board_tcp_listen(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const unsigned port)
 {
     return true;
 }
-A_WEAK bool mobile_board_tcp_accept(A_UNUSED void *user)
+A_WEAK bool mobile_board_tcp_accept(A_UNUSED void *user, A_UNUSED unsigned conn)
 {
     return true;
 }
-A_WEAK void mobile_board_tcp_disconnect(A_UNUSED void *user) {}
-A_WEAK bool mobile_board_tcp_send(A_UNUSED void *user, A_UNUSED const void *data, A_UNUSED const unsigned size)
+A_WEAK void mobile_board_tcp_disconnect(A_UNUSED void *user, A_UNUSED unsigned conn) {}
+A_WEAK bool mobile_board_tcp_send(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const void *data, A_UNUSED const unsigned size)
 {
     return true;
 }
-A_WEAK int mobile_board_tcp_receive(A_UNUSED void *user, A_UNUSED void *data)
+A_WEAK int mobile_board_tcp_receive(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data)
 {
     return -10;
+}
+A_WEAK bool mobile_board_dns_query(unsigned char *ip, A_UNUSED const char *host, A_UNUSED const unsigned char *dns1, A_UNUSED const unsigned char *dns2)
+{
+    memset(ip, 0, 4);
+    return true;
 }
 
 #endif

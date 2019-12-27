@@ -16,7 +16,14 @@ static void dump(const unsigned char *buf, const unsigned len)
     if (!len) return;
 
     unsigned i;
-    for (i = 0; i < len; i++) if (buf[i] >= 0x80) break;
+    for (i = 0; i < len; i++) {
+        if (buf[i] >= 0x80) break;
+        if (buf[i] < 0x20 &&
+                buf[i] != '\r' &&
+                buf[i] != '\n') {
+            break;
+        }
+    }
     if (i < len) return dump_hex(buf, len);
 
     printf("\n");
@@ -85,18 +92,11 @@ void mobile_board_debug_cmd(
     case MOBILE_COMMAND_TRANSFER_DATA:
         printf("Transfer data");
         if (packet->length < 1) break;
-        switch (packet->data[0]) {
-        case 0:
-            printf(" (async)");
-            break;
 
-        case 0xFF:
-            printf(" (sync)");
-            break;
-
-        default:
-            printf(" (unkn %02X)", packet->data[0]);
-            break;
+        if (packet->data[0] == 0xFF) {
+            printf(" (p2p)");
+        } else {
+            printf(" (conn %u)", packet->data[0]);
         }
         dump(packet->data + 1, packet->length - 1);
         break;
@@ -143,13 +143,18 @@ void mobile_board_debug_cmd(
         }
         break;
 
+    case MOBILE_COMMAND_TRANSFER_DATA_END:
+        printf("Transfer data end");
+        packet_end(packet, 0);
+        break;
+
     case MOBILE_COMMAND_ISP_LOGIN:
         printf("ISP login");
         if (!send) {
             if (packet->length < 1) break;
 
             const unsigned char *data = packet->data;
-            if (packet->data + packet->length < data + data[0] + 1) {
+            if (packet->data + packet->length < data + 1 + data[0]) {
                 packet_end(packet, data - packet->data);
                 break;
             }
@@ -157,7 +162,7 @@ void mobile_board_debug_cmd(
             for (unsigned i = 0; i < data[0]; i++) printf("%c", data[i + 1]);
             data += 1 + data[0];
 
-            if (packet->data + packet->length < data + data[0] + 8) {
+            if (packet->data + packet->length < data + 1 + data[0] + 8) {
                 printf(")");
                 packet_end(packet, data - packet->data);
                 break;
@@ -202,7 +207,7 @@ void mobile_board_debug_cmd(
             packet_end(packet, 6);
         } else {
             if (packet->length < 1) break;
-            printf(" (unkn %02X)", packet->data[0]);
+            printf(" (conn %u)", packet->data[0]);
             packet_end(packet, 1);
         }
         break;
@@ -210,14 +215,17 @@ void mobile_board_debug_cmd(
     case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
         printf("Close TCP connection");
         if (packet->length < 1) break;
-        printf(" (unkn %02X)", packet->data[0]);
+        printf(" (conn %u)", packet->data[0]);
         packet_end(packet, 1);
         break;
 
     case MOBILE_COMMAND_DNS_QUERY:
         printf("DNS query");
         if (!send) {
-            packet_end(packet, 0);
+            printf(": ");
+            for (unsigned i = 0; i < packet->length; i++) {
+                printf("%c", packet->data[i]);
+            }
         } else {
             if (packet->length < 4) {
                 packet_end(packet, 0);

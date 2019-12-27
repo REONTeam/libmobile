@@ -45,12 +45,13 @@ bool mobile_board_config_read(void *user, void *dest, const uintptr_t offset, co
 bool mobile_board_config_write(void *user, const void *src, const uintptr_t offset, const size_t size);
 void mobile_board_time_latch(void *user);
 bool mobile_board_time_check_ms(void *user, const unsigned ms);
-bool mobile_board_tcp_connect(void *user, const unsigned char *host, const unsigned port);
-bool mobile_board_tcp_listen(void *user, const unsigned port);
-bool mobile_board_tcp_accept(void *user);
-void mobile_board_tcp_disconnect(void *user);
-bool mobile_board_tcp_send(void *user, const void *data, const unsigned size);
-int mobile_board_tcp_receive(void *user, void *data);
+bool mobile_board_tcp_connect(void *user, unsigned conn, const unsigned char *host, const unsigned port);
+bool mobile_board_tcp_listen(void *user, unsigned conn, const unsigned port);
+bool mobile_board_tcp_accept(void *user, unsigned conn);
+void mobile_board_tcp_disconnect(void *user, unsigned conn);
+bool mobile_board_tcp_send(void *user, unsigned conn, const void *data, const unsigned size);
+int mobile_board_tcp_receive(void *user, unsigned conn, void *data);
+bool mobile_board_dns_query(unsigned char *ip, const char *host, const unsigned char  *dns1, const unsigned char *dns2);
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
