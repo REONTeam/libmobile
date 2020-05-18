@@ -26,7 +26,7 @@ enum mobile_serial_state {
 #endif
 
 enum mobile_serial_error {
-    MOBILE_SERIAL_ERROR_UNKNOWN = 0xF0,
+    MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND = 0xF0,
     MOBILE_SERIAL_ERROR_CHECKSUM,
 };
 

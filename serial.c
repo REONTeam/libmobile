@@ -16,6 +16,8 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
 
     mobile_board_time_latch(adapter->user);
 
+    // TODO: Set F0 in the acknowledgement byte if the command is unknown
+
     enum mobile_serial_state state = s->state;  // Workaround for atomic load in clang...
     switch (state) {
     case MOBILE_SERIAL_WAITING:
@@ -72,7 +74,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
     case MOBILE_SERIAL_ACKNOWLEDGE:
         // Receive the acknowledgement byte, send error if applicable.
         if (c != (MOBILE_ADAPTER_GAMEBOY | 0x80)) {
-            s->error = MOBILE_SERIAL_ERROR_UNKNOWN;
+            s->error = MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND;  // TODO: Does this matter?
         }
         if (s->error) {
             s->current = 0;

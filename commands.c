@@ -108,13 +108,13 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
     case MOBILE_COMMAND_BEGIN_SESSION:
         // Errors:
         // 0 - ???
-        // 1 - Invalid contents
-        // 2 - Invalid use (Already begun a session)
+        // 1 - Invalid use (Already begun a session)
+        // 2 - Invalid contents
 
-        if (s->session_begun) return error_packet(packet, 2);
-        if (packet->length != 8) return error_packet(packet, 1);
+        if (s->session_begun) return error_packet(packet, 1);
+        if (packet->length != 8) return error_packet(packet, 2);
         if (memcmp(packet->data, "NINTENDO", 8) != 0) {
-            return error_packet(packet, 1);
+            return error_packet(packet, 2);
         }
         s->session_begun = true;
         s->state = MOBILE_CONNECTION_DISCONNECTED;
@@ -122,6 +122,9 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         return packet;
 
     case MOBILE_COMMAND_END_SESSION:
+        // Errors:
+        // 2 - Still connected/failed to disconnect(?)
+
         // TODO: What happens if the packet has a body? Probably nothing.
         for (unsigned i = 0; i < MOBILE_MAX_CONNECTIONS; i++) {
             if (s->connections[i]) mobile_board_tcp_disconnect(_u, i);
@@ -132,13 +135,22 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
         // Errors:
-        // 0 - (from crystal) Telephone line is busy
-        // 1 - NEWERR: Invalid contents
-        // 2 - (from crystal) Communication error
-        // 3 - Phone is not connected
+        // 0 - Telephone line is busy
+        // 1 - Invalid use (already connected)
+        // 2 - Invalid contents (first byte isn't correct)
+        // 3 - Communication failed/phone is not connected
+        // 4 - Call not established, redial
+
+        // TODO: Max length: 0x1f
+        // TODO: Acceptable characters: 0-9, # and *. Unacceptable characters are ignored.
+        // TODO: First byte must be:
+        //       0 for blue adapter
+        //       1 for green or red adapter
+        //       2 for yellow adapter
+        //       might be 9 for some as well?
 
         if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
-            return error_packet(packet, 2);  // UNKERR
+            return error_packet(packet, 1);
         }
 
         if (s->connections[0]) {
@@ -165,7 +177,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         if (packet->length == 3 * 4 + 1) {
             unsigned char address[4];
             if (!parse_address(address, (char *)packet->data + 1)) {
-                return error_packet(packet, 1);  // NEWERR
+                return error_packet(packet, 2);
             }
             if (mobile_board_tcp_connect(_u, 0, address,
                     adapter->config.p2p_port)) {
@@ -183,6 +195,9 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         return error_packet(packet, 3);
 
     case MOBILE_COMMAND_HANG_UP_TELEPHONE:
+        // Errors:
+        // 0 - ???
+        // 1 - Generic phone error
         // TODO: Actually implement
         //return error_packet(packet, 0);  // UNKERR
         // TODO: What happens if the packet has a body? Probably nothing.
@@ -196,14 +211,16 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
 
     case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
         // Errors:
-        // 0 - Phone is not connected / No call received
+        // 0 - No call received/phone not connected
         // 1 - ???
-        // 2 - NEWERR: Invalid use (already connecting/connected)
+        // 2 - ???
+        // 3 - Unrecoverable error
 
         // TODO: What happens if the packet has a body? Probably nothing.
 
         if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
-            return error_packet(packet, 2);  // NEWERR
+            packet->length = 0;
+            return packet;
         }
 
         if (!s->connections[0]) {
@@ -224,7 +241,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
 
     case MOBILE_COMMAND_TRANSFER_DATA:
         // Errors:
-        // 0 - ???
+        // 0 - Communication error
         // 1 - Invalid use (Call was ended/never made)
         // 2 - UNKERR: Invalid contents
 
@@ -275,8 +292,9 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             case MOBILE_CONNECTION_INTERNET: packet->data[0] = 5; break;
         }
         switch (adapter->config.device) {
-            default:  // TODO: What are the others?
+            default:
             case MOBILE_ADAPTER_BLUE: packet->data[1] = 0x4D; break;
+            case MOBILE_ADAPTER_RED:
             case MOBILE_ADAPTER_YELLOW: packet->data[1] = 0x48; break;
         }
         if (!adapter->config.unmetered) {
@@ -292,6 +310,9 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // 1 - UNKERR: Invalid contents
         // 2 - Invalid use (Tried to read outside of configuration area)
 
+        // TODO: Can't read chunks bigger than 0x80,
+        //       Can read up to address 0x100
+
         if (packet->length != 2) return error_packet(packet, 1);  // UNKERR
 
         {
@@ -300,8 +321,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             if (offset + size > MOBILE_CONFIG_SIZE) {
                 return error_packet(packet, 2);
             }
-            packet->length = size + 1;
-            packet->data[0] = 0;  // TODO: Check real adapter behavior?
+            packet->length = size + 1;  // Preserve offset byte
             if (size) {
                 if (!mobile_board_config_read(_u, packet->data + 1, offset,
                             size)) {
@@ -316,6 +336,8 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // 0 - NEWERR: Internal error (Failed to write config)
         // 1 - UNKERR: Invalid contents
         // 2 - Invalid use (Tried to write outside of configuration area)
+
+        // TODO: Returns offset and size written
 
         if (packet->length < 2) return error_packet(packet, 1);  // UNKERR
         if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_SIZE) {
@@ -443,8 +465,13 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
 
     case MOBILE_COMMAND_DNS_QUERY:
         // Errors:
-        // 0 - UNKERR: Not connected to the internet
-        // 1 - UNKERR: Query failed
+        // 0 - ???
+        // 1 - Invalid use (not connected)
+        // 2 - Invalid contents/lookup failed
+
+        // TODO: Parse IPv4 dot-notation string if string has only numbers and dots up to the first 0 byte.
+        //       If it can't be parsed return 255.255.255.255. If it's 0, return error 2.
+        // TODO: Limit the hostname to 0x1f bytes.
 
         if (s->state != MOBILE_CONNECTION_INTERNET) {
             return error_packet(packet, 0);  // UNKERR
