@@ -14,6 +14,7 @@ extern "C" {
 enum mobile_adapter_device {
     // The clients.
     MOBILE_ADAPTER_GAMEBOY,
+    MOBILE_ADAPTER_GAMEBOY_ADVANCE,
 
     // The adapters, this is what we're emulating.
     MOBILE_ADAPTER_BLUE = 8,

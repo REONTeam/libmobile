@@ -304,6 +304,12 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         }
         return packet;
 
+    case MOBILE_COMMAND_SIO32_MODE:
+        adapter->serial.mode_32bit =
+            packet->length >= 1 ? packet->data[0] : false;
+        packet->length = 0;
+        return packet;
+
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
         // Errors:
         // 0 - NEWERR: Internal error (Failed to read config)

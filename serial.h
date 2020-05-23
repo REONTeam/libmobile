@@ -28,17 +28,18 @@ enum mobile_serial_state {
 enum mobile_serial_error {
     MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND = 0xF0,
     MOBILE_SERIAL_ERROR_CHECKSUM,
+    MOBILE_SERIAL_ERROR_UNKNOWN  // Exists, no clue when returned.
 };
 
 struct mobile_adapter_serial {
     _Atomic enum mobile_serial_state state;
+    _Atomic bool mode_32bit;
+    bool mode_32bit_cur;
     unsigned current;
-    unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2];  // header, content, checksum
+    unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2 + 3];  // header, content, checksum + alignment to 4 bytes
     unsigned data_size;
     uint16_t checksum;
     enum mobile_serial_error error;
-    unsigned retries;
-    enum mobile_command last_command;
 };
 
 void mobile_serial_reset(struct mobile_adapter *adapter);

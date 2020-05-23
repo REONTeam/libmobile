@@ -14,20 +14,27 @@ static void packet_parse(struct mobile_packet *packet, const unsigned char *buff
     memcpy(packet->data, buffer + 4, packet->length);
 }
 
-static void packet_create(unsigned char *buffer, const struct mobile_packet *packet)
+static void packet_create(unsigned char *buffer, const struct mobile_packet *packet, bool mode_32bit)
 {
-    buffer[0] = packet->command ^ 0x80;
+    buffer[0] = packet->command | 0x80;
     buffer[1] = 0;
     buffer[2] = 0;
     buffer[3] = packet->length;
     memcpy(buffer + 4, packet->data, packet->length);
 
+    unsigned offset = packet->length + 4;
+
+    // Align the offset in 32bit mode
+    if (mode_32bit && offset % 4 != 0) {
+        offset += 4 - (offset % 4);
+    }
+
     uint16_t checksum = 0;
-    for (unsigned i = 0; i < packet->length + 4; i++) {
+    for (unsigned i = 0; i < offset; i++) {
         checksum += buffer[i];
     }
-    buffer[packet->length + 4] = (checksum >> 8) & 0xFF;
-    buffer[packet->length + 5] = checksum & 0xFF;
+    buffer[offset + 0] = (checksum >> 8) & 0xFF;
+    buffer[offset + 1] = checksum & 0xFF;
 }
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
@@ -71,14 +78,17 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
     case MOBILE_ACTION_PROCESS_PACKET:
         // Pretty much everything's in a wonky state if this isn't the case...
         if (adapter->serial.state != MOBILE_SERIAL_RESPONSE_WAITING) break;
+
         {
+            bool mode_32bit = adapter->serial.mode_32bit;
+
             struct mobile_packet packet;
             packet_parse(&packet, adapter->serial.buffer);
             mobile_board_debug_cmd(_u, 0, &packet);
 
             struct mobile_packet *send = mobile_packet_process(adapter, &packet);
             mobile_board_debug_cmd(_u, 1, send);
-            packet_create(adapter->serial.buffer, send);
+            packet_create(adapter->serial.buffer, send, mode_32bit);
 
             adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
         }

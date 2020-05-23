@@ -1,6 +1,8 @@
 // This file provides an example implementation of mobile_board_debug_cmd
 //   that you can conditionally compile.
 
+// TODO: On arduino, move the strings to progmem.
+
 static void dump_hex(const unsigned char *buf, const unsigned len)
 {
     for (unsigned i = 0; i < len; i += 0x10) {
@@ -116,6 +118,17 @@ void mobile_board_debug_cmd(
         }
         break;
 
+    case MOBILE_COMMAND_SIO32_MODE:
+        printf("Serial 32-bit mode");
+        if (!send) {
+            if (packet->length < 1) break;
+            printf(packet->data[0] != 0 ? ": On" : ": Off");
+            packet_end(packet, 1);
+        } else {
+            packet_end(packet, 0);
+        }
+        break;
+
     case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
         printf("Read configuration data");
         if (!send) {
@@ -127,7 +140,7 @@ void mobile_board_debug_cmd(
             packet_end(packet, 2);
         } else {
             if (packet->length < 1) break;
-            printf(" (unkn %02X)", packet->data[0]);
+            printf(" (offset: %02X)", packet->data[0]);
             dump_hex(packet->data + 1, packet->length - 1);
         }
         break;
