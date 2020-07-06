@@ -15,6 +15,6 @@
 //   https://docs.microsoft.com/en-us/windows/win32/sync/interlocked-variable-access
 //   reading and writing from these variables is already atomic.
 // So, _Atomic will not be used with MSVC, at least for now.
-#ifdef MSVC_VER
+#ifdef _MSC_VER
 #define _Atomic
 #endif
