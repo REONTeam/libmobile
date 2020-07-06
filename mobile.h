@@ -67,7 +67,6 @@ bool mobile_board_tcp_accept(void *user, unsigned conn);
 void mobile_board_tcp_disconnect(void *user, unsigned conn);
 bool mobile_board_tcp_send(void *user, unsigned conn, const void *data, const unsigned size);
 int mobile_board_tcp_receive(void *user, unsigned conn, void *data);
-bool mobile_board_dns_query(unsigned char *ip, const char *host, const unsigned char  *dns1, const unsigned char *dns2);
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);

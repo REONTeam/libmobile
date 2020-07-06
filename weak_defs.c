@@ -53,10 +53,5 @@ A_WEAK int mobile_board_tcp_receive(A_UNUSED void *user, A_UNUSED unsigned conn,
 {
     return -10;
 }
-A_WEAK bool mobile_board_dns_query(unsigned char *ip, A_UNUSED const char *host, A_UNUSED const unsigned char *dns1, A_UNUSED const unsigned char *dns2)
-{
-    memset(ip, 0, 4);
-    return true;
-}
 
 #endif

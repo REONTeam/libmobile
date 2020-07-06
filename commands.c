@@ -494,16 +494,12 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // TODO: Limit the hostname to 0x1f bytes.
 
         if (s->state != MOBILE_CONNECTION_INTERNET) {
-            return error_packet(packet, 0);  // UNKERR
+            return error_packet(packet, 1);  // UNKERR
         }
 
         {
-            char domain[MOBILE_MAX_DATA_SIZE + 1];
-            memcpy(domain, packet->data, packet->length);
-            domain[packet->length] = 0;
-            if (!mobile_board_dns_query(packet->data, domain, s->dns1, s->dns2)) {
-                return error_packet(packet, 1);  // UNKERR
-            }
+            // STUB
+            return error_packet(packet, 1);  // UNKERR
         }
         packet->length = 4;
         return packet;
