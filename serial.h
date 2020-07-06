@@ -2,12 +2,9 @@
 
 #include <stdint.h>
 
+#include "atomic.h"
 #include "commands.h"
 struct mobile_adapter;
-
-#ifdef __cplusplus
-#define _Atomic
-#endif
 
 enum mobile_serial_state {
     MOBILE_SERIAL_WAITING,

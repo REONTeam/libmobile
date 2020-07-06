@@ -1,11 +1,9 @@
 #pragma once
 
 #include <stdbool.h>
-struct mobile_adapter;
 
-#ifdef __cplusplus
-#define _Atomic
-#endif
+#include "atomic.h"
+struct mobile_adapter;
 
 #define MOBILE_CONFIG_SIZE 0xC0
 #define MOBILE_MAX_DATA_SIZE 0xFF
