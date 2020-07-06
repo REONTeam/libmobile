@@ -76,11 +76,10 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigne
     int recv_size = 0;
     if (s->state == MOBILE_CONNECTION_CALL) {
         // Call mode
-        data[0] = 0xFF;
-        if (!mobile_board_tcp_send(_u, conn, data + 1, *size - 1)) return false;
-        if (*size > 1) s->call_packets_sent++;
+        if (!mobile_board_tcp_send(_u, conn, data, *size)) return false;
+        if (*size > 0) s->call_packets_sent++;  // TODO: Does it just alternate?
         if (s->call_packets_sent) {
-            recv_size = mobile_board_tcp_receive(_u, conn, data + 1);
+            recv_size = mobile_board_tcp_receive(_u, conn, data);
             if (recv_size != 0) s->call_packets_sent--;
         } else {
             // Check if the connection is alive
@@ -88,14 +87,13 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigne
         }
     } else {
         // Internet mode
-        data[0] = conn;
-        if (!mobile_board_tcp_send(_u, conn, data + 1, *size - 1)) return false;
-        recv_size = mobile_board_tcp_receive(_u, conn, data + 1);
+        if (!mobile_board_tcp_send(_u, conn, data, *size)) return false;
+        recv_size = mobile_board_tcp_receive(_u, conn, data);
     }
     if (recv_size == -10) return true;  // Allow echoing the packet (weak_defs.c)
     if (recv_size < 0) return false;
 
-    *size = (unsigned)recv_size + 1;
+    *size = (unsigned)recv_size;
     return true;
 }
 
@@ -265,7 +263,11 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
                 return error_packet(packet, 1);
             }
 
-            if (!transfer_data(adapter, conn, packet->data, &packet->length)) {
+            unsigned char *data = packet->data + 1;
+            unsigned size = packet->length - 1;
+            if (transfer_data(adapter, conn, data, &size)) {
+                packet->length = size + 1;
+            } else {
                 mobile_board_tcp_disconnect(_u, conn);
                 s->connections[conn] = false;
                 if (s->state == MOBILE_CONNECTION_CALL) {
@@ -273,7 +275,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
                     return error_packet(packet, 1);
                 } else if (s->state == MOBILE_CONNECTION_INTERNET) {
                     packet->command = MOBILE_COMMAND_TRANSFER_DATA_END;
-                    packet->length = 0;
+                    packet->length = 1;
                 }
             }
         }
@@ -305,8 +307,20 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         return packet;
 
     case MOBILE_COMMAND_SIO32_MODE:
-        adapter->serial.mode_32bit =
-            packet->length >= 1 ? packet->data[0] : false;
+        // Errors:
+        // 2 - Invalid contents
+
+        if (packet->length < 1) {
+            // TODO: Packet length is seemingly never properly checked,
+            //       but that should be verified.
+            return error_packet(packet, 2);
+        }
+
+        if (packet->data[0] != 0 && packet->data[0] != 1) {
+            return error_packet(packet, 2);
+        }
+
+        adapter->serial.mode_32bit = packet->data[0] == 1;
         packet->length = 0;
         return packet;
 

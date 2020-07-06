@@ -158,7 +158,9 @@ void mobile_board_debug_cmd(
 
     case MOBILE_COMMAND_TRANSFER_DATA_END:
         printf("Transfer data end");
-        packet_end(packet, 0);
+        if (packet->length < 1) break;
+        printf(" (conn %u)", packet->data[0]);
+        packet_end(packet, 1);
         break;
 
     case MOBILE_COMMAND_ISP_LOGIN:
