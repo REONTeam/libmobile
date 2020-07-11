@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "mobile.h"
+#include "dns.h"
 
 // A bunch of details about the communication protocol are unknown,
 //   and would be necessary to complete this implementation properly:
@@ -79,16 +80,16 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigne
         if (!mobile_board_tcp_send(_u, conn, data, *size)) return false;
         if (*size > 0) s->call_packets_sent++;  // TODO: Does it just alternate?
         if (s->call_packets_sent) {
-            recv_size = mobile_board_tcp_receive(_u, conn, data);
+            recv_size = mobile_board_tcp_recv(_u, conn, data);
             if (recv_size != 0) s->call_packets_sent--;
         } else {
             // Check if the connection is alive
-            recv_size = mobile_board_tcp_receive(_u, conn, NULL);
+            recv_size = mobile_board_tcp_recv(_u, conn, NULL);
         }
     } else {
         // Internet mode
         if (!mobile_board_tcp_send(_u, conn, data, *size)) return false;
-        recv_size = mobile_board_tcp_receive(_u, conn, data);
+        recv_size = mobile_board_tcp_recv(_u, conn, data);
     }
     if (recv_size == -10) return true;  // Allow echoing the packet (weak_defs.c)
     if (recv_size < 0) return false;
@@ -504,14 +505,28 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
         // TODO: Limit the hostname to 0x1f bytes.
 
         if (s->state != MOBILE_CONNECTION_INTERNET) {
-            return error_packet(packet, 1);  // UNKERR
+            return error_packet(packet, 1);
         }
 
         {
-            // STUB
-            return error_packet(packet, 1);  // UNKERR
+            unsigned conn;
+            for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
+                if (!s->connections[conn]) break;
+            }
+            if (conn >= MOBILE_MAX_CONNECTIONS) {
+                return error_packet(packet, 2);
+            }
+
+            unsigned char ip[4];
+            s->connections[conn] = true;
+            if (!mobile_dns_query(adapter, conn, ip,
+                        (char *)packet->data, packet->length)) {
+                return error_packet(packet, 2);
+            }
+            s->connections[conn] = false;
+            memcpy(packet->data, ip, 4);
+            packet->length = 4;
         }
-        packet->length = 4;
         return packet;
 
     // TODO: Command 0x3F FIRMWARE_VERSION never returns anything and locks

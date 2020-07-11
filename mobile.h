@@ -10,6 +10,7 @@ extern "C" {
 
 #include "serial.h"
 #include "commands.h"
+#include "dns.h"
 
 enum mobile_adapter_device {
     // The clients.
@@ -41,7 +42,7 @@ struct mobile_adapter_config {
 };
 #define MOBILE_ADAPTER_CONFIG_DEFAULT (struct mobile_adapter_config){ \
     .device = MOBILE_ADAPTER_BLUE, \
-    .p2p_port = 2415, \
+    .p2p_port = 1027, \
     .unmetered = false \
 }
 
@@ -50,6 +51,7 @@ struct mobile_adapter {
     struct mobile_adapter_config config;
     struct mobile_adapter_serial serial;
     struct mobile_adapter_commands commands;
+    struct mobile_adapter_dns dns;
 };
 
 // Board-specific function prototypes (make sure these are defined elsewhere!)
@@ -66,7 +68,12 @@ bool mobile_board_tcp_listen(void *user, unsigned conn, const unsigned port);
 bool mobile_board_tcp_accept(void *user, unsigned conn);
 void mobile_board_tcp_disconnect(void *user, unsigned conn);
 bool mobile_board_tcp_send(void *user, unsigned conn, const void *data, const unsigned size);
-int mobile_board_tcp_receive(void *user, unsigned conn, void *data);
+int mobile_board_tcp_recv(void *user, unsigned conn, void *data);
+bool mobile_board_udp_open(void *user, unsigned conn, const unsigned port);
+bool mobile_board_udp_sendto(void *user, unsigned conn, const void *data, const unsigned size, const unsigned char *host, const unsigned port);
+int mobile_board_udp_recvfrom(void *user, unsigned conn, void *data, unsigned char *host, unsigned *port);
+void mobile_board_udp_close(void *user, unsigned conn);
+// TODO: Allow specifying the max receive size for the *recv functions
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
