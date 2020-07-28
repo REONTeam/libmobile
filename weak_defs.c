@@ -49,7 +49,7 @@ A_WEAK bool mobile_board_tcp_send(A_UNUSED void *user, A_UNUSED unsigned conn, A
 {
     return true;
 }
-A_WEAK int mobile_board_tcp_recv(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data)
+A_WEAK int mobile_board_tcp_recv(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data, A_UNUSED unsigned length)
 {
     return -10;
 }
@@ -61,7 +61,7 @@ A_WEAK bool mobile_board_udp_sendto(A_UNUSED void *user, A_UNUSED unsigned conn,
 {
     return true;
 }
-A_WEAK int mobile_board_udp_recvfrom(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data, A_UNUSED unsigned char *host, A_UNUSED unsigned *port)
+A_WEAK int mobile_board_udp_recvfrom(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data, A_UNUSED unsigned length, A_UNUSED unsigned char *host, A_UNUSED unsigned *port)
 {
     return -10;
 }

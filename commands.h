@@ -7,7 +7,6 @@ struct mobile_adapter;
 
 #define MOBILE_CONFIG_SIZE 0xC0
 #define MOBILE_MAX_DATA_SIZE 0xFF
-#define MOBILE_MAX_TCP_SIZE (MOBILE_MAX_DATA_SIZE - 1)
 
 #define MOBILE_MAX_CONNECTIONS 16
 

@@ -68,10 +68,10 @@ bool mobile_board_tcp_listen(void *user, unsigned conn, const unsigned port);
 bool mobile_board_tcp_accept(void *user, unsigned conn);
 void mobile_board_tcp_disconnect(void *user, unsigned conn);
 bool mobile_board_tcp_send(void *user, unsigned conn, const void *data, const unsigned size);
-int mobile_board_tcp_recv(void *user, unsigned conn, void *data);
+int mobile_board_tcp_recv(void *user, unsigned conn, void *data, unsigned length);
 bool mobile_board_udp_open(void *user, unsigned conn, const unsigned port);
 bool mobile_board_udp_sendto(void *user, unsigned conn, const void *data, const unsigned size, const unsigned char *host, const unsigned port);
-int mobile_board_udp_recvfrom(void *user, unsigned conn, void *data, unsigned char *host, unsigned *port);
+int mobile_board_udp_recvfrom(void *user, unsigned conn, void *data, unsigned length, unsigned char *host, unsigned *port);
 void mobile_board_udp_close(void *user, unsigned conn);
 // TODO: Allow specifying the max receive size for the *recv functions
 

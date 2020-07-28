@@ -198,7 +198,7 @@ bool mobile_dns_query(struct mobile_adapter *adapter, const unsigned conn, unsig
     unsigned recv_port;
     for (;;) {
         int resp_len = mobile_board_udp_recvfrom(_u, conn, s->buffer,
-                recv_ip, &recv_port);
+                MOBILE_DNS_PACKET_SIZE, recv_ip, &recv_port);
         if (resp_len <= 0) {
             continue;
         }

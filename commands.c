@@ -80,16 +80,16 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigne
         if (!mobile_board_tcp_send(_u, conn, data, *size)) return false;
         if (*size > 0) s->call_packets_sent++;  // TODO: Does it just alternate?
         if (s->call_packets_sent) {
-            recv_size = mobile_board_tcp_recv(_u, conn, data);
+            recv_size = mobile_board_tcp_recv(_u, conn, data, MOBILE_MAX_DATA_SIZE - 1);
             if (recv_size != 0) s->call_packets_sent--;
         } else {
             // Check if the connection is alive
-            recv_size = mobile_board_tcp_recv(_u, conn, NULL);
+            recv_size = mobile_board_tcp_recv(_u, conn, NULL, 0);
         }
     } else {
         // Internet mode
         if (!mobile_board_tcp_send(_u, conn, data, *size)) return false;
-        recv_size = mobile_board_tcp_recv(_u, conn, data);
+        recv_size = mobile_board_tcp_recv(_u, conn, data, MOBILE_MAX_DATA_SIZE - 1);
     }
     if (recv_size == -10) return true;  // Allow echoing the packet (weak_defs.c)
     if (recv_size < 0) return false;
