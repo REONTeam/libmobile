@@ -386,9 +386,8 @@ struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, st
         }
 
         // TODO: Maybe use connection to actually log in?
-        if (s->connections[0]) {
-            return error_packet(packet, 1);
-        }
+        // Make sure we aren't connected to an actual phone
+        if (s->connections[0]) return error_packet(packet, 1);
 
         // TODO: Actually implement?
         // TODO: Maximum username and password size: 0x20
@@ -428,6 +427,9 @@ struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, st
         }
 
         // TODO: Actually implement?
+        for (unsigned i = 0; i < MOBILE_MAX_CONNECTIONS; i++) {
+            if (s->connections[i]) mobile_board_tcp_disconnect(_u, i);
+        }
         s->state = MOBILE_CONNECTION_CALL;
         return packet;
 
