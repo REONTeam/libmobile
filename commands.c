@@ -98,7 +98,7 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigne
     return true;
 }
 
-struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, struct mobile_packet *packet)
+struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
@@ -134,7 +134,6 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             if (s->connections[i]) mobile_board_tcp_disconnect(_u, i);
         }
         s->session_begun = false;
-        s->state = MOBILE_CONNECTION_DISCONNECTED;
         return packet;
 
     case MOBILE_COMMAND_DIAL_TELEPHONE:
@@ -157,6 +156,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             return error_packet(packet, 1);
         }
 
+        // Close any connection created by "wait for telephone call"
         if (s->connections[0]) {
             mobile_board_tcp_disconnect(_u, 0);
             s->connections[0] = false;
@@ -304,11 +304,7 @@ struct mobile_packet *mobile_packet_process(struct mobile_adapter *adapter, stru
             case MOBILE_ADAPTER_RED:
             case MOBILE_ADAPTER_YELLOW: packet->data[1] = 0x48; break;
         }
-        if (!adapter->config.unmetered) {
-            packet->data[2] = 0x00;  // 0xF0 sigals Crystal to bypass time limits.
-        } else {
-            packet->data[2] = 0xF0;
-        }
+        packet->data[2] = adapter->config.unmetered ? 0xF0 : 0x00;
         return packet;
 
     case MOBILE_COMMAND_SIO32_MODE:

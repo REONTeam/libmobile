@@ -8,6 +8,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "limits.h"
 #include "serial.h"
 #include "commands.h"
 #include "dns.h"
@@ -26,16 +27,21 @@ enum mobile_adapter_device {
 
 enum mobile_action {
     MOBILE_ACTION_NONE,
-    MOBILE_ACTION_PROCESS_PACKET,
+    MOBILE_ACTION_PROCESS_COMMAND,
     MOBILE_ACTION_DROP_CONNECTION,
     MOBILE_ACTION_RESET_SERIAL
+};
+
+enum mobile_timers {
+    MOBILE_TIMER_SERIAL,
+    MOBILE_TIMER_COMMANDS
 };
 
 struct mobile_adapter_config {
     enum mobile_adapter_device device;
     unsigned p2p_port;
 
-    // Signals Pokémon Crystal (jap) that the connection isn't metered,
+    // Signals Pokémon Crystal (jp) that the connection isn't metered,
     //   removing the time limit in mobile battles.
     // We have no idea of the effects of this in other games.
     bool unmetered;
@@ -58,27 +64,26 @@ struct mobile_adapter {
 // TODO: Actually document these functions, with expectations and assumptions.
 void mobile_board_serial_disable(void *user);
 void mobile_board_serial_enable(void *user);
-void mobile_board_debug_cmd(void *user, const int send, const struct mobile_packet *packet);
-bool mobile_board_config_read(void *user, void *dest, const uintptr_t offset, const size_t size);
-bool mobile_board_config_write(void *user, const void *src, const uintptr_t offset, const size_t size);
-void mobile_board_time_latch(void *user);
-bool mobile_board_time_check_ms(void *user, const unsigned ms);
-bool mobile_board_tcp_connect(void *user, unsigned conn, const unsigned char *host, const unsigned port);
-bool mobile_board_tcp_listen(void *user, unsigned conn, const unsigned port);
+void mobile_board_debug_cmd(void *user, int send, const struct mobile_packet *packet);
+bool mobile_board_config_read(void *user, void *dest, uintptr_t offset, size_t size);
+bool mobile_board_config_write(void *user, const void *src, uintptr_t offset, size_t size);
+void mobile_board_time_latch(void *user, enum mobile_timers timer);
+bool mobile_board_time_check_ms(void *user, enum mobile_timers timer, unsigned ms);
+bool mobile_board_tcp_connect(void *user, unsigned conn, const unsigned char *host, unsigned port);
+bool mobile_board_tcp_listen(void *user, unsigned conn, unsigned port);
 bool mobile_board_tcp_accept(void *user, unsigned conn);
 void mobile_board_tcp_disconnect(void *user, unsigned conn);
-bool mobile_board_tcp_send(void *user, unsigned conn, const void *data, const unsigned size);
+bool mobile_board_tcp_send(void *user, unsigned conn, const void *data, unsigned size);
 int mobile_board_tcp_recv(void *user, unsigned conn, void *data, unsigned length);
 bool mobile_board_udp_open(void *user, unsigned conn, const unsigned port);
-bool mobile_board_udp_sendto(void *user, unsigned conn, const void *data, const unsigned size, const unsigned char *host, const unsigned port);
+bool mobile_board_udp_sendto(void *user, unsigned conn, const void *data, unsigned size, const unsigned char *host, unsigned port);
 int mobile_board_udp_recvfrom(void *user, unsigned conn, void *data, unsigned length, unsigned char *host, unsigned *port);
 void mobile_board_udp_close(void *user, unsigned conn);
-// TODO: Allow specifying the max receive size for the *recv functions
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
 void mobile_loop(struct mobile_adapter *adapter);
-void mobile_init(struct mobile_adapter *adapter, void *user, struct mobile_adapter_config *config);
+void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile_adapter_config *config);
 
 #ifdef __cplusplus
 }

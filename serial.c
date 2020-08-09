@@ -14,7 +14,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
 {
     struct mobile_adapter_serial *s = &adapter->serial;
 
-    mobile_board_time_latch(adapter->user);
+    mobile_board_time_latch(adapter->user, MOBILE_TIMER_SERIAL);
 
     // TODO: Set F0 in the acknowledgement byte if the command is unknown
     // Valid commands are:
@@ -54,7 +54,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
                 s->data_size += 4 - (s->data_size % 4);
             }
 
-            // Data size is a u16, but it may not be bigger than 0xff...
+            // Data size is a u16be, but it may not be bigger than 0xff...
             if (s->buffer[2] != 0) {
                 s->current = 0;
                 s->state = MOBILE_SERIAL_WAITING;
