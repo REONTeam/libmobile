@@ -78,7 +78,7 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigne
     if (s->state == MOBILE_CONNECTION_CALL) {
         // Call mode
         if (!mobile_board_tcp_send(_u, conn, data, *size)) return false;
-        if (*size > 0) s->call_packets_sent++;  // TODO: Does it just alternate?
+        if (*size > 0) s->call_packets_sent++;
         if (s->call_packets_sent) {
             recv_size = mobile_board_tcp_recv(_u, conn, data, MOBILE_MAX_DATA_SIZE - 1);
             if (recv_size != 0) s->call_packets_sent--;
@@ -276,8 +276,9 @@ struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, st
                 mobile_board_tcp_disconnect(_u, conn);
                 s->connections[conn] = false;
                 if (s->state == MOBILE_CONNECTION_CALL) {
-                    s->state = MOBILE_CONNECTION_DISCONNECTED;
-                    return error_packet(packet, 1);
+                    //s->state = MOBILE_CONNECTION_DISCONNECTED;
+                    //return error_packet(packet, 1);
+                    // TODO: How do we detect a connection drop vs a disconnect?
                 } else if (s->state == MOBILE_CONNECTION_INTERNET) {
                     packet->command = MOBILE_COMMAND_TRANSFER_DATA_END;
                     packet->length = 1;
