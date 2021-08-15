@@ -181,24 +181,30 @@ bool mobile_dns_query(struct mobile_adapter *adapter, const unsigned conn, unsig
     struct mobile_adapter_dns *s = &adapter->dns;
     void *_u = adapter->user;
 
-    unsigned char *dns_ip = adapter->commands.dns1;
-
     if (!dns_make_name(s, host, host_len)) return false;
     if (!dns_make_query(s, DNS_QTYPE_A)) return false;
 
-    if (!mobile_board_udp_open(_u, conn, 0)) return false;
-
-    if (!mobile_board_udp_sendto(_u, conn, s->buffer, s->buffer_len,
-                dns_ip, DNS_PORT)) {
-        mobile_board_udp_close(_u, conn);
+    if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_UDP,
+            MOBILE_ADDRTYPE_IPV4, 0)) {
         return false;
     }
 
-    unsigned char recv_ip[4];
-    unsigned recv_port;
+    struct mobile_addr4 addr_send = {
+        .type = MOBILE_ADDRTYPE_IPV4,
+        .port = DNS_PORT,
+    };
+    memcpy(&addr_send.host, adapter->commands.dns1, sizeof(addr_send.host));
+
+    if (!mobile_board_sock_send(_u, conn, s->buffer, s->buffer_len,
+            (struct mobile_addr *)&addr_send)) {
+        mobile_board_sock_close(_u, conn);
+        return false;
+    }
+
+    struct mobile_addr addr_recv = {0};
     for (;;) {
-        int resp_len = mobile_board_udp_recvfrom(_u, conn, s->buffer,
-                MOBILE_DNS_PACKET_SIZE, recv_ip, &recv_port);
+        int resp_len = mobile_board_sock_recv(_u, conn, s->buffer,
+                MOBILE_DNS_PACKET_SIZE, &addr_recv);
         if (resp_len <= 0) {
             continue;
         }
@@ -208,7 +214,7 @@ bool mobile_dns_query(struct mobile_adapter *adapter, const unsigned conn, unsig
         break;
     }
 
-    mobile_board_udp_close(_u, conn);
+    mobile_board_sock_close(_u, conn);
 
     unsigned offset;
     int ancount = dns_verify_response(s, &offset);

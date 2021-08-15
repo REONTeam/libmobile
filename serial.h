@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#include "atomic.h"
+#include "compat.h"
 #include "commands.h"
 struct mobile_adapter;
 
@@ -25,7 +25,13 @@ enum mobile_serial_state {
 enum mobile_serial_error {
     MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND = 0xF0,
     MOBILE_SERIAL_ERROR_CHECKSUM,
-    MOBILE_SERIAL_ERROR_UNKNOWN  // Exists, no clue when returned.
+
+    // Returned when:
+    // - Transfer buffer is full and the transfer command is used
+    // - Current command was canceled before sending a reply due to a serial
+    //    timeout bigger than the command's timeout (>2s), but the device
+    //    wasn't reset yet (>3s).
+    MOBILE_SERIAL_ERROR_INTERNAL
 };
 
 struct mobile_adapter_serial {

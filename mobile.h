@@ -1,5 +1,8 @@
 #pragma once
 
+// Public interface for libmobile
+// Any other header should be considered private.
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,6 +40,36 @@ enum mobile_timers {
     MOBILE_TIMER_COMMANDS
 };
 
+enum mobile_socktype {
+    MOBILE_SOCKTYPE_TCP,
+    MOBILE_SOCKTYPE_UDP
+};
+
+enum mobile_addrtype {
+    MOBILE_ADDRTYPE_IPV4,
+    MOBILE_ADDRTYPE_IPV6
+};
+
+struct mobile_addr4 {
+    enum mobile_addrtype type;
+    unsigned port;
+    unsigned char host[4];
+};
+
+struct mobile_addr6 {
+    enum mobile_addrtype type;
+    unsigned port;
+    unsigned char host[16];
+};
+
+struct mobile_addr {
+    union {
+        enum mobile_addrtype type;
+        struct mobile_addr4 _addr4;
+        struct mobile_addr6 _addr6;
+    };
+};
+
 struct mobile_adapter_config {
     enum mobile_adapter_device device;
     unsigned p2p_port;
@@ -69,16 +102,13 @@ bool mobile_board_config_read(void *user, void *dest, uintptr_t offset, size_t s
 bool mobile_board_config_write(void *user, const void *src, uintptr_t offset, size_t size);
 void mobile_board_time_latch(void *user, enum mobile_timers timer);
 bool mobile_board_time_check_ms(void *user, enum mobile_timers timer, unsigned ms);
-bool mobile_board_tcp_connect(void *user, unsigned conn, const unsigned char *host, unsigned port);
-bool mobile_board_tcp_listen(void *user, unsigned conn, unsigned port);
-bool mobile_board_tcp_accept(void *user, unsigned conn);
-void mobile_board_tcp_disconnect(void *user, unsigned conn);
-bool mobile_board_tcp_send(void *user, unsigned conn, const void *data, unsigned size);
-int mobile_board_tcp_recv(void *user, unsigned conn, void *data, unsigned length);
-bool mobile_board_udp_open(void *user, unsigned conn, const unsigned port);
-bool mobile_board_udp_sendto(void *user, unsigned conn, const void *data, unsigned size, const unsigned char *host, unsigned port);
-int mobile_board_udp_recvfrom(void *user, unsigned conn, void *data, unsigned length, unsigned char *host, unsigned *port);
-void mobile_board_udp_close(void *user, unsigned conn);
+bool mobile_board_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
+void mobile_board_sock_close(void *user, unsigned conn);
+bool mobile_board_sock_connect(void *user, unsigned conn, const struct mobile_addr *addr);
+bool mobile_board_sock_listen(void *user, unsigned conn);
+bool mobile_board_sock_accept(void *user, unsigned conn);
+bool mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
+int mobile_board_sock_recv(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);

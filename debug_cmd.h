@@ -72,7 +72,7 @@ void mobile_board_debug_cmd(
                 packet_end(packet, 0);
                 break;
             }
-            printf(" (unkn %02X): ", packet->data[0]);
+            printf(" (prot %d): ", packet->data[0]);
             for (unsigned i = 0; i < packet->length; i++) {
                 printf("%c", packet->data[i]);
             }
@@ -192,14 +192,18 @@ void mobile_board_debug_cmd(
             data += 8;
             packet_end(packet, data - packet->data);
         } else {
-            if (packet->length < 4) {
+            if (packet->length < 4 * 3) {
                 packet_end(packet, 0);
                 break;
             }
-            printf(" (ip: %u.%u.%u.%u)",
+            printf(" (ip: %u.%u.%u.%u; dns1: %u.%u.%u.%u; dns2: %u.%u.%u.%u)",
                     packet->data[0], packet->data[1],
-                    packet->data[2], packet->data[3]);
-            packet_end(packet, 4);
+                    packet->data[2], packet->data[3],
+                    packet->data[4], packet->data[5],
+                    packet->data[6], packet->data[7],
+                    packet->data[8], packet->data[9],
+                    packet->data[10], packet->data[11]);
+            packet_end(packet, 4 * 3);
         }
         break;
 

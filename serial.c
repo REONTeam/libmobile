@@ -99,12 +99,16 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             return 0;
         }
 
-        // The blue adapter doesn't check the device ID apparently.
+        // The blue adapter doesn't check the device ID apparently,
+        //   the other adapters don't check it in 32bit mode.
         if (adapter->config.device != MOBILE_ADAPTER_BLUE &&
+                !s->mode_32bit_cur &&
                 c != (MOBILE_ADAPTER_GAMEBOY | 0x80) &&
                 c != (MOBILE_ADAPTER_GAMEBOY_ADVANCE | 0x80)) {
             s->state = MOBILE_SERIAL_WAITING;
-            return 0xD2;  // TODO: What does it _actually_ return?
+            // Yellow/Red adapters are probably bugged to return the
+            //   device ID again.
+            break;
         }
 
         if (s->error) {
@@ -174,9 +178,9 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
         // If an error happened, retry.
         if (s->error == MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND ||
                 s->error == MOBILE_SERIAL_ERROR_CHECKSUM ||
-                s->error == MOBILE_SERIAL_ERROR_UNKNOWN) {
+                s->error == MOBILE_SERIAL_ERROR_INTERNAL) {
             s->state = MOBILE_SERIAL_RESPONSE_START;
-            return 0xD2;
+            break;
         }
         // Start over after this
         s->state = MOBILE_SERIAL_WAITING;

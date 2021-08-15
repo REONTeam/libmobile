@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "compat.h"
 #include "mobile.h"
 #include "commands.h"
 
@@ -11,9 +12,7 @@
 // Of course, this is a compiler-specific feature.
 // Right now, we only support GCC.
 
-#ifdef __GNUC__
-#define A_WEAK __attribute__((weak))
-#define A_UNUSED __attribute__((unused))
+#ifdef A_WEAK
 
 A_WEAK void mobile_board_serial_disable(A_UNUSED void *user) {}
 A_WEAK void mobile_board_serial_enable(A_UNUSED void *user) {}
@@ -32,39 +31,30 @@ A_WEAK bool mobile_board_time_check_ms(A_UNUSED void *user, A_UNUSED enum mobile
 {
     return false;
 }
-A_WEAK bool mobile_board_tcp_connect(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const unsigned char *host, A_UNUSED unsigned port)
+A_WEAK bool mobile_board_sock_open(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED enum mobile_socktype type, A_UNUSED enum mobile_addrtype addrtype, A_UNUSED unsigned bindport)
 {
     return true;
 }
-A_WEAK bool mobile_board_tcp_listen(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED unsigned port)
+A_WEAK void mobile_board_sock_close(A_UNUSED void *user, A_UNUSED unsigned conn) {}
+A_WEAK bool mobile_board_sock_connect(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const struct mobile_addr *addr)
 {
     return true;
 }
-A_WEAK bool mobile_board_tcp_accept(A_UNUSED void *user, A_UNUSED unsigned conn)
+A_WEAK bool mobile_board_sock_listen(A_UNUSED void *user, A_UNUSED unsigned conn)
 {
     return true;
 }
-A_WEAK void mobile_board_tcp_disconnect(A_UNUSED void *user, A_UNUSED unsigned conn) {}
-A_WEAK bool mobile_board_tcp_send(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const void *data, A_UNUSED unsigned size)
+A_WEAK bool mobile_board_sock_accept(A_UNUSED void *user, A_UNUSED unsigned conn) 
 {
     return true;
 }
-A_WEAK int mobile_board_tcp_recv(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data, A_UNUSED unsigned length)
+A_WEAK bool mobile_board_sock_send(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const void *data, A_UNUSED unsigned size, A_UNUSED const struct mobile_addr *addr) 
+{
+    return true;
+}
+A_WEAK int mobile_board_sock_recv(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data, A_UNUSED unsigned size, A_UNUSED struct mobile_addr *addr)
 {
     return -10;
 }
-A_WEAK bool mobile_board_udp_open(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED unsigned port)
-{
-    return true;
-}
-A_WEAK bool mobile_board_udp_sendto(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const void *data, A_UNUSED unsigned size, A_UNUSED const unsigned char *host, A_UNUSED unsigned port)
-{
-    return true;
-}
-A_WEAK int mobile_board_udp_recvfrom(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data, A_UNUSED unsigned length, A_UNUSED unsigned char *host, A_UNUSED unsigned *port)
-{
-    return -10;
-}
-A_WEAK void mobile_board_udp_close(A_UNUSED void *user, A_UNUSED unsigned conn) {}
 
 #endif
