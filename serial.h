@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#include "compat.h"
+#include "atomic.h"
 #include "commands.h"
 struct mobile_adapter;
 
@@ -47,3 +47,5 @@ struct mobile_adapter_serial {
 
 void mobile_serial_reset(struct mobile_adapter *adapter);
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
+
+#undef _Atomic  // "atomic.h"

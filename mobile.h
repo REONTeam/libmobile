@@ -25,29 +25,31 @@ enum mobile_adapter_device {
     MOBILE_ADAPTER_BLUE = 8,
     MOBILE_ADAPTER_YELLOW,
     MOBILE_ADAPTER_GREEN,
-    MOBILE_ADAPTER_RED
+    MOBILE_ADAPTER_RED,
 };
 
 enum mobile_action {
     MOBILE_ACTION_NONE,
     MOBILE_ACTION_PROCESS_COMMAND,
     MOBILE_ACTION_DROP_CONNECTION,
-    MOBILE_ACTION_RESET_SERIAL
+    MOBILE_ACTION_RESET_SERIAL,
 };
 
 enum mobile_timers {
     MOBILE_TIMER_SERIAL,
-    MOBILE_TIMER_COMMANDS
+    MOBILE_TIMER_COMMANDS,
+    MOBILE_TIMER_RESERVED3,
+    MOBILE_TIMER_RESERVED4,
 };
 
 enum mobile_socktype {
     MOBILE_SOCKTYPE_TCP,
-    MOBILE_SOCKTYPE_UDP
+    MOBILE_SOCKTYPE_UDP,
 };
 
 enum mobile_addrtype {
     MOBILE_ADDRTYPE_IPV4,
-    MOBILE_ADDRTYPE_IPV6
+    MOBILE_ADDRTYPE_IPV6,
 };
 
 struct mobile_addr4 {
@@ -104,7 +106,7 @@ void mobile_board_time_latch(void *user, enum mobile_timers timer);
 bool mobile_board_time_check_ms(void *user, enum mobile_timers timer, unsigned ms);
 bool mobile_board_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
 void mobile_board_sock_close(void *user, unsigned conn);
-bool mobile_board_sock_connect(void *user, unsigned conn, const struct mobile_addr *addr);
+int mobile_board_sock_connect(void *user, unsigned conn, const struct mobile_addr *addr);
 bool mobile_board_sock_listen(void *user, unsigned conn);
 bool mobile_board_sock_accept(void *user, unsigned conn);
 bool mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);

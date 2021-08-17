@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-#include "compat.h"
+#include "atomic.h"
 #include "limits.h"
 struct mobile_adapter;
 
@@ -29,13 +29,13 @@ enum mobile_command {
     MOBILE_COMMAND_CLOSE_UDP_CONNECTION,
     MOBILE_COMMAND_DNS_QUERY = 0x28,
     MOBILE_COMMAND_FIRMWARE_VERSION = 0x3F,
-    MOBILE_COMMAND_ERROR = 0x6E
+    MOBILE_COMMAND_ERROR = 0x6E,
 };
 
 enum mobile_connection_state {
     MOBILE_CONNECTION_DISCONNECTED,
     MOBILE_CONNECTION_CALL,
-    MOBILE_CONNECTION_INTERNET
+    MOBILE_CONNECTION_INTERNET,
 };
 
 struct mobile_packet {
@@ -46,10 +46,13 @@ struct mobile_packet {
 
 struct mobile_adapter_commands {
     _Atomic bool session_begun;
-    enum mobile_connection_state state;
-    unsigned processing;
     bool packet_parsed;
     struct mobile_packet packet;
+
+    unsigned processing;
+    unsigned char processing_data[4];
+
+    enum mobile_connection_state state;
     bool connections[MOBILE_MAX_CONNECTIONS];
     unsigned call_packets_sent;
     unsigned char dns1[4];
@@ -58,3 +61,5 @@ struct mobile_adapter_commands {
 
 void mobile_commands_reset(struct mobile_adapter *adapter);
 struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, struct mobile_packet *packet);
+
+#undef _Atomic  // "atomic.h"

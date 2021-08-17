@@ -36,9 +36,9 @@ A_WEAK bool mobile_board_sock_open(A_UNUSED void *user, A_UNUSED unsigned conn, 
     return true;
 }
 A_WEAK void mobile_board_sock_close(A_UNUSED void *user, A_UNUSED unsigned conn) {}
-A_WEAK bool mobile_board_sock_connect(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const struct mobile_addr *addr)
+A_WEAK int mobile_board_sock_connect(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const struct mobile_addr *addr)
 {
-    return true;
+    return 1;
 }
 A_WEAK bool mobile_board_sock_listen(A_UNUSED void *user, A_UNUSED unsigned conn)
 {
