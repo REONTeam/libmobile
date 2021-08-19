@@ -90,17 +90,17 @@ static int dns_compare_name(struct mobile_adapter_dns *state, unsigned *offset)
 
 static bool dns_make_query(struct mobile_adapter_dns *state, const enum dns_qtype type)
 {
-    state->id = rand() & 0xFFFF;
+    state->id += 1;
     state->type = type;
 
-    *(uint16_t *)state->buffer = state->id;
-    memcpy(state->buffer + 2, (unsigned char []){
+    memcpy(state->buffer, (unsigned char []){
+        (state->id >> 8) & 0xFF, (state->id >> 0) & 0xFF,
         0x01, 0x00,  // Flags: Standard query, Recursion Desired
         0, 1,  // Questions: 1
         0, 0,  // Answers: 0
         0, 0,  // Authority records: 0
         0, 0,  // Additional records: 0
-    }, DNS_HEADER_SIZE - 2);
+    }, DNS_HEADER_SIZE);
 
     memcpy(state->buffer + DNS_HEADER_SIZE, state->name, state->name_len);
     unsigned char *question = state->buffer + DNS_HEADER_SIZE + state->name_len;
@@ -116,7 +116,9 @@ static bool dns_make_query(struct mobile_adapter_dns *state, const enum dns_qtyp
 static int dns_verify_response(struct mobile_adapter_dns *state, unsigned *offset)
 {
     if (state->buffer_len < DNS_HEADER_SIZE) return -1;
-    if (*(uint16_t *)state->buffer != state->id) return -1;
+    if ((unsigned)(state->buffer[0] << 8 | state->buffer[1]) != state->id) {
+        return -1;
+    }
 
     // Make sure:
     // - We've got a response (bit 0) for a QUERY opcode (bits 1-4)
@@ -176,18 +178,19 @@ static int dns_get_answer(struct mobile_adapter_dns *state, unsigned *offset)
     return rdata;
 }
 
-bool mobile_dns_query(struct mobile_adapter *adapter, const unsigned conn, unsigned char *ip, const char *host, const unsigned host_len)
+void mobile_dns_init(struct mobile_adapter *adapter)
+{
+    struct mobile_adapter_dns *state = &adapter->dns;
+    state->id = 0;
+}
+
+bool mobile_dns_query_send(struct mobile_adapter *adapter, const unsigned conn, const char *host, const unsigned host_len)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
     void *_u = adapter->user;
 
     if (!dns_make_name(s, host, host_len)) return false;
     if (!dns_make_query(s, DNS_QTYPE_A)) return false;
-
-    if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_UDP,
-            MOBILE_ADDRTYPE_IPV4, 0)) {
-        return false;
-    }
 
     struct mobile_addr4 addr_send = {
         .type = MOBILE_ADDRTYPE_IPV4,
@@ -201,31 +204,47 @@ bool mobile_dns_query(struct mobile_adapter *adapter, const unsigned conn, unsig
         return false;
     }
 
-    struct mobile_addr addr_recv = {0};
-    for (;;) {
-        int resp_len = mobile_board_sock_recv(_u, conn, s->buffer,
-                MOBILE_DNS_PACKET_SIZE, &addr_recv);
-        if (resp_len <= 0) {
-            continue;
-        }
-        // TODO: Check sender
-        // TODO: Don't block or busy loop
-        s->buffer_len = resp_len;
-        break;
-    }
+    return true;
+}
 
-    mobile_board_sock_close(_u, conn);
+// Returns:
+// -1 - error
+// 0 - nothing received
+// 1 - success
+int mobile_dns_query_recv(struct mobile_adapter *adapter, const unsigned conn, unsigned char *ip)
+{
+    struct mobile_adapter_dns *s = &adapter->dns;
+    void *_u = adapter->user;
+
+    struct mobile_addr4 addr_send = {
+        .type = MOBILE_ADDRTYPE_IPV4,
+        .port = DNS_PORT,
+    };
+    memcpy(&addr_send.host, adapter->commands.dns1, sizeof(addr_send.host));
+
+    struct mobile_addr addr_recv = {0};
+    int recv = mobile_board_sock_recv(_u, conn, s->buffer,
+        MOBILE_DNS_PACKET_SIZE, &addr_recv);
+    if (recv <= 0) return recv;
+    s->buffer_len = recv;
+
+    // Verify sender, discard if incorrect
+    if (addr_send.type != addr_recv.type) return 0;
+    struct mobile_addr4 *addr_recv4 = (struct mobile_addr4 *)&addr_recv;
+    if (memcmp(&addr_send, addr_recv4, sizeof(struct mobile_addr4)) != 0) {
+        return 0;
+    }
 
     unsigned offset;
     int ancount = dns_verify_response(s, &offset);
-    if (ancount < 0) return 0;
+    if (ancount < 0) return -1;
 
     while (ancount--) {
         int anoffset = dns_get_answer(s, &offset);
         if (anoffset < -1) continue;
-        if (anoffset == -1) return false;
+        if (anoffset == -1) return -1;
         memcpy(ip, s->buffer + anoffset, 4);
         break;
     }
-    return true;
+    return 1;
 }

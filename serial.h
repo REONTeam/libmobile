@@ -45,7 +45,7 @@ struct mobile_adapter_serial {
     enum mobile_serial_error error;
 };
 
-void mobile_serial_reset(struct mobile_adapter *adapter);
+void mobile_serial_init(struct mobile_adapter *adapter);
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
 
 #undef _Atomic  // "atomic.h"

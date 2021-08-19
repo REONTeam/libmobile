@@ -120,7 +120,7 @@ static bool do_isp_logout(struct mobile_adapter *adapter)
 
     // Clean up internet connections if connected to the internet
     if (s->state != MOBILE_CONNECTION_INTERNET) return false;
-    for (unsigned conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
+    for (unsigned char conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
         if (s->connections[conn]) mobile_board_sock_close(_u, conn);
     }
     s->state = MOBILE_CONNECTION_CALL;
@@ -183,35 +183,6 @@ static struct mobile_packet *command_end_session(struct mobile_adapter *adapter,
     return packet;
 }
 
-static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
-{
-    struct mobile_adapter_commands *s = &adapter->commands;
-    void *_u = adapter->user;
-
-    // Convert the numerical phone "ip address" into a real ipv4 address
-    struct mobile_addr4 addr = {
-        .type = MOBILE_ADDRTYPE_IPV4,
-        .port = adapter->config.p2p_port,
-    };
-    if (!parse_phone_address(addr.host, (char *)packet->data + 1)) {
-        return error_packet(packet, 3);
-    }
-
-    // Check if we're connected until it either errors or succeeds
-    int rc = mobile_board_sock_connect(_u, p2p_conn, (struct mobile_addr *)&addr);
-    if (rc == 0) return NULL;  // Not connected, no error; try again
-    if (rc == -1) {
-        s->connections[p2p_conn] = false;
-        return error_packet(packet, 3);
-    }
-
-    s->state = MOBILE_CONNECTION_CALL;
-    s->call_packets_sent = 0;
-
-    packet->length = 0;
-    return packet;
-}
-
 static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -228,6 +199,9 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     //         parse this.
 
     if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
+        // TODO: There's a possibility the adapter allows calling a new number
+        //         whilst connected to the internet...
+        //       This disconnects it from the internet, of course.
         return error_packet(packet, 1);
     }
     if (packet->length < 1) return error_packet(packet, 2);
@@ -256,10 +230,39 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         }
         s->connections[p2p_conn] = true;
         s->processing = 1;  // command_dial_telephone_ip
-        return command_dial_telephone_ip(adapter, packet);
+        return NULL;
     }
 
     return error_packet(packet, 3);
+}
+
+static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    // Convert the numerical phone "ip address" into a real ipv4 address
+    struct mobile_addr4 addr = {
+        .type = MOBILE_ADDRTYPE_IPV4,
+        .port = adapter->config.p2p_port,
+    };
+    if (!parse_phone_address(addr.host, (char *)packet->data + 1)) {
+        return error_packet(packet, 3);
+    }
+
+    // Check if we're connected until it either errors or succeeds
+    int rc = mobile_board_sock_connect(_u, p2p_conn, (struct mobile_addr *)&addr);
+    if (rc == 0) return NULL;  // Not connected, no error; try again
+    if (rc == -1) {
+        s->connections[p2p_conn] = false;
+        return error_packet(packet, 3);
+    }
+
+    s->state = MOBILE_CONNECTION_CALL;
+    s->call_packets_sent = 0;
+
+    packet->length = 0;
+    return packet;
 }
 
 // Errors:
@@ -347,7 +350,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     }
     if (packet->length < 1) return error_packet(packet, 2);  // NEWERR
 
-    unsigned conn = packet->data[0];
+    unsigned char conn = packet->data[0];
 
     // P2P connections use ID 0xFF, but the adapter ignores this
     if (s->state == MOBILE_CONNECTION_CALL) {
@@ -553,6 +556,38 @@ static struct mobile_packet *command_isp_logout(struct mobile_adapter *adapter, 
     return packet;
 }
 
+static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    if (s->state != MOBILE_CONNECTION_INTERNET) {
+        return error_packet(packet, 1);
+    }
+    if (packet->length != 6) {
+        return error_packet(packet, 3);
+    }
+
+    // Find a free connection to use
+    unsigned char conn;
+    for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
+        if (!s->connections[conn]) break;
+    }
+    if (conn >= MOBILE_MAX_CONNECTIONS) {
+        return error_packet(packet, 0);
+    }
+
+    if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_TCP,
+            MOBILE_ADDRTYPE_IPV4, 0)) {
+        return error_packet(packet, 3);
+    }
+    s->connections[conn] = true;
+
+    s->processing_data[0] = conn;
+    s->processing = 1;  // command_open_tcp_connection_connecting
+    return NULL;
+}
+
 static struct mobile_packet *command_open_tcp_connection_connecting(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -578,40 +613,8 @@ static struct mobile_packet *command_open_tcp_connection_connecting(struct mobil
     return packet;
 }
 
-static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
-{
-    struct mobile_adapter_commands *s = &adapter->commands;
-    void *_u = adapter->user;
-
-    if (s->state != MOBILE_CONNECTION_INTERNET) {
-        return error_packet(packet, 1);
-    }
-    if (packet->length != 6) {
-        return error_packet(packet, 0);
-    }
-
-    // Find a free connection to use
-    unsigned char conn;
-    for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
-        if (!s->connections[conn]) break;
-    }
-    if (conn >= MOBILE_MAX_CONNECTIONS) {
-        return error_packet(packet, 0);
-    }
-
-    if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_TCP,
-            MOBILE_ADDRTYPE_IPV4, 0)) {
-        return error_packet(packet, 0);
-    }
-    s->connections[conn] = true;
-
-    s->processing_data[0] = conn;
-    s->processing = 1;  // command_open_tcp_connection_connecting
-    return command_open_tcp_connection_connecting(adapter, packet);
-}
-
 // Errors:
-// 0 - Unknown error (no idea when returned)
+// 0 - Too many connections
 // 1 - Invalid use (not in a call/logged in)
 // 3 - Connection failed
 static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -627,11 +630,11 @@ static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *
         // TODO: Verify this timeout with a game
         if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
             mobile_board_sock_close(_u, s->processing_data[0]);
-            return error_packet(packet, 0);
+            return error_packet(packet, 3);
         }
         return command_open_tcp_connection_connecting(adapter, packet);
     default:
-        return error_packet(packet, 0);
+        return error_packet(packet, 3);
     }
 }
 
@@ -651,7 +654,7 @@ static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter 
         return error_packet(packet, 0);
     }
 
-    unsigned conn = packet->data[0];
+    unsigned char conn = packet->data[0];
     if (conn >= MOBILE_MAX_CONNECTIONS || !s->connections[conn]) {
         return error_packet(packet, 0);  // UNKERR
     }
@@ -684,24 +687,24 @@ static struct mobile_packet *command_close_udp_connection(struct mobile_adapter 
     return error_packet(packet, 1);
 }
 
-// Errors:
-// 0 - ???
-// 1 - Invalid use (not connected)
-// 2 - Invalid contents/lookup failed
-static struct mobile_packet *command_dns_query(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
-
-    // TODO: Parse IPv4 dot-notation string if string has only numbers and dots up to the first 0 byte.
-    //       If it can't be parsed return 255.255.255.255. If it's 0, return error 2.
-    // TODO: Limit the hostname to 0x1f bytes.
+    void *_u = adapter->user;
 
     if (s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
     }
 
+    // TODO: Parse IPv4 dot-notation string if string has only numbers and
+    //         dots up to the first 0 byte.
+    //       If it can't be parsed return 255.255.255.255. If it's 0,
+    //         return error 2.
+    // TODO: Limit the hostname to 0x20 bytes.
+    //         EDIT: What was I smoking? There's no length check????
+
     // Find a free connection to use for the query
-    unsigned conn;
+    unsigned char conn;
     for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
         if (!s->connections[conn]) break;
     }
@@ -709,17 +712,62 @@ static struct mobile_packet *command_dns_query(struct mobile_adapter *adapter, s
         return error_packet(packet, 2);
     }
 
-    unsigned char ip[4];
-    s->connections[conn] = true;
-    if (!mobile_dns_query(adapter, conn, ip,
-                (char *)packet->data, packet->length)) {
+    if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_UDP,
+            MOBILE_ADDRTYPE_IPV4, 0)) {
         return error_packet(packet, 2);
     }
+    s->connections[conn] = true;
+
+    if (!mobile_dns_query_send(adapter, conn, (char *)packet->data,
+            packet->length)) {
+        return error_packet(packet, 2);
+    }
+
+    s->processing_data[0] = conn;
+    s->processing = 1;  // command_dns_query_check
+    return NULL;
+}
+
+static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    unsigned char conn = s->processing_data[0];
+
+    unsigned char ip[4];
+    int rc = mobile_dns_query_recv(adapter, conn, ip);
+    if (rc == 0) return NULL;
+    mobile_board_sock_close(_u, conn);
     s->connections[conn] = false;
+    if (rc == -1) return error_packet(packet, 2);
 
     memcpy(packet->data, ip, 4);
     packet->length = 4;
     return packet;
+}
+
+// Errors:
+// 1 - Invalid use (not connected)
+// 2 - Invalid contents/lookup failed
+static struct mobile_packet *command_dns_query(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    switch (s->processing) {
+    case 0:
+        mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
+        return command_dns_query_start(adapter, packet);
+    case 1:
+        if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 3000)) {
+            mobile_board_sock_close(_u, s->processing_data[0]);
+            return error_packet(packet, 2);
+        }
+        return command_dns_query_check(adapter, packet);
+    default:
+        return error_packet(packet, 2);
+    }
 }
 
 static struct mobile_packet *command_firmware_version(struct mobile_adapter *adapter, struct mobile_packet *packet)

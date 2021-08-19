@@ -15,4 +15,6 @@ struct mobile_adapter_dns {
     unsigned char buffer[MOBILE_DNS_PACKET_SIZE];
 };
 
-bool mobile_dns_query(struct mobile_adapter *adapter, const unsigned conn, unsigned char *ip, const char *host, const unsigned host_len);
+void mobile_dns_init(struct mobile_adapter *adapter);
+bool mobile_dns_query_send(struct mobile_adapter *adapter, const unsigned conn, const char *host, const unsigned host_len);
+int mobile_dns_query_recv(struct mobile_adapter *adapter, const unsigned conn, unsigned char *ip);

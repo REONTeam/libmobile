@@ -3,7 +3,7 @@
 #include "mobile.h"
 #include "commands.h"
 
-void mobile_serial_reset(struct mobile_adapter *adapter)
+void mobile_serial_init(struct mobile_adapter *adapter)
 {
     adapter->serial.state = MOBILE_SERIAL_WAITING;
     adapter->serial.mode_32bit = false;

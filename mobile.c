@@ -112,7 +112,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
     case MOBILE_ACTION_DROP_CONNECTION:
         mobile_board_serial_disable(_u);
-        mobile_serial_reset(adapter);
+        mobile_serial_init(adapter);
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
         mobile_board_serial_enable(_u);
 
@@ -178,6 +178,7 @@ void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile
     adapter->user = user;
     adapter->commands.session_begun = false;
     adapter->commands.packet_parsed = false;
-    mobile_serial_reset(adapter);
+    mobile_serial_init(adapter);
+    mobile_dns_init(adapter);
     mobile_board_serial_enable(user);
 }
