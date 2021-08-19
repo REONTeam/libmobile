@@ -74,7 +74,7 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 
     // If the adapter is stuck waiting, with no signal from the game,
     //   put it out of its misery.
-    // Timeout has been verified on hardware
+    // Timeout has been verified on hardware.
     if (adapter->commands.session_begun &&
             mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 3000)) {
         return MOBILE_ACTION_DROP_CONNECTION;

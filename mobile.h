@@ -37,7 +37,7 @@ enum mobile_action {
 
 enum mobile_timers {
     MOBILE_TIMER_SERIAL,
-    MOBILE_TIMER_COMMANDS,
+    MOBILE_TIMER_COMMAND,
     MOBILE_TIMER_RESERVED3,
     MOBILE_TIMER_RESERVED4,
 };
@@ -65,8 +65,11 @@ struct mobile_addr6 {
 };
 
 struct mobile_addr {
+    // Make sure it's big enough to hold all types
     union {
         enum mobile_addrtype type;
+
+        // Don't access these directly, cast instead.
         struct mobile_addr4 _addr4;
         struct mobile_addr6 _addr6;
     };

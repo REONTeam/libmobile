@@ -271,11 +271,17 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
 static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
 
     switch (s->processing) {
     case 0:
+        mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
         return command_dial_telephone_begin(adapter, packet);
     case 1:
+        if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
+            mobile_board_sock_close(_u, p2p_conn);
+            return error_packet(packet, 3);
+        }
         return command_dial_telephone_ip(adapter, packet);
     default:
         return error_packet(packet, 3);
@@ -605,17 +611,24 @@ static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_ada
 }
 
 // Errors:
-// 0 - Connection failed
+// 0 - Unknown error (no idea when returned)
 // 1 - Invalid use (not in a call/logged in)
-// 3 - Unknown error (no idea when returned)
+// 3 - Connection failed
 static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
 
     switch (s->processing) {
     case 0:
+        mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
         return command_open_tcp_connection_begin(adapter, packet);
     case 1:
+        // TODO: Verify this timeout with a game
+        if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
+            mobile_board_sock_close(_u, s->processing_data[0]);
+            return error_packet(packet, 0);
+        }
         return command_open_tcp_connection_connecting(adapter, packet);
     default:
         return error_packet(packet, 0);
@@ -652,7 +665,7 @@ static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter 
 // Errors:
 // 0 - Too many connections
 // 1 - Invalid use (not in a call/logged in)
-// 2 - Unknown error (no idea when returned)
+// 2 - Connection failed (though this is never returned)
 static struct mobile_packet *command_open_udp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     // TODO: Implement
