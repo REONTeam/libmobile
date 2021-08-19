@@ -64,7 +64,7 @@ static int dns_compare_name(struct mobile_adapter_dns *state, unsigned *offset)
             break;
         } else if ((*cmp & 0xC0) == 0xC0) {
             // RFC1035 Section 4.1.4. Message compression
-            if (cmp - state->buffer + 2 > state->buffer_len) return -1;
+            if (cmp - state->buffer + 2U > state->buffer_len) return -1;
             if (end < 0) end = cmp - state->buffer + 2;
 
             unsigned off = (cmp[0] & 0x3F) << 8 | cmp[1];
