@@ -7,29 +7,6 @@
 #include "mobile.h"
 #include "dns.h"
 
-// A bunch of details about the communication protocol are unknown,
-//   and would be necessary to complete this implementation properly:
-// - What is the effect of calling a number starting with a `#` sign?
-//     (Dan Docs mentions it always starts with this character, however, when
-//     calling someone with Pokémon Crystal, this character isn't included)
-//     It seems to only be included for the 4-digit number '#9677'.
-// - Under what circumstances is the line "busy"? Is it only when connecting,
-//     or when connected, and does the difference between 0x04 and 0x05 have
-//     anything to do with TCP vs Call?
-// - What happens when calling ISP logout without being logged in?
-//     What about hang up telephone and close tcp connection?
-// - Before beginning a session, what does the adapter respond when being sent
-//     a 99 66 99 66 10 ..., what about 99 66 17 99 66 10 ...?
-//     (I want to know at which point the adapter starts rejecting a packet
-//     that doesn't begin the session, when the session hasn't been begun)
-// - What happens when reading/writing configuration data with a size of 0?
-//     What if the requested address is outside of the config area?
-// - Does the session "end" when an error is returned from, for example,
-//     Dial Telephone? Try sending a session begin packet after such an error.
-// - How many connections can the adapter make at the same time?
-// - Is connection ID 0xFF reserved for calls or can it be returned?
-//     Is this ID ever even checked during a call?
-
 // UNKERR is used for errors of which we don't really know if they exist, and
 //   if so what error code they return, but have been implemented just in case.
 // NEWERR is used to indicate an error code that we made up ourselves to
