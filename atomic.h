@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 // This header helps with using C11 atomic in cases where it isn't (properly)
 //   supported. This header is separate from compat.h, to avoid clobbering the
 //   namespace of library users.

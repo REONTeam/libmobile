@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 // This file provides an example implementation of mobile_board_debug_cmd
 //   that you can conditionally compile.
 
