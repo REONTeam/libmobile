@@ -179,6 +179,7 @@ void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile
     adapter->user = user;
     adapter->commands.session_begun = false;
     adapter->commands.packet_parsed = false;
+    mobile_board_time_latch(user, MOBILE_TIMER_SERIAL);
     mobile_serial_init(adapter);
     mobile_dns_init(adapter);
     mobile_board_serial_enable(user);
