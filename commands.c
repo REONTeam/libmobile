@@ -71,18 +71,19 @@ static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigne
         if (*size > 0) s->call_packets_sent++;
         if (s->call_packets_sent) {
             recv_size = mobile_board_sock_recv(_u, conn, data,
-                MOBILE_MAX_DATA_SIZE - 1, NULL);
+                MOBILE_MAX_TRANSFER_SIZE, NULL);
             if (recv_size != 0) s->call_packets_sent--;
         } else {
             // Check if the connection is alive
             recv_size = mobile_board_sock_recv(_u, conn, NULL, 0, NULL);
+            if (recv_size >= 0) recv_size = 0;
         }
     } else {
         // Internet mode
         if (!mobile_board_sock_send(_u, conn, data, *size, NULL)) return false;
         // TODO: Wait up to 1s as long as nothing is received.
         recv_size = mobile_board_sock_recv(_u, conn, data,
-            MOBILE_MAX_DATA_SIZE - 1, NULL);
+            MOBILE_MAX_TRANSFER_SIZE, NULL);
     }
     if (recv_size == -10) return true;  // Allow echoing the packet (weak_defs.c)
     if (recv_size < 0) return false;
@@ -232,6 +233,7 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
     int rc = mobile_board_sock_connect(_u, p2p_conn, (struct mobile_addr *)&addr);
     if (rc == 0) return NULL;  // Not connected, no error; try again
     if (rc == -1) {
+        mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
         return error_packet(packet, 3);
     }
@@ -293,11 +295,12 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
     }
 
     if (!s->connections[p2p_conn]) {
-        if (!mobile_board_sock_open(_u, 0, MOBILE_SOCKTYPE_TCP,
+        if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
                 MOBILE_ADDRTYPE_IPV4, adapter->config.p2p_port)) {
             return error_packet(packet, 0);
         }
-        if (!mobile_board_sock_listen(_u, 0)) {
+        if (!mobile_board_sock_listen(_u, p2p_conn)) {
+            mobile_board_sock_close(_u, p2p_conn);
             return error_packet(packet, 0);
         }
         s->connections[p2p_conn] = true;
@@ -582,6 +585,7 @@ static struct mobile_packet *command_open_tcp_connection_connecting(struct mobil
     int rc = mobile_board_sock_connect(_u, conn, (struct mobile_addr *)&addr);
     if (rc == 0) return NULL;
     if (rc == -1) {
+        mobile_board_sock_close(_u, conn);
         s->connections[conn] = false;
         return error_packet(packet, 3);
     }
