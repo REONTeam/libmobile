@@ -239,7 +239,7 @@ void mobile_board_sock_close(void *user, unsigned conn);
 //
 // If the socket is a UDP socket, this function merely sets the default
 // recipient for any further mobile_board_sock_send() and
-// mobile_board_sock_recv() calls.
+// mobile_board_sock_recv() calls, discarding any other source addresses.
 //
 // Connecting a socket to an <addr> of a different type as the socket should
 // produce an error, libmobile shall never do this.
@@ -299,17 +299,17 @@ bool mobile_board_sock_accept(void *user, unsigned conn);
 // different type as the one the socket was opened with should produce an
 // error. Similarly, sending using a TCP socket that isn't connected should
 // produce an error as well. libmobile shall never do any of these things.
-// 
-// WARNING: This function currently *may* block, but will soon be repurposed to
-// be non-blocking.
 //
-// Returns: true if the data was sent, false on error
+// This function is non-blocking, and will be called repeatedly until all of
+// the data is sent, or a timeout triggers.
+//
+// Returns: non-negative amount of data sent on success, -1 on error
 // Parameters:
 // - conn: Socket number
 // - data: Data to be sent
 // - size: Size of data to be sent
 // - addr: Address to send to, if using a UDP socket
-bool mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
+int mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
 
 // mobile_board_sock_recv - Receive data from a socket
 //
@@ -326,13 +326,16 @@ bool mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigne
 // possible address.
 //
 // If the <data> parameter is NULL, this function must check if the connection
-// is still alive, and return 0 if it is, -1 if it isn't.
+// is still alive, and return 0 if it is, -2 if the remote has reset the TCP
+// connection/disconnected, and -1 if any other error occurred.
 //
 // If a TCP socket is being used and the <addr> parameter is not NULL, the
 // parameter may be ignored. Sending using a TCP socket that isn't connected
 // should produce an error. libmobile shall never do any of these things.
 //
-// Returns: the size of the data received on success, -1 on error
+// Returns: amount of data received on success,
+//          -1 on error,
+//          -2 on remote disconnect
 // Parameters:
 // - conn: Socket number
 // - data: Receive buffer

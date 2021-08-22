@@ -55,43 +55,6 @@ static bool parse_phone_address(unsigned char *address, char *data)
     return true;
 }
 
-static bool transfer_data(struct mobile_adapter *adapter, unsigned conn, unsigned char *data, unsigned *size)
-{
-    struct mobile_adapter_commands *s = &adapter->commands;
-    void *_u = adapter->user;
-
-    // Pokémon Crystal expects communications to be "synchronized".
-    // For this, we only try to receive packets when we've sent one.
-    // TODO: Check other games with peer to peer functionality.
-
-    int recv_size = 0;
-    if (s->state == MOBILE_CONNECTION_CALL) {
-        // Call mode
-        if (!mobile_board_sock_send(_u, conn, data, *size, NULL)) return false;
-        if (*size > 0) s->call_packets_sent++;
-        if (s->call_packets_sent) {
-            recv_size = mobile_board_sock_recv(_u, conn, data,
-                MOBILE_MAX_TRANSFER_SIZE, NULL);
-            if (recv_size != 0) s->call_packets_sent--;
-        } else {
-            // Check if the connection is alive
-            recv_size = mobile_board_sock_recv(_u, conn, NULL, 0, NULL);
-            if (recv_size >= 0) recv_size = 0;
-        }
-    } else {
-        // Internet mode
-        if (!mobile_board_sock_send(_u, conn, data, *size, NULL)) return false;
-        // TODO: Wait up to 1s as long as nothing is received.
-        recv_size = mobile_board_sock_recv(_u, conn, data,
-            MOBILE_MAX_TRANSFER_SIZE, NULL);
-    }
-    if (recv_size == -10) return true;  // Allow echoing the packet (weak_defs.c)
-    if (recv_size < 0) return false;
-
-    *size = (unsigned)recv_size;
-    return true;
-}
-
 static bool do_isp_logout(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -100,7 +63,10 @@ static bool do_isp_logout(struct mobile_adapter *adapter)
     // Clean up internet connections if connected to the internet
     if (s->state != MOBILE_CONNECTION_INTERNET) return false;
     for (unsigned char conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
-        if (s->connections[conn]) mobile_board_sock_close(_u, conn);
+        if (s->connections[conn]) {
+            mobile_board_sock_close(_u, conn);
+            s->connections[conn] = false;
+        }
     }
     s->state = MOBILE_CONNECTION_CALL;
     return true;
@@ -115,7 +81,10 @@ static bool do_hang_up_telephone(struct mobile_adapter *adapter)
 
     // Clean up p2p connections if in a call
     if (s->state != MOBILE_CONNECTION_CALL) return false;
-    if (s->connections[p2p_conn]) mobile_board_sock_close(_u, p2p_conn);
+    if (s->connections[p2p_conn]) {
+        mobile_board_sock_close(_u, p2p_conn);
+        s->connections[p2p_conn] = false;
+    }
     s->state = MOBILE_CONNECTION_DISCONNECTED;
     return true;
 }
@@ -263,6 +232,7 @@ static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapt
     case 1:
         if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
             mobile_board_sock_close(_u, p2p_conn);
+            s->connections[p2p_conn] = false;
             return error_packet(packet, 3);
         }
         return command_dial_telephone_ip(adapter, packet);
@@ -318,7 +288,7 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
 }
 
 // Errors:
-// 0 - Invalid connection (not connected)
+// 0 - Invalid connection (not connected)/communication failed
 // 1 - Invalid use (Call was ended/never made)
 // 2 - NEWERR: Invalid contents
 static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -334,39 +304,89 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     unsigned char conn = packet->data[0];
 
     // P2P connections use ID 0xFF, but the adapter ignores this
-    if (s->state == MOBILE_CONNECTION_CALL) {
-        //if (conn != 0xFF) return error_packet(packet, 2);  // NEWERR
-        conn = 0;
-    }
+    if (s->state == MOBILE_CONNECTION_CALL) conn = p2p_conn;
 
     if (conn >= MOBILE_MAX_CONNECTIONS || !s->connections[conn]) {
         return error_packet(packet, 1);
     }
 
+    if (s->processing == 0) {
+        s->processing_data[0] = 0;
+        mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
+        s->processing = 1;
+    }
+
+    unsigned sent_size = s->processing_data[0];
     unsigned char *data = packet->data + 1;
-    unsigned size = packet->length - 1;
-    if (transfer_data(adapter, conn, data, &size)) {
-        packet->length = size + 1;
-    } else {
-        mobile_board_sock_close(_u, conn);
-        s->connections[conn] = false;
-        if (s->state == MOBILE_CONNECTION_CALL) {
-            //s->state = MOBILE_CONNECTION_DISCONNECTED;
-            // TODO: How do we detect a connection drop vs a disconnect?
-            return error_packet(packet, 1);
-        } else if (s->state == MOBILE_CONNECTION_INTERNET) {
-            packet->command = MOBILE_COMMAND_TRANSFER_DATA_END;
-            packet->length = 1;
+    unsigned send_size = packet->length - 1;
+
+    if (send_size > sent_size) {
+        int rc = mobile_board_sock_send(_u, conn, data + sent_size,
+            send_size - sent_size, NULL);
+        if (rc < 0) return error_packet(packet, 0);
+        sent_size += rc;
+        s->processing_data[0] = sent_size;
+
+        // Attempt to send again while not everything has been sent
+        if (send_size > sent_size) {
+            // TODO: Verify the timeout with a game
+            if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 10000)) {
+                return error_packet(packet, 0);
+            }
+            return NULL;
         }
     }
 
+    // Pokémon Crystal expects communications to be "synchronized".
+    // For this, we only try to receive packets when we've sent one.
+    // TODO: Check other games with peer to peer functionality.
+    if (s->state == MOBILE_CONNECTION_CALL && send_size > 0) {
+        s->call_packets_sent++;
+    }
+
+    int recv_size = 0;
+    if (s->state != MOBILE_CONNECTION_CALL || s->call_packets_sent) {
+        recv_size = mobile_board_sock_recv(_u, conn, data,
+            MOBILE_MAX_TRANSFER_SIZE, NULL);
+    } else {
+        // Check if connection is alive
+        recv_size = mobile_board_sock_recv(_u, conn, NULL, 0, NULL);
+        if (recv_size >= 0) recv_size = 0;
+    }
+
+    if (s->state == MOBILE_CONNECTION_CALL && recv_size > 0) {
+        if (s->call_packets_sent) s->call_packets_sent--;
+    }
+
+    // If connected to the internet, and a disconnect is received, we should
+    // inform the game about this.
+    if (recv_size == -2 && s->state == MOBILE_CONNECTION_INTERNET) {
+        mobile_board_sock_close(_u, conn);
+        s->connections[conn] = false;
+        packet->command = MOBILE_COMMAND_TRANSFER_DATA_END;
+        packet->length = 1;
+        return packet;
+    }
+
+    // Allow echoing this packet
+    if (recv_size == -10) return packet;
+
+    // Any other errors should raise a proper error
+    if (recv_size < 0) return error_packet(packet, 0);
+
+    // If nothing was sent, try to receive for at least one second
+    if (!send_size && !recv_size &&
+            !mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 1000)) {
+        return NULL;
+    }
+
+    packet->length = recv_size + 1;
     return packet;
 }
 
 static struct mobile_packet *command_reset(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    // TODO: Command 0x16 RESET seems to do the same as END_SESSION, except
-    //         without a 500ms delay...
+    // TODO: Command 0x16 RESET is the same as end session + begin session.
     //       Probably unused by games, however.
     (void)adapter;
     return error_packet(packet, 1);
@@ -612,6 +632,7 @@ static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *
         // TODO: Verify this timeout with a game
         if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
             mobile_board_sock_close(_u, s->processing_data[0]);
+            s->connections[s->processing_data[0]] = false;
             return error_packet(packet, 3);
         }
         return command_open_tcp_connection_connecting(adapter, packet);
@@ -744,6 +765,7 @@ static struct mobile_packet *command_dns_query(struct mobile_adapter *adapter, s
     case 1:
         if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 3000)) {
             mobile_board_sock_close(_u, s->processing_data[0]);
+            s->connections[s->processing_data[0]] = false;
             return error_packet(packet, 2);
         }
         return command_dns_query_check(adapter, packet);
