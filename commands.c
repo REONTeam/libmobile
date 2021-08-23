@@ -105,6 +105,15 @@ static void do_end_session(struct mobile_adapter *adapter)
     s->session_begun = false;
 }
 
+static void do_begin_session(struct mobile_adapter *adapter)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+
+    s->session_begun = true;
+    s->state = MOBILE_CONNECTION_DISCONNECTED;
+    memset(s->connections, false, sizeof(s->connections));
+}
+
 void mobile_commands_reset(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -131,9 +140,7 @@ static struct mobile_packet *command_begin_session(struct mobile_adapter *adapte
         return error_packet(packet, 2);
     }
 
-    s->session_begun = true;
-    s->state = MOBILE_CONNECTION_DISCONNECTED;
-    memset(s->connections, false, sizeof(s->connections));
+    do_begin_session(adapter);
     return packet;
 }
 

@@ -40,6 +40,7 @@ enum mobile_serial_error {
 struct mobile_adapter_serial {
     _Atomic enum mobile_serial_state state;
     _Atomic bool mode_32bit;
+    _Atomic bool active;
     unsigned current;
     unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2 + 3];  // header, content, checksum + alignment to 4 bytes
     unsigned data_size;
@@ -48,6 +49,6 @@ struct mobile_adapter_serial {
 };
 
 void mobile_serial_init(struct mobile_adapter *adapter);
-unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
+unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned char c);
 
 #undef _Atomic  // "atomic.h"

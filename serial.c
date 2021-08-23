@@ -6,15 +6,14 @@
 void mobile_serial_init(struct mobile_adapter *adapter)
 {
     adapter->serial.state = MOBILE_SERIAL_WAITING;
-    adapter->serial.mode_32bit = false;
     adapter->serial.current = 0;
+    adapter->serial.mode_32bit = false;
+    adapter->serial.active = false;
 }
 
-unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
+unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned char c)
 {
     struct mobile_adapter_serial *s = &adapter->serial;
-
-    mobile_board_time_latch(adapter->user, MOBILE_TIMER_SERIAL);
 
     // TODO: Set F0 in the acknowledgement byte if the command is unknown
     // Valid commands are:
@@ -31,7 +30,6 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             s->current = 1;
         } else if (c == 0x66 && s->current == 1) {
             // Initialize transfer state
-            s->mode_32bit = adapter->commands.mode_32bit;
             s->data_size = 0;
             s->checksum = 0;
             s->error = 0;

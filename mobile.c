@@ -63,15 +63,17 @@ static bool command_handle(struct mobile_adapter *adapter)
     return false;
 }
 
+static void mode_32bit_change(struct mobile_adapter *adapter)
+{
+    adapter->serial.mode_32bit = adapter->commands.mode_32bit;
+    // TODO: Signal hardware to change?
+}
+
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 {
     void *_u = adapter->user;
 
-    // If the connection was interrupted mid-packet, drop it
-    if (adapter->serial.state != MOBILE_SERIAL_WAITING &&
-            mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 500)) {
-        return MOBILE_ACTION_DROP_CONNECTION;
-    }
+    enum mobile_serial_state serial_state = adapter->serial.state;
 
     // If the adapter is stuck waiting, with no signal from the game,
     //   put it out of its misery.
@@ -81,14 +83,28 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
         return MOBILE_ACTION_DROP_CONNECTION;
     }
 
+    // If the serial was active recently, but nothing has been obtained since,
+    //   reset it.
+    if (adapter->serial.active &&
+            !adapter->commands.session_begun &&
+            mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 3000)) {
+        return MOBILE_ACTION_RESET;
+    }
+
     // Process a packet if one is waiting
-    if (adapter->serial.state == MOBILE_SERIAL_RESPONSE_WAITING) {
+    if (serial_state == MOBILE_SERIAL_RESPONSE_WAITING) {
         return MOBILE_ACTION_PROCESS_COMMAND;
     }
 
-    // If no packet is being received, and no session has yet started,
-    //   reset the serial periodically, in an attempt to synchronize.
-    if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
+    // If the mode_32bit should be changed, change it.
+    if (serial_state == MOBILE_SERIAL_WAITING &&
+            adapter->commands.mode_32bit != adapter->serial.mode_32bit) {
+        return MOBILE_ACTION_CHANGE_32BIT_MODE;
+    }
+
+    // If nothing else is being triggered, reset the serial periodically,
+    //   in an attempt to synchronize.
+    if (!adapter->serial.active &&
             !adapter->commands.session_begun &&
             mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 500)) {
         return MOBILE_ACTION_RESET_SERIAL;
@@ -111,18 +127,36 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         }
         break;
 
+    case MOBILE_ACTION_CHANGE_32BIT_MODE:
+        mobile_board_serial_disable(_u);
+        mode_32bit_change(adapter);
+        mobile_board_serial_enable(_u);
+        break;
+
     case MOBILE_ACTION_DROP_CONNECTION:
         mobile_board_serial_disable(_u);
         mobile_serial_init(adapter);
+        // "Emulate" an end session.
+        mobile_commands_reset(adapter);
+        mode_32bit_change(adapter);
+        adapter->commands.packet_parsed = false;
+        adapter->serial.active = false;
         {
-            // "Emulate" an end session.
-            mobile_commands_reset(adapter);
             struct mobile_packet *packet = &adapter->commands.packet;
             packet->command = MOBILE_COMMAND_END_SESSION;
             packet->length = 0;
             mobile_board_debug_cmd(_u, 1, packet);
-            adapter->commands.packet_parsed = false;
         }
+        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
+        mobile_board_serial_enable(_u);
+        break;
+
+    case MOBILE_ACTION_RESET:
+        mobile_board_serial_disable(_u);
+        adapter->commands.mode_32bit = false;
+        mode_32bit_change(adapter);
+        adapter->commands.packet_parsed = false;
+        adapter->serial.active = false;
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
         mobile_board_serial_enable(_u);
         break;
@@ -140,6 +174,20 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
 void mobile_loop(struct mobile_adapter *adapter) {
     mobile_action_process(adapter, mobile_action_get(adapter));
+}
+
+unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
+    mobile_board_time_latch(adapter->user, MOBILE_TIMER_SERIAL);
+    adapter->serial.active = true;
+
+    // Nothing should be done while switching the mode_32bit
+    // This should be picked up by mobile_action_get/mobile_action_process
+    if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
+            adapter->commands.mode_32bit != adapter->serial.mode_32bit) {
+        return 0xD2;
+    }
+
+    return mobile_serial_transfer(adapter, c);
 }
 
 static void config_clear(void *user)

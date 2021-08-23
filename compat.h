@@ -6,7 +6,7 @@
 
 // Attribute packed
 #if defined(__GNUC__)
-#define A_PACKED(...) __attribute__((packed)) __VA_ARGS__
+#define A_PACKED(...) __VA_ARGS__ __attribute__((packed))
 #elif defined(_MSC_VER)
 #define A_PACKED(...) _Pragma(pack(push, 1)) __VA_ARGS__ _Pragma(pack(pop))
 #endif
