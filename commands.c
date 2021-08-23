@@ -407,12 +407,19 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     return packet;
 }
 
+// Errors:
+// 2 - Still connected/failed to disconnect(?)
 static struct mobile_packet *command_reset(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    // TODO: Command 0x16 RESET is the same as end session + begin session.
-    //       Probably unused by games, however.
-    (void)adapter;
-    return error_packet(packet, 1);
+    struct mobile_adapter_commands *s = &adapter->commands;
+
+    // Reset everything without ending the session
+    do_end_session(adapter);
+    do_begin_session(adapter);
+    s->mode_32bit = false;
+
+    packet->length = 0;
+    return packet;
 }
 
 static struct mobile_packet *command_telephone_status(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -853,5 +860,36 @@ struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, st
     default:
         // Nonexisting commands can't be used at any time
         return error_packet(packet, 1);
+    }
+}
+
+bool mobile_commands_exists(enum mobile_command command)
+{
+    // Used by serial.c:mobile_serial_transfer() to check if a command may be used
+
+    switch (command) {
+    case MOBILE_COMMAND_EMPTY:
+    case MOBILE_COMMAND_BEGIN_SESSION:
+    case MOBILE_COMMAND_END_SESSION:
+    case MOBILE_COMMAND_DIAL_TELEPHONE:
+    case MOBILE_COMMAND_HANG_UP_TELEPHONE:
+    case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
+    case MOBILE_COMMAND_TRANSFER_DATA:
+    case MOBILE_COMMAND_RESET:
+    case MOBILE_COMMAND_TELEPHONE_STATUS:
+    case MOBILE_COMMAND_SIO32_MODE:
+    case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
+    case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
+    case MOBILE_COMMAND_ISP_LOGIN:
+    case MOBILE_COMMAND_ISP_LOGOUT:
+    case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
+    case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
+    case MOBILE_COMMAND_OPEN_UDP_CONNECTION:
+    case MOBILE_COMMAND_CLOSE_UDP_CONNECTION:
+    case MOBILE_COMMAND_DNS_QUERY:
+    case MOBILE_COMMAND_FIRMWARE_VERSION:
+        return true;
+    default:
+        return false;
     }
 }

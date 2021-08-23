@@ -60,10 +60,16 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
             // If we haven't begun a session, this is as good as any place to
             //   stop parsing, as we shouldn't react to this.
+            // TODO: Re-verify this behavior on hardware.
             if (!adapter->commands.session_begun &&
                     s->buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
                 s->current = 0;
                 s->state = MOBILE_SERIAL_WAITING;
+            }
+
+            // If the command doesn't exist, set the error...
+            if (!mobile_commands_exists(s->buffer[0])) {
+                s->error = MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND;
             }
         } else if (s->current >= s->data_size + 4) {
             s->state = MOBILE_SERIAL_CHECKSUM;
@@ -92,7 +98,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         if (s->current > 0) {
             if (s->current++ == 2) {
                 s->current = 0;
-                s->state = MOBILE_SERIAL_RESPONSE_WAITING;
+                s->state = MOBILE_SERIAL_IDLE_CHECK;
             }
             return 0;
         }
@@ -105,27 +111,46 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
                 c != (MOBILE_ADAPTER_GAMEBOY_ADVANCE | 0x80)) {
             s->state = MOBILE_SERIAL_WAITING;
             // Yellow/Red adapters are probably bugged to return the
-            //   device ID again.
+            //   device ID again, instead of the idle byte.
             break;
-        }
-
-        if (s->error) {
-            s->state = MOBILE_SERIAL_WAITING;
-            return s->error;
         }
 
         if (s->mode_32bit) {
             // We need to add two extra 0 bytes to the transmission
             s->current++;
         } else {
-            s->state = MOBILE_SERIAL_RESPONSE_WAITING;
+            s->state = MOBILE_SERIAL_IDLE_CHECK;
         }
+        if (s->error) return s->error;
         return s->buffer[0] ^ 0x80;
+
+    case MOBILE_SERIAL_IDLE_CHECK:
+        // Delay one byte
+        if (s->current++ < 1) {
+            break;
+        }
+        s->current = 0;
+
+        // If an error was raised or the empty command was sent, reset here.
+        if (s->buffer[0] == MOBILE_COMMAND_EMPTY || s->error) {
+            s->state = MOBILE_SERIAL_WAITING;
+            if (c == 0x99) s->current = 1;
+            break;
+        }
+
+        // If an idle byte isn't received, reset here.
+        if (c != 0x4B) {
+            s->state = MOBILE_SERIAL_WAITING;
+            if (c == 0x99) s->current = 1;
+            break;
+        }
+
+        // Otherwise, start processing
+        s->state = MOBILE_SERIAL_RESPONSE_WAITING;
+        break;
 
     case MOBILE_SERIAL_RESPONSE_WAITING:
         // Wait while processing the received packet and crafting a response.
-        // TODO: Check for 0x4b, reset otherwise.
-        // TODO: Don't actually process the packet for command 0xf
         break;
 
     case MOBILE_SERIAL_RESPONSE_START:

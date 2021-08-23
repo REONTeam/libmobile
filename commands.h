@@ -11,7 +11,8 @@ struct mobile_adapter;
 #define MOBILE_MAX_DATA_SIZE 0xFF
 
 enum mobile_command {
-    MOBILE_COMMAND_BEGIN_SESSION = 0x10,
+    MOBILE_COMMAND_EMPTY = 0xF,
+    MOBILE_COMMAND_BEGIN_SESSION,
     MOBILE_COMMAND_END_SESSION,
     MOBILE_COMMAND_DIAL_TELEPHONE,
     MOBILE_COMMAND_HANG_UP_TELEPHONE,
@@ -66,5 +67,6 @@ struct mobile_adapter_commands {
 void mobile_commands_init(struct mobile_adapter *adapter);
 void mobile_commands_reset(struct mobile_adapter *adapter);
 struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, struct mobile_packet *packet);
+bool mobile_commands_exists(enum mobile_command command);
 
 #undef _Atomic  // "atomic.h"
