@@ -3,8 +3,9 @@
 
 #include <stdbool.h>
 
+#define MOBILE_INTERNAL
+#include "mobile.h"
 #include "atomic.h"
-#include "limits.h"
 struct mobile_adapter;
 
 #define MOBILE_MAX_DATA_SIZE 0xFF
@@ -47,6 +48,8 @@ struct mobile_packet {
 
 struct mobile_adapter_commands {
     _Atomic bool session_begun;
+    _Atomic bool mode_32bit;
+
     bool packet_parsed;
     struct mobile_packet packet;
 
@@ -60,6 +63,7 @@ struct mobile_adapter_commands {
     unsigned char dns2[4];
 };
 
+void mobile_commands_init(struct mobile_adapter *adapter);
 void mobile_commands_reset(struct mobile_adapter *adapter);
 struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, struct mobile_packet *packet);
 

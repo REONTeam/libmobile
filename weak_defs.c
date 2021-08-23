@@ -3,9 +3,10 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "compat.h"
 #include "mobile.h"
-#include "commands.h"
+#include "compat.h"
+struct mobile_adapter;
+struct mobile_packet;
 
 // This file contains weakly-linked definitions of the board-specific functions.
 // They're meant to provide a working default for implementations that haven't

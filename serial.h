@@ -2,10 +2,12 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "atomic.h"
-#include "commands.h"
 struct mobile_adapter;
+
+#define MOBILE_MAX_DATA_SIZE 0xFF
 
 enum mobile_serial_state {
     MOBILE_SERIAL_WAITING,
@@ -38,7 +40,6 @@ enum mobile_serial_error {
 struct mobile_adapter_serial {
     _Atomic enum mobile_serial_state state;
     _Atomic bool mode_32bit;
-    _Atomic bool mode_32bit_cur;
     unsigned current;
     unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2 + 3];  // header, content, checksum + alignment to 4 bytes
     unsigned data_size;

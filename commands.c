@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "commands.h"
 
-#include <stdbool.h>
 #include <string.h>
 
-#include "mobile.h"
-#include "dns.h"
+#include "data.h"
 
 // UNKERR is used for errors of which we don't really know if they exist, and
 //   if so what error code they return, but have been implemented just in case.
@@ -23,6 +21,13 @@ static const char *isp_numbers[] = {
     "0755311973",  // NINTENDO TEST
     NULL
 };
+
+void mobile_commands_init(struct mobile_adapter *adapter)
+{
+    adapter->commands.session_begun = false;
+    adapter->commands.packet_parsed = false;
+    adapter->commands.mode_32bit = false;
+}
 
 static struct mobile_packet *error_packet(struct mobile_packet *packet, const unsigned char error)
 {
@@ -89,6 +94,25 @@ static bool do_hang_up_telephone(struct mobile_adapter *adapter)
     return true;
 }
 
+static void do_end_session(struct mobile_adapter *adapter)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    // Clean up a possibly residual connection that wasn't established
+    if (s->connections[p2p_conn]) mobile_board_sock_close(_u, p2p_conn);
+
+    s->session_begun = false;
+}
+
+void mobile_commands_reset(struct mobile_adapter *adapter)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+
+    if (s->session_begun) do_end_session(adapter);
+    s->mode_32bit = false;
+}
+
 // Errors:
 // 1 - Invalid use (Already begun a session)
 // 2 - Invalid contents
@@ -117,15 +141,7 @@ static struct mobile_packet *command_begin_session(struct mobile_adapter *adapte
 // 2 - Still connected/failed to disconnect(?)
 static struct mobile_packet *command_end_session(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    struct mobile_adapter_commands *s = &adapter->commands;
-    void *_u = adapter->user;
-
-    do_hang_up_telephone(adapter);
-
-    // Clean up a possibly residual connection that wasn't established
-    if (s->connections[p2p_conn]) mobile_board_sock_close(_u, p2p_conn);
-
-    s->session_begun = false;
+    do_end_session(adapter);
 
     packet->length = 0;
     return packet;
@@ -427,6 +443,8 @@ static struct mobile_packet *command_telephone_status(struct mobile_adapter *ada
 // 2 - Invalid contents
 static struct mobile_packet *command_sio32_mode(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
+    struct mobile_adapter_commands *s = &adapter->commands;
+
     if (packet->length < 1) {
         return error_packet(packet, 2);
     }
@@ -434,7 +452,7 @@ static struct mobile_packet *command_sio32_mode(struct mobile_adapter *adapter, 
         return error_packet(packet, 2);
     }
 
-    adapter->serial.mode_32bit = packet->data[0] == 1;
+    s->mode_32bit = packet->data[0] == 1;
 
     packet->length = 0;
     return packet;

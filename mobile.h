@@ -13,10 +13,14 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "limits.h"
-#include "serial.h"
-#include "commands.h"
-#include "dns.h"
+struct mobile_adapter;  // data.h
+struct mobile_packet;  // commands.h
+
+// Limits any user of this library should abide by
+#define MOBILE_CONFIG_SIZE 0xC0
+#define MOBILE_MAX_CONNECTIONS 2
+#define MOBILE_MAX_TIMERS 4
+#define MOBILE_MAX_TRANSFER_SIZE 0xFE  // MOBILE_MAX_DATA_SIZE - 1
 
 enum mobile_adapter_device {
     // The clients.
@@ -93,13 +97,10 @@ struct mobile_adapter_config {
     .unmetered = false \
 }
 
-struct mobile_adapter {
-    void *user;
-    struct mobile_adapter_config config;
-    struct mobile_adapter_serial serial;
-    struct mobile_adapter_commands commands;
-    struct mobile_adapter_dns dns;
-};
+// Data in this header depends on the config/types above
+#ifndef MOBILE_INTERNAL
+#include "data.h"
+#endif
 
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 

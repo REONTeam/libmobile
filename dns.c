@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "dns.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "mobile.h"
+#include "data.h"
 
 // Implemented RFCs:
 // RFC1035 - DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION

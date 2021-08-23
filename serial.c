@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "serial.h"
 
-#include "mobile.h"
-#include "commands.h"
+#include "data.h"
 
 void mobile_serial_init(struct mobile_adapter *adapter)
 {
@@ -32,7 +31,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             s->current = 1;
         } else if (c == 0x66 && s->current == 1) {
             // Initialize transfer state
-            s->mode_32bit_cur = s->mode_32bit;
+            s->mode_32bit = adapter->commands.mode_32bit;
             s->data_size = 0;
             s->checksum = 0;
             s->error = 0;
@@ -51,7 +50,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
         if (s->current == 4) {
             // Done receiving the header, read content size.
             s->data_size = s->buffer[3];
-            if (s->mode_32bit_cur && s->data_size % 4 != 0) {
+            if (s->mode_32bit && s->data_size % 4 != 0) {
                 s->data_size += 4 - (s->data_size % 4);
             }
 
@@ -103,7 +102,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
         // The blue adapter doesn't check the device ID apparently,
         //   the other adapters don't check it in 32bit mode.
         if (adapter->config.device != MOBILE_ADAPTER_BLUE &&
-                !s->mode_32bit_cur &&
+                !s->mode_32bit &&
                 c != (MOBILE_ADAPTER_GAMEBOY | 0x80) &&
                 c != (MOBILE_ADAPTER_GAMEBOY_ADVANCE | 0x80)) {
             s->state = MOBILE_SERIAL_WAITING;
@@ -117,7 +116,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             return s->error;
         }
 
-        if (s->mode_32bit_cur) {
+        if (s->mode_32bit) {
             // We need to add two extra 0 bytes to the transmission
             s->current++;
         } else {
@@ -137,7 +136,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             return 0x99;
         } else {
             s->data_size = s->buffer[3];
-            if (s->mode_32bit_cur && s->data_size % 4 != 0) {
+            if (s->mode_32bit && s->data_size % 4 != 0) {
                 s->data_size += 4 - (s->data_size % 4);
             }
 
@@ -170,7 +169,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
             s->error = c;
         }
 
-        if (s->mode_32bit_cur && s->current < 4) {
+        if (s->mode_32bit && s->current < 4) {
             s->current++;
             return 0;
         }
