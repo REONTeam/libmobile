@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "data.h"
+#include "util.h"
 
 // UNKERR is used for errors of which we don't really know if they exist, and
 //   if so what error code they return, but have been implemented just in case.
@@ -526,22 +527,19 @@ static struct mobile_packet *command_write_configuration_data(struct mobile_adap
 // 0 - NEWERR: Invalid contents
 // 1 - Invalid use (Not in a call)
 // 2 - Unknown error (some kind of timeout)
-// 3 - Unknown error (some kind of timeout)
+// 3 - Unknown error (internal error?)
 static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
+    // TODO: The original adapter allows logging in multiple times without
+    //         logging out first, but I'm unsure if that's a bug.
     if (s->state != MOBILE_CONNECTION_CALL) {
         return error_packet(packet, 1);
     }
 
-    if (s->state == MOBILE_CONNECTION_INTERNET) {
-        return error_packet(packet, 2);  // UNKERR
-    }
-
-    // TODO: Maybe use connection to actually log in?
     // Make sure we aren't connected to an actual phone
-    if (s->connections[p2p_conn]) return error_packet(packet, 1);
+    if (s->connections[p2p_conn]) return error_packet(packet, 3);
 
     const unsigned char *data = packet->data;
     if (packet->data + packet->length < data + 1) {
@@ -564,16 +562,41 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
     const unsigned char *dns1 = data + 0;
     const unsigned char *dns2 = data + 4;
 
-    // If either DNS address is all zeroes, the real adapter picks a
-    //   dns address on its own, somehow.
-    memcpy(s->dns1, dns1, 4);
-    memcpy(s->dns2, dns2, 4);
+    // Check if the DNS addresses are empty
+    const unsigned char dns0[4] = {0};
+    bool dns1_empty = false;
+    bool dns2_empty = false;
+    if (memcmp(dns1, dns0, 4) == 0) dns1_empty = true;
+    if (memcmp(dns2, dns0, 4) == 0) dns2_empty = true;
+
+    // Initialize the DNS address structures with whatever data we've got
+    s->dns1.type = dns1_empty ? MOBILE_ADDRTYPE_NONE : MOBILE_ADDRTYPE_IPV4;
+    s->dns1.port = MOBILE_DNS_PORT;
+    memcpy(s->dns1.host, dns1, 4);
+    s->dns2.type = dns2_empty ? MOBILE_ADDRTYPE_NONE : MOBILE_ADDRTYPE_IPV4;
+    s->dns2.port = MOBILE_DNS_PORT;
+    memcpy(s->dns2.host, dns2, 4);
+
+    // If either DNS is empty, return the address in the config if available
+    const unsigned char *dns1_ret = dns0;
+    const unsigned char *dns2_ret = dns0;
+    if (dns1_empty && adapter->config.dns1.type == MOBILE_ADDRTYPE_IPV4) {
+        struct mobile_addr4 *c_dns1 =
+            (struct mobile_addr4 *)&adapter->config.dns1;
+        dns1_ret = c_dns1->host;
+    }
+    if (dns2_empty && adapter->config.dns2.type == MOBILE_ADDRTYPE_IPV4) {
+        struct mobile_addr4 *c_dns2 =
+            (struct mobile_addr4 *)&adapter->config.dns2;
+        dns2_ret = c_dns2->host;
+    }
+
     s->state = MOBILE_CONNECTION_INTERNET;
 
     // Return 3 IP addresses, the phone's IP, and the chosen DNS servers.
     memset(packet->data + 0, 0, 4);  // Phone's IP
-    memset(packet->data + 4, 0, 4);  // Chosen DNS1 if requested DNS1 was zero
-    memset(packet->data + 8, 0, 4);  // Chosen DNS2 if requested DNS2 was zero
+    memcpy(packet->data + 4, dns1_ret, 4);  // Chosen DNS1
+    memcpy(packet->data + 8, dns2_ret, 4);  // Chosen DNS2
     packet->length = 4 * 3;
     return packet;
 }
@@ -649,7 +672,7 @@ static struct mobile_packet *command_open_tcp_connection_connecting(struct mobil
 
 // Errors:
 // 0 - Too many connections
-// 1 - Invalid use (not in a call/logged in)
+// 1 - Invalid use (not logged in)
 // 3 - Connection failed
 static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -675,7 +698,7 @@ static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *
 
 // Errors:
 // 0 - Invalid connection (not connected)
-// 1 - Invalid use (not in a call/logged in)
+// 1 - Invalid use (not logged in)
 // 2 - Unknown error (no idea when returned)
 static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -702,7 +725,7 @@ static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter 
 
 // Errors:
 // 0 - Too many connections
-// 1 - Invalid use (not in a call/logged in)
+// 1 - Invalid use (not logged in)
 // 2 - Connection failed (though this is never returned)
 static struct mobile_packet *command_open_udp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -713,7 +736,7 @@ static struct mobile_packet *command_open_udp_connection(struct mobile_adapter *
 
 // Errors:
 // 0 - Invalid connection (not connected)
-// 1 - Invalid use (not in a call/logged in)
+// 1 - Invalid use (not logged in)
 // 2 - Unknown error (no idea when returned)
 static struct mobile_packet *command_close_udp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -722,10 +745,57 @@ static struct mobile_packet *command_close_udp_connection(struct mobile_adapter 
     return error_packet(packet, 1);
 }
 
-static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned char id)
+{
+    switch (id) {
+    default:
+    // DNS1
+    case 0: return &adapter->config.dns1;
+    case 1: return (struct mobile_addr *)&adapter->commands.dns1;
+    // DNS2
+    case 2: return &adapter->config.dns2;
+    case 3: return (struct mobile_addr *)&adapter->commands.dns2;
+    }
+}
+
+static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet, unsigned conn, unsigned dns_id)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
+
+    // Addresses 0-1 are DNS1, addresses 2-3 are DNS2
+    unsigned addr_id = dns_id * 2;
+
+    // Check any of the DNS addresses to see if they can be used
+    // Fall through from DNS1 into DNS2 if DNS1 can't be used
+    struct mobile_addr *addr_send;
+    for (; addr_id < 4; addr_id++) {
+        addr_send = dns_get_addr(adapter, addr_id);
+        if (addr_send->type != MOBILE_ADDRTYPE_NONE) break;
+    }
+    if (addr_id >= 4) return -1;
+    mobile_addr_copy(&s->processing_addr, addr_send);
+
+    // Open connection and send query
+    if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_UDP,
+            s->processing_addr.type, 0)) {
+        return -1;
+    }
+    if (!mobile_dns_query_send(adapter, conn, &s->processing_addr,
+            (char *)packet->data, packet->length)) {
+        mobile_board_sock_close(_u, conn);
+        return -1;
+    }
+    s->connections[conn] = true;
+
+    // Return the DNS ID that was used
+    if (addr_id < 2) return 0;
+    return 1;
+}
+
+static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
 
     if (s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
@@ -747,17 +817,10 @@ static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adap
         return error_packet(packet, 2);
     }
 
-    if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_UDP,
-            MOBILE_ADDRTYPE_IPV4, 0)) {
-        return error_packet(packet, 2);
-    }
-    s->connections[conn] = true;
+    int dns_id = dns_query_start(adapter, packet, conn, 0);
+    if (dns_id < 0) return error_packet(packet, 2);
 
-    if (!mobile_dns_query_send(adapter, conn, (char *)packet->data,
-            packet->length)) {
-        return error_packet(packet, 2);
-    }
-
+    s->processing_data[1] = dns_id;
     s->processing_data[0] = conn;
     s->processing = 1;  // command_dns_query_check
     return NULL;
@@ -769,13 +832,27 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
     void *_u = adapter->user;
 
     unsigned char conn = s->processing_data[0];
+    int dns_id = s->processing_data[1];
 
     unsigned char ip[4];
-    int rc = mobile_dns_query_recv(adapter, conn, ip);
+    int rc = mobile_dns_query_recv(adapter, conn, &s->processing_addr, ip);
     if (rc == 0) return NULL;
+
     mobile_board_sock_close(_u, conn);
     s->connections[conn] = false;
-    if (rc == -1) return error_packet(packet, 2);
+
+    if (rc == -1) {
+        // If we've checked DNS1 but not yet DNS2, check DNS2
+        if (dns_id < 1) {
+            dns_id = dns_query_start(adapter, packet, conn, dns_id + 1);
+            if (dns_id < 0) return error_packet(packet, 2);
+            s->processing_data[1] = dns_id;
+            return NULL;
+        }
+
+        // Otherwise we're done...
+        return error_packet(packet, 2);
+    }
 
     memcpy(packet->data, ip, 4);
     packet->length = 4;
@@ -783,23 +860,16 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
 }
 
 // Errors:
-// 1 - Invalid use (not connected)
+// 1 - Invalid use (not logged in)
 // 2 - Invalid contents/lookup failed
 static struct mobile_packet *command_dns_query(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
-    void *_u = adapter->user;
 
     switch (s->processing) {
     case 0:
-        mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
         return command_dns_query_start(adapter, packet);
     case 1:
-        if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 3000)) {
-            mobile_board_sock_close(_u, s->processing_data[0]);
-            s->connections[s->processing_data[0]] = false;
-            return error_packet(packet, 2);
-        }
         return command_dns_query_check(adapter, packet);
     default:
         return error_packet(packet, 2);

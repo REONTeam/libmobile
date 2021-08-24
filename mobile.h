@@ -92,11 +92,13 @@ struct mobile_adapter_config {
     //   removing the time limit in mobile battles.
     // We have no idea of the effects of this in other games.
     bool unmetered;
+
+    struct mobile_addr dns1;
+    struct mobile_addr dns2;
 };
 #define MOBILE_ADAPTER_CONFIG_DEFAULT (struct mobile_adapter_config){ \
     .device = MOBILE_ADAPTER_BLUE, \
     .p2p_port = 1027, \
-    .unmetered = false \
 }
 
 // Data in this header depends on the config/types above

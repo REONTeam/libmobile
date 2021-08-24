@@ -56,12 +56,13 @@ struct mobile_adapter_commands {
 
     unsigned processing;
     unsigned char processing_data[4];
+    struct mobile_addr processing_addr;
 
     enum mobile_connection_state state;
     bool connections[MOBILE_MAX_CONNECTIONS];
     unsigned call_packets_sent;
-    unsigned char dns1[4];
-    unsigned char dns2[4];
+    struct mobile_addr4 dns1;
+    struct mobile_addr4 dns2;
 };
 
 void mobile_commands_init(struct mobile_adapter *adapter);

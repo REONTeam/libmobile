@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "data.h"
+#include "util.h"
 
 // Implemented RFCs:
 // RFC1035 - DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
@@ -19,7 +20,6 @@
 #define DNS_HEADER_SIZE 12
 #define DNS_QD_SIZE 4
 #define DNS_RR_SIZE 10
-#define DNS_PORT 53
 
 enum dns_qtype {
     DNS_QTYPE_A = 1,
@@ -184,7 +184,7 @@ void mobile_dns_init(struct mobile_adapter *adapter)
     state->id = 0;
 }
 
-bool mobile_dns_query_send(struct mobile_adapter *adapter, const unsigned conn, const char *host, const unsigned host_len)
+bool mobile_dns_query_send(struct mobile_adapter *adapter, const unsigned conn, struct mobile_addr *addr_send, const char *host, const unsigned host_len)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
     void *_u = adapter->user;
@@ -192,18 +192,12 @@ bool mobile_dns_query_send(struct mobile_adapter *adapter, const unsigned conn, 
     if (!dns_make_name(s, host, host_len)) return false;
     if (!dns_make_query(s, DNS_QTYPE_A)) return false;
 
-    struct mobile_addr4 addr_send = {
-        .type = MOBILE_ADDRTYPE_IPV4,
-        .port = DNS_PORT,
-    };
-    memcpy(&addr_send.host, adapter->commands.dns1, sizeof(addr_send.host));
-
     if (!mobile_board_sock_send(_u, conn, s->buffer, s->buffer_len,
-            (struct mobile_addr *)&addr_send)) {
-        mobile_board_sock_close(_u, conn);
+            addr_send)) {
         return false;
     }
 
+    mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
     return true;
 }
 
@@ -211,16 +205,12 @@ bool mobile_dns_query_send(struct mobile_adapter *adapter, const unsigned conn, 
 // -1 - error
 // 0 - nothing received
 // 1 - success
-int mobile_dns_query_recv(struct mobile_adapter *adapter, const unsigned conn, unsigned char *ip)
+int mobile_dns_query_recv(struct mobile_adapter *adapter, const unsigned conn, struct mobile_addr *addr_send, unsigned char *ip)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
     void *_u = adapter->user;
 
-    struct mobile_addr4 addr_send = {
-        .type = MOBILE_ADDRTYPE_IPV4,
-        .port = DNS_PORT,
-    };
-    memcpy(&addr_send.host, adapter->commands.dns1, sizeof(addr_send.host));
+    if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 3000)) return -1;
 
     struct mobile_addr addr_recv = {0};
     int recv = mobile_board_sock_recv(_u, conn, s->buffer,
@@ -229,11 +219,7 @@ int mobile_dns_query_recv(struct mobile_adapter *adapter, const unsigned conn, u
     s->buffer_len = recv;
 
     // Verify sender, discard if incorrect
-    if (addr_send.type != addr_recv.type) return 0;
-    struct mobile_addr4 *addr_recv4 = (struct mobile_addr4 *)&addr_recv;
-    if (memcmp(&addr_send, addr_recv4, sizeof(struct mobile_addr4)) != 0) {
-        return 0;
-    }
+    if (!mobile_addr_compare(addr_send, &addr_recv)) return 0;
 
     unsigned offset;
     int ancount = dns_verify_response(s, &offset);
