@@ -229,7 +229,7 @@ int mobile_dns_query_recv(struct mobile_adapter *adapter, const unsigned conn, s
         int anoffset = dns_get_answer(s, &offset);
         if (anoffset < -1) continue;
         if (anoffset == -1) return -1;
-        memcpy(ip, s->buffer + anoffset, 4);
+        memcpy(ip, s->buffer + anoffset, MOBILE_HOSTLEN_IPV4);
         break;
     }
     return 1;

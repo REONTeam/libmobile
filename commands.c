@@ -5,6 +5,7 @@
 
 #include "data.h"
 #include "util.h"
+#include "inet_pton.h"
 
 // UNKERR is used for errors of which we don't really know if they exist, and
 //   if so what error code they return, but have been implemented just in case.
@@ -40,26 +41,6 @@ static struct mobile_packet *error_packet(struct mobile_packet *packet, const un
     return packet;
 }
 
-static bool parse_phone_address(unsigned char *address, char *data)
-{
-    // Converts a string of 12 characters to a binary representation for an IPv4
-    //   address. It also checks for the validity of the address while doing so.
-    // The output will be a buffer of 4 bytes, representing the address.
-
-    char *cur_data = data;
-    unsigned char *cur_addr = address;
-    for (unsigned y = 0; y < 4; y++) {
-        unsigned cur_num = 0;
-        for (unsigned x = 0; x < 3; x++) {
-            if (*cur_data < '0' || *cur_data > '9') return false;
-            cur_num *= 10;
-            cur_num += *cur_data++ - '0';
-        }
-        if (cur_num > 255) return false;
-        *cur_addr++ = cur_num;
-    }
-    return true;
-}
 
 static bool do_isp_logout(struct mobile_adapter *adapter)
 {
@@ -218,7 +199,7 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
         .type = MOBILE_ADDRTYPE_IPV4,
         .port = adapter->config.p2p_port,
     };
-    if (!parse_phone_address(addr.host, (char *)packet->data + 1)) {
+    if (!mobile_parse_phoneaddr(addr.host, (char *)packet->data + 1)) {
         return error_packet(packet, 3);
     }
 
@@ -563,19 +544,17 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
     const unsigned char *dns2 = data + 4;
 
     // Check if the DNS addresses are empty
-    const unsigned char dns0[4] = {0};
-    bool dns1_empty = false;
-    bool dns2_empty = false;
-    if (memcmp(dns1, dns0, 4) == 0) dns1_empty = true;
-    if (memcmp(dns2, dns0, 4) == 0) dns2_empty = true;
+    const unsigned char dns0[MOBILE_HOSTLEN_IPV4] = {0};
+    bool dns1_empty = memcmp(dns1, dns0, MOBILE_HOSTLEN_IPV4) == 0;
+    bool dns2_empty = memcmp(dns2, dns0, 4) == 0;
 
     // Initialize the DNS address structures with whatever data we've got
     s->dns1.type = dns1_empty ? MOBILE_ADDRTYPE_NONE : MOBILE_ADDRTYPE_IPV4;
     s->dns1.port = MOBILE_DNS_PORT;
-    memcpy(s->dns1.host, dns1, 4);
+    memcpy(s->dns1.host, dns1, MOBILE_HOSTLEN_IPV4);
     s->dns2.type = dns2_empty ? MOBILE_ADDRTYPE_NONE : MOBILE_ADDRTYPE_IPV4;
     s->dns2.port = MOBILE_DNS_PORT;
-    memcpy(s->dns2.host, dns2, 4);
+    memcpy(s->dns2.host, dns2, MOBILE_HOSTLEN_IPV4);
 
     // If either DNS is empty, return the address in the config if available
     const unsigned char *dns1_ret = dns0;
@@ -594,9 +573,9 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
     s->state = MOBILE_CONNECTION_INTERNET;
 
     // Return 3 IP addresses, the phone's IP, and the chosen DNS servers.
-    memset(packet->data + 0, 0, 4);  // Phone's IP
-    memcpy(packet->data + 4, dns1_ret, 4);  // Chosen DNS1
-    memcpy(packet->data + 8, dns2_ret, 4);  // Chosen DNS2
+    memset(packet->data + 0, 0, MOBILE_HOSTLEN_IPV4);  // Phone's IP
+    memcpy(packet->data + 4, dns1_ret, MOBILE_HOSTLEN_IPV4);  // Chosen DNS1
+    memcpy(packet->data + 8, dns2_ret, MOBILE_HOSTLEN_IPV4);  // Chosen DNS2
     packet->length = 4 * 3;
     return packet;
 }
@@ -758,13 +737,10 @@ static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned
     }
 }
 
-static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet, unsigned conn, unsigned dns_id)
+static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet, unsigned conn, unsigned addr_id)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
-
-    // Addresses 0-1 are DNS1, addresses 2-3 are DNS2
-    unsigned addr_id = dns_id * 2;
 
     // Check any of the DNS addresses to see if they can be used
     // Fall through from DNS1 into DNS2 if DNS1 can't be used
@@ -774,23 +750,21 @@ static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet 
         if (addr_send->type != MOBILE_ADDRTYPE_NONE) break;
     }
     if (addr_id >= 4) return -1;
-    mobile_addr_copy(&s->processing_addr, addr_send);
 
     // Open connection and send query
     if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_UDP,
-            s->processing_addr.type, 0)) {
+            addr_send->type, 0)) {
         return -1;
     }
-    if (!mobile_dns_query_send(adapter, conn, &s->processing_addr,
-            (char *)packet->data, packet->length)) {
+    if (!mobile_dns_query_send(adapter, conn, addr_send, (char *)packet->data,
+            packet->length)) {
         mobile_board_sock_close(_u, conn);
         return -1;
     }
     s->connections[conn] = true;
 
     // Return the DNS ID that was used
-    if (addr_id < 2) return 0;
-    return 1;
+    return addr_id;
 }
 
 static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -801,12 +775,22 @@ static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adap
         return error_packet(packet, 1);
     }
 
-    // TODO: Parse IPv4 dot-notation string if string has only numbers and
-    //         dots up to the first 0 byte.
-    //       If it can't be parsed return 255.255.255.255. If it's 0,
-    //         return error 2.
-    // TODO: Limit the hostname to 0x20 bytes.
-    //         EDIT: What was I smoking? There's no length check????
+    // If it's an IP address, parse it right here, right now.
+    if (mobile_is_ipaddr((char *)packet->data, packet->length)) {
+        unsigned char ip[MOBILE_HOSTLEN_IPV4];
+        memset(ip, -1, sizeof(ip));
+        mobile_pton_length(MOBILE_PTON_IPV4, (char *)packet->data,
+            packet->length, ip);
+
+        // The adapter weirdly enough only returns an error if the address is
+        //   0, despite the "parse error" value being -1.
+        const unsigned char ip0[MOBILE_HOSTLEN_IPV4] = {0};
+        if (memcmp(ip, ip0, sizeof(ip)) == 0) return error_packet(packet, 2);
+
+        memcpy(packet->data, ip, sizeof(ip));
+        packet->length = 4;
+        return packet;
+    }
 
     // Find a free connection to use for the query
     unsigned char conn;
@@ -817,11 +801,11 @@ static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adap
         return error_packet(packet, 2);
     }
 
-    int dns_id = dns_query_start(adapter, packet, conn, 0);
-    if (dns_id < 0) return error_packet(packet, 2);
+    int addr_id = dns_query_start(adapter, packet, conn, 0);
+    if (addr_id < 0) return error_packet(packet, 2);
 
-    s->processing_data[1] = dns_id;
     s->processing_data[0] = conn;
+    s->processing_data[1] = addr_id;
     s->processing = 1;  // command_dns_query_check
     return NULL;
 }
@@ -832,10 +816,11 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
     void *_u = adapter->user;
 
     unsigned char conn = s->processing_data[0];
-    int dns_id = s->processing_data[1];
+    int addr_id = s->processing_data[1];
+    struct mobile_addr *addr = dns_get_addr(adapter, addr_id);
 
-    unsigned char ip[4];
-    int rc = mobile_dns_query_recv(adapter, conn, &s->processing_addr, ip);
+    unsigned char ip[MOBILE_HOSTLEN_IPV4];
+    int rc = mobile_dns_query_recv(adapter, conn, addr, ip);
     if (rc == 0) return NULL;
 
     mobile_board_sock_close(_u, conn);
@@ -843,10 +828,10 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
 
     if (rc == -1) {
         // If we've checked DNS1 but not yet DNS2, check DNS2
-        if (dns_id < 1) {
-            dns_id = dns_query_start(adapter, packet, conn, dns_id + 1);
-            if (dns_id < 0) return error_packet(packet, 2);
-            s->processing_data[1] = dns_id;
+        if (addr_id < 2) {
+            addr_id = dns_query_start(adapter, packet, conn, 2);
+            if (addr_id < 0) return error_packet(packet, 2);
+            s->processing_data[1] = addr_id;
             return NULL;
         }
 
@@ -854,7 +839,7 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
         return error_packet(packet, 2);
     }
 
-    memcpy(packet->data, ip, 4);
+    memcpy(packet->data, ip, sizeof(ip));
     packet->length = 4;
     return packet;
 }

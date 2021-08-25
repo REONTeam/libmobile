@@ -61,16 +61,19 @@ enum mobile_addrtype {
     MOBILE_ADDRTYPE_IPV6,
 };
 
+#define MOBILE_HOSTLEN_IPV4 4
+#define MOBILE_HOSTLEN_IPV6 16
+
 struct mobile_addr4 {
     enum mobile_addrtype type;
     unsigned port;
-    unsigned char host[4];
+    unsigned char host[MOBILE_HOSTLEN_IPV4];
 };
 
 struct mobile_addr6 {
     enum mobile_addrtype type;
     unsigned port;
-    unsigned char host[16];
+    unsigned char host[MOBILE_HOSTLEN_IPV6];
 };
 
 struct mobile_addr {
