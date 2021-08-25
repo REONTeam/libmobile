@@ -827,7 +827,8 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
     struct mobile_addr *addr = dns_get_addr(adapter, addr_id);
 
     unsigned char ip[MOBILE_HOSTLEN_IPV4];
-    int rc = mobile_dns_query_recv(adapter, conn, addr, ip);
+    int rc = mobile_dns_query_recv(adapter, conn, addr, (char *)packet->data,
+        packet->length, ip);
     if (rc == 0) return NULL;
 
     mobile_board_sock_close(_u, conn);
