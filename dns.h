@@ -6,8 +6,6 @@
 struct mobile_adapter;
 struct mobile_addr;
 
-#define MOBILE_DNS_PORT 53
-
 #define MOBILE_DNS_MAX_NAME_SIZE 256
 #define MOBILE_DNS_PACKET_SIZE 512
 

@@ -61,6 +61,8 @@ enum mobile_addrtype {
     MOBILE_ADDRTYPE_IPV6,
 };
 
+#define MOBILE_DNS_PORT 53
+
 #define MOBILE_HOSTLEN_IPV4 4
 #define MOBILE_HOSTLEN_IPV6 16
 

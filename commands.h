@@ -61,6 +61,7 @@ struct mobile_adapter_commands {
     enum mobile_connection_state state;
     bool connections[MOBILE_MAX_CONNECTIONS];
     unsigned call_packets_sent;
+    bool dns2_use;
     struct mobile_addr4 dns1;
     struct mobile_addr4 dns2;
 };

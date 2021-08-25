@@ -7,5 +7,7 @@
 #define MOBILE_PTON_IPV4 2
 #define MOBILE_PTON_IPV6 26
 
+#define MOBILE_PTON_MAXLEN 16
+
 int mobile_pton_length(int af, const char *src, size_t srclen, void *dst);
 int mobile_pton(int af, const char *src, void *dst);

@@ -41,7 +41,6 @@ static struct mobile_packet *error_packet(struct mobile_packet *packet, const un
     return packet;
 }
 
-
 static bool do_isp_logout(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -570,6 +569,7 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
         dns2_ret = c_dns2->host;
     }
 
+    s->dns2_use = 0;
     s->state = MOBILE_CONNECTION_INTERNET;
 
     // Return 3 IP addresses, the phone's IP, and the chosen DNS servers.
@@ -726,6 +726,13 @@ static struct mobile_packet *command_close_udp_connection(struct mobile_adapter 
 
 static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned char id)
 {
+    struct mobile_adapter_commands *s = &adapter->commands;
+
+    // Try DNS2 first if that's the one that worked
+    if (s->dns2_use == 1) {
+        id = (id + 2) % 4;
+    }
+
     switch (id) {
     default:
     // DNS1
@@ -838,6 +845,9 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
         // Otherwise we're done...
         return error_packet(packet, 2);
     }
+
+    // If we've checked DNS2 and it worked, store that
+    if (addr_id >= 2) s->dns2_use = !s->dns2_use;
 
     memcpy(packet->data, ip, sizeof(ip));
     packet->length = 4;
