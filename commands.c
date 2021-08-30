@@ -339,13 +339,13 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
             }
             return NULL;
         }
-    }
 
-    // Pokémon Crystal expects communications to be "synchronized".
-    // For this, we only try to receive packets when we've sent one.
-    // TODO: Check other games with peer to peer functionality.
-    if (s->state == MOBILE_CONNECTION_CALL && send_size > 0) {
-        s->call_packets_sent++;
+        // Pokémon Crystal expects communications to be "synchronized".
+        // For this, we only try to receive packets when we've sent one.
+        // TODO: Check other games with peer to peer functionality.
+        if (s->state == MOBILE_CONNECTION_CALL) {
+            s->call_packets_sent++;
+        }
     }
 
     int recv_size = 0;
@@ -379,7 +379,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     if (recv_size < 0) return error_packet(packet, 0);
 
     // If nothing was sent, try to receive for at least one second
-    if (!send_size && !recv_size &&
+    if (s->state == MOBILE_CONNECTION_INTERNET && !send_size && !recv_size &&
             !mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 1000)) {
         return NULL;
     }
