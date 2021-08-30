@@ -129,6 +129,7 @@ static struct mobile_packet *command_begin_session(struct mobile_adapter *adapte
 // 2 - Still connected/failed to disconnect(?)
 static struct mobile_packet *command_end_session(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
+    // TODO: Reset mode_32bit here? Verify on hardware.
     do_end_session(adapter);
 
     packet->length = 0;
@@ -222,7 +223,7 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
 // 0 - Telephone line is busy
 // 1 - Invalid use (already connected)
 // 2 - Invalid contents (first byte isn't correct)
-// 3 - Communication failed/phone is not connected
+// 3 - Communication failed/phone not connected
 // 4 - Call not established, redial
 static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -246,7 +247,7 @@ static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapt
 }
 
 // Errors:
-// 1 - Invalid use (already hung up/phone unplugged)
+// 1 - Invalid use (already hung up/phone not connected)
 static struct mobile_packet *command_hang_up_telephone(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     if (!do_hang_up_telephone(adapter)) return error_packet(packet, 1);
@@ -292,9 +293,8 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
 }
 
 // Errors:
-// 0 - Invalid connection (not connected)/communication failed
+// 0 - Invalid connection/communication failed
 // 1 - Invalid use (Call was ended/never made)
-// 2 - NEWERR: Invalid contents
 static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -303,7 +303,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     if (s->state == MOBILE_CONNECTION_DISCONNECTED) {
         return error_packet(packet, 1);
     }
-    if (packet->length < 1) return error_packet(packet, 2);  // NEWERR
+    if (packet->length < 1) return error_packet(packet, 0);
 
     unsigned char conn = packet->data[0];
 
@@ -311,7 +311,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     if (s->state == MOBILE_CONNECTION_CALL) conn = p2p_conn;
 
     if (conn >= MOBILE_MAX_CONNECTIONS || !s->connections[conn]) {
-        return error_packet(packet, 1);
+        return error_packet(packet, 0);
     }
 
     if (s->processing == 0) {
@@ -379,6 +379,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     if (recv_size < 0) return error_packet(packet, 0);
 
     // If nothing was sent, try to receive for at least one second
+    // TODO: Don't delay for UDP connections
     if (s->state == MOBILE_CONNECTION_INTERNET && !send_size && !recv_size &&
             !mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 1000)) {
         return NULL;
@@ -435,7 +436,7 @@ static struct mobile_packet *command_telephone_status(struct mobile_adapter *ada
 }
 
 // Errors:
-// 2 - Invalid contents
+// 2 - Invalid contents (first byte not either 1 or 0)
 static struct mobile_packet *command_sio32_mode(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -454,9 +455,8 @@ static struct mobile_packet *command_sio32_mode(struct mobile_adapter *adapter, 
 }
 
 // Errors:
-// 0 - NEWERR: Internal error (Failed to read config)
-// 1 - UNKERR: Invalid contents
-// 2 - Invalid use (Tried to read outside of configuration area)
+// 0 - Internal error (Failed to read config)
+// 2 - Read outside of config area/too big a chunk
 static struct mobile_packet *command_read_configuration_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     void *_u = adapter->user;
@@ -464,7 +464,7 @@ static struct mobile_packet *command_read_configuration_data(struct mobile_adapt
     // TODO: Can't read chunks bigger than 0x80,
     //       Can read up to address 0x100
 
-    if (packet->length != 2) return error_packet(packet, 1);  // UNKERR
+    if (packet->length != 2) return error_packet(packet, 2);
 
     unsigned offset = packet->data[0];
     unsigned size = packet->data[1];
@@ -481,8 +481,7 @@ static struct mobile_packet *command_read_configuration_data(struct mobile_adapt
 }
 
 // Errors:
-// 0 - NEWERR: Internal error (Failed to write config)
-// 1 - UNKERR: Invalid contents
+// 0 - Internal error (Failed to write config)
 // 2 - Invalid use (Tried to write outside of configuration area)
 static struct mobile_packet *command_write_configuration_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -490,13 +489,13 @@ static struct mobile_packet *command_write_configuration_data(struct mobile_adap
 
     // TODO: Returns offset and size written
 
-    if (packet->length < 2) return error_packet(packet, 1);  // UNKERR
+    if (packet->length < 1) return error_packet(packet, 2);
     if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_SIZE) {
         return error_packet(packet, 2);
     }
     if (!mobile_board_config_write(_u, packet->data + 1, packet->data[0],
                 packet->length - 1)) {
-        return error_packet(packet, 0);  // NEWERR
+        return error_packet(packet, 0);
     }
 
     packet->length = 0;
@@ -506,7 +505,7 @@ static struct mobile_packet *command_write_configuration_data(struct mobile_adap
 // Errors:
 // 0 - NEWERR: Invalid contents
 // 1 - Invalid use (Not in a call)
-// 2 - Unknown error (some kind of timeout)
+// 2 - Unknown error (some kind of timeout?)
 // 3 - Unknown error (internal error?)
 static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -543,7 +542,7 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
     const unsigned char *dns2 = data + 4;
 
     // Check if the DNS addresses are empty
-    const unsigned char dns0[MOBILE_HOSTLEN_IPV4] = {0};
+    static const unsigned char dns0[MOBILE_HOSTLEN_IPV4] = {0};
     bool dns1_empty = memcmp(dns1, dns0, MOBILE_HOSTLEN_IPV4) == 0;
     bool dns2_empty = memcmp(dns2, dns0, 4) == 0;
 
@@ -573,7 +572,8 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
     s->state = MOBILE_CONNECTION_INTERNET;
 
     // Return 3 IP addresses, the phone's IP, and the chosen DNS servers.
-    memset(packet->data + 0, 0, MOBILE_HOSTLEN_IPV4);  // Phone's IP
+    static const unsigned char ip_local[] = {127, 0, 0, 1};
+    memcpy(packet->data + 0, ip_local, MOBILE_HOSTLEN_IPV4);  // Phone's IP
     memcpy(packet->data + 4, dns1_ret, MOBILE_HOSTLEN_IPV4);  // Chosen DNS1
     memcpy(packet->data + 8, dns2_ret, MOBILE_HOSTLEN_IPV4);  // Chosen DNS2
     packet->length = 4 * 3;
@@ -581,9 +581,9 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
 }
 
 // Errors:
-// 0 - Not logged in
+// 0 - Invalid use (Not logged in)
 // 1 - Invalid use (Not in a call)
-// 2 - Unknown error (some kind of timeout)
+// 2 - Unknown error (some kind of timeout?)
 static struct mobile_packet *command_isp_logout(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     if (!do_isp_logout(adapter)) return error_packet(packet, 1);
@@ -651,7 +651,7 @@ static struct mobile_packet *command_open_tcp_connection_connecting(struct mobil
 
 // Errors:
 // 0 - Too many connections
-// 1 - Invalid use (not logged in)
+// 1 - Invalid use (Not logged in)
 // 3 - Connection failed
 static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
@@ -676,9 +676,9 @@ static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *
 }
 
 // Errors:
-// 0 - Invalid connection (not connected)
-// 1 - Invalid use (not logged in)
-// 2 - Unknown error (no idea when returned)
+// 0 - Invalid connection (Not connected)
+// 1 - Invalid use (Not logged in)
+// 2 - Unknown error (???)
 static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -704,8 +704,8 @@ static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter 
 
 // Errors:
 // 0 - Too many connections
-// 1 - Invalid use (not logged in)
-// 2 - Connection failed (though this is never returned)
+// 1 - Invalid use (Not logged in)
+// 2 - Connection failed (though this can't happen)
 static struct mobile_packet *command_open_udp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     // TODO: Implement
@@ -714,9 +714,9 @@ static struct mobile_packet *command_open_udp_connection(struct mobile_adapter *
 }
 
 // Errors:
-// 0 - Invalid connection (not connected)
-// 1 - Invalid use (not logged in)
-// 2 - Unknown error (no idea when returned)
+// 0 - Invalid connection (Not connected)
+// 1 - Invalid use (Not logged in)
+// 2 - Unknown error (???)
 static struct mobile_packet *command_close_udp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     // TODO: Implement
