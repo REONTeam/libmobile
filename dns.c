@@ -83,7 +83,7 @@ static bool dns_name_compare(struct mobile_adapter_dns *state, unsigned *offset,
             return false;
         }
     }
-    if (*pname != 0) return false;
+    if (pname - name != name_len) return false;
 
     if (end < 0) end = pcmp - state->buffer + 1;
     *offset = end;
