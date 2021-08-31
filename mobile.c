@@ -143,7 +143,8 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mode_32bit_change(adapter);
         adapter->commands.packet_parsed = false;
         adapter->serial.active = false;
-        mobile_debug_print(adapter, PSTR("<<< End session (timeout)"));
+        mobile_debug_print(adapter, PSTR("<<< 11 End session (timeout)"));
+        mobile_debug_endl(adapter);
         mobile_debug_endl(adapter);
 
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
