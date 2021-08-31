@@ -10,7 +10,6 @@
 
 #include "data.h"
 #include "compat.h"
-#include "../atmega328p/source/serial.h"
 
 void mobile_debug_init(struct mobile_adapter *adapter)
 {
