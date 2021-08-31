@@ -7,6 +7,7 @@
 
 #define MOBILE_INTERNAL
 #include "mobile.h"
+#include "debug.h"
 #include "commands.h"
 #include "serial.h"
 #include "dns.h"
@@ -14,6 +15,7 @@
 struct mobile_adapter {
     void *user;
     struct mobile_adapter_config config;
+    struct mobile_adapter_debug debug;
     struct mobile_adapter_serial serial;
     struct mobile_adapter_commands commands;
     struct mobile_adapter_dns dns;

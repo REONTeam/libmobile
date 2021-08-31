@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "compat.h"
+
 static void packet_parse(struct mobile_packet *packet, const unsigned char *buffer)
 {
     packet->command = buffer[0];
@@ -39,12 +41,11 @@ static void packet_create(unsigned char *buffer, const struct mobile_packet *pac
 static bool command_handle(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
-    void *_u = adapter->user;
 
     // If the packet hasn't been parsed yet, parse and store it
     if (!s->packet_parsed) {
         packet_parse(&s->packet, adapter->serial.buffer);
-        mobile_board_debug_cmd(_u, 0, &s->packet);
+        mobile_debug_command(adapter, &s->packet, false);
         s->processing = 0;
         s->packet_parsed = true;
     }
@@ -53,7 +54,7 @@ static bool command_handle(struct mobile_adapter *adapter)
 
     // If there's a packet to be sent, write it out and return true
     if (send) {
-        mobile_board_debug_cmd(_u, 1, send);
+        mobile_debug_command(adapter, send, true);
         packet_create(adapter->serial.buffer, send,
             adapter->serial.mode_32bit);
         s->packet_parsed = false;
@@ -135,28 +136,28 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
     case MOBILE_ACTION_DROP_CONNECTION:
         mobile_board_serial_disable(_u);
-        mobile_serial_init(adapter);
+
         // "Emulate" an end session.
+        mobile_serial_init(adapter);
         mobile_commands_reset(adapter);
         mode_32bit_change(adapter);
         adapter->commands.packet_parsed = false;
         adapter->serial.active = false;
-        {
-            struct mobile_packet *packet = &adapter->commands.packet;
-            packet->command = MOBILE_COMMAND_END_SESSION;
-            packet->length = 0;
-            mobile_board_debug_cmd(_u, 1, packet);
-        }
+        mobile_debug_print(adapter, PSTR("<<< End session (timeout)"));
+        mobile_debug_endl(adapter);
+
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
         mobile_board_serial_enable(_u);
         break;
 
     case MOBILE_ACTION_RESET:
         mobile_board_serial_disable(_u);
+
         adapter->commands.mode_32bit = false;
         mode_32bit_change(adapter);
         adapter->commands.packet_parsed = false;
         adapter->serial.active = false;
+
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
         mobile_board_serial_enable(_u);
         break;
@@ -225,6 +226,7 @@ void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile
         adapter->config = MOBILE_ADAPTER_CONFIG_DEFAULT;
     }
     mobile_board_time_latch(user, MOBILE_TIMER_SERIAL);
+    mobile_debug_init(adapter);
     mobile_commands_init(adapter);
     mobile_serial_init(adapter);
     mobile_dns_init(adapter);

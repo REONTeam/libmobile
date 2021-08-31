@@ -113,6 +113,19 @@ struct mobile_adapter_config {
 
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 
+// mobile_board_debug_log - Output a line of text for debug
+//
+// Called to output a line of text to the debug log. This is extremely useful
+// for both development of the frontend, as well as development of homebrew
+// games using the adapter.
+//
+// Every line is separate and should be separated with newlines or a different
+// implementation-defined mechanism. A line may be empty to split up multiple
+// "blocks" of communication. The <line> parameter is a null-terminated string.
+//
+// This function is completely optional.
+void mobile_board_debug_log(void *user, const char *line);
+
 // mobile_board_serial_disable - Disable serial communications
 //
 // This function must ensure nothing will call mobile_transfer() while the
@@ -128,16 +141,6 @@ void mobile_board_serial_disable(void *user);
 // Exact opposite of mobile_board_serial_disable(). This function indicates
 // mobile_transfer() may be called again, resuming communications.
 void mobile_board_serial_enable(void *user);
-
-// mobile_board_debug_cmd - Packet receive/send callback
-//
-// Called whenever a packet is received or sent, to allow the implementation to
-// output debugging information.
-//
-// This is currently implemented in debug_cmd.h and it's discouraged to
-// implement this independently, as this function is slated for replacement
-// with one that simply passes along debug messages.
-void mobile_board_debug_cmd(void *user, int send, const struct mobile_packet *packet);
 
 // mobile_board_config_read - Read from the configuration data
 //

@@ -834,7 +834,7 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
     mobile_board_sock_close(_u, conn);
     s->connections[conn] = false;
 
-    if (rc == -1) {
+    if (rc < 0) {
         // If we've checked DNS1 but not yet DNS2, check DNS2
         if (addr_id < 2) {
             addr_id = dns_query_start(adapter, packet, conn, 2);
