@@ -31,7 +31,11 @@
 #ifdef __AVR__
 #include <avr/pgmspace.h>
 #else
+#define PROGMEM
 #define PSTR(...) __VA_ARGS__
-#define vsnprintf_P(...) vsnprintf(__VA_ARGS__)
+#define pgm_read_ptr(x) *x
+#define memcmp_P(...) memcmp(__VA_ARGS__)
 #define memcpy_P(...) memcpy(__VA_ARGS__)
+#define strlen_P(...) strlen(__VA_ARGS__)
+#define vsnprintf_P(...) vsnprintf(__VA_ARGS__)
 #endif

@@ -5,6 +5,7 @@
 
 #include "data.h"
 #include "util.h"
+#include "compat.h"
 #include "inet_pton.h"
 
 // UNKERR is used for errors of which we don't really know if they exist, and
@@ -15,12 +16,17 @@
 // Connection number to use for p2p comms
 static const int p2p_conn = 0;
 
-static const char *isp_numbers[] = {
-    "#9677",  // DION PDC/CDMAONE - ISP login
-    "#9477",  // DION PDC/CDMAONE - Service/configuration number
-    "0077487751",  // DION DDI-POCKET - ISP login
-    "0077487752",  // DION DDI-POCKET - Service/configuration number
-    "0755311973",  // NINTENDO TEST
+static const char isp_number_pdc_isp[] PROGMEM = "#9677";
+static const char isp_number_pdc_serv[] PROGMEM = "#9477";
+static const char isp_number_ddi_isp[] PROGMEM = "0077487751";
+static const char isp_number_ddi_serv[] PROGMEM = "0077487752";
+static const char isp_number_test[] PROGMEM = "0755311973";
+static const char *const isp_numbers[] PROGMEM = {
+    isp_number_pdc_isp,  // DION PDC/CDMAONE - ISP login
+    isp_number_pdc_serv,  // DION PDC/CDMAONE - Service/configuration number
+    isp_number_ddi_isp,  // DION DDI-POCKET - ISP login
+    isp_number_ddi_serv,  // DION DDI-POCKET - Service/configuration number
+    isp_number_test,  // NINTENDO TEST
     NULL
 };
 
@@ -166,9 +172,10 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     }
 
     // Ignore the ISP phone numbers for now
-    for (const char **number = isp_numbers; *number; number++) {
-        if (packet->length - 1 != strlen(*number)) continue;
-        if (memcmp(packet->data + 1, *number, packet->length - 1) == 0) {
+    for (const char *const *number = isp_numbers; *number; number++) {
+        if (packet->length - 1 != strlen_P(pgm_read_ptr(number))) continue;
+        if (memcmp_P(packet->data + 1, pgm_read_ptr(number),
+                packet->length - 1) == 0) {
             s->state = MOBILE_CONNECTION_CALL;
             packet->length = 0;
             return packet;
