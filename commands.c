@@ -468,20 +468,16 @@ static struct mobile_packet *command_read_configuration_data(struct mobile_adapt
 {
     void *_u = adapter->user;
 
-    // TODO: Can't read chunks bigger than 0x80,
-    //       Can read up to address 0x100
-
     if (packet->length != 2) return error_packet(packet, 2);
 
     unsigned offset = packet->data[0];
     unsigned size = packet->data[1];
-    if (offset + size > MOBILE_CONFIG_SIZE) {
-        return error_packet(packet, 2);
-    }
+    if (size > 0x80) return error_packet(packet, 2);
+    if (offset + size > MOBILE_CONFIG_SIZE) return error_packet(packet, 2);
     packet->length = size + 1;  // Preserve offset byte
     if (size) {
         if (!mobile_board_config_read(_u, packet->data + 1, offset, size)) {
-            return error_packet(packet, 0);  // NEWERR
+            return error_packet(packet, 0);
         }
     }
     return packet;
@@ -494,18 +490,20 @@ static struct mobile_packet *command_write_configuration_data(struct mobile_adap
 {
     void *_u = adapter->user;
 
-    // TODO: Returns offset and size written
-
     if (packet->length < 1) return error_packet(packet, 2);
-    if (packet->data[0] + packet->length - 1 > MOBILE_CONFIG_SIZE) {
-        return error_packet(packet, 2);
-    }
-    if (!mobile_board_config_write(_u, packet->data + 1, packet->data[0],
-                packet->length - 1)) {
-        return error_packet(packet, 0);
+
+    unsigned offset = packet->data[0];
+    unsigned size = packet->length - 1;
+    if (size > 0x80) return error_packet(packet, 2);
+    if (offset + size > MOBILE_CONFIG_SIZE) return error_packet(packet, 2);
+    if (size) {
+        if (!mobile_board_config_write(_u, packet->data + 1, offset, size)) {
+            return error_packet(packet, 0);
+        }
     }
 
-    packet->length = 0;
+    packet->length = 2;
+    packet->data[1] = size;
     return packet;
 }
 
