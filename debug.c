@@ -154,6 +154,11 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         dump(adapter, packet->data + 1, packet->length - 1);
         break;
 
+    case MOBILE_COMMAND_RESET:
+        debug_print("Reset");
+        packet_end(adapter, packet, 0);
+        break;
+
     case MOBILE_COMMAND_TELEPHONE_STATUS:
         debug_print("Telephone status");
         if (!send) {
@@ -191,7 +196,8 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
                 packet_end(adapter, packet, 0);
                 break;
             }
-            debug_print(" (offset: %02X; size: %02X)", packet->data[0], packet->data[1]);
+            debug_print(" (offset: %02X; size: %02X)", packet->data[0],
+                packet->data[1]);
             packet_end(adapter, packet, 2);
         } else {
             if (packet->length < 1) break;
@@ -204,10 +210,13 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         debug_print("Write configuration data");
         if (!send) {
             if (packet->length < 1) break;
-            debug_print(" (offset: %02X; size: %02X)", packet->data[0], packet->length - 1);
+            debug_print(" (offset: %02X)", packet->data[0]);
             dump_hex(adapter, packet->data + 1, packet->length - 1);
         } else {
-            packet_end(adapter, packet, 0);
+            if (packet->length < 2) break;
+            debug_print(" (offset: %02X; size: %02X)", packet->data[0],
+                packet->data[1]);
+            packet_end(adapter, packet, 2);
         }
         break;
 
@@ -266,7 +275,13 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         break;
 
     case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
-        debug_print("Open TCP connection");
+    case MOBILE_COMMAND_OPEN_UDP_CONNECTION:
+        if (packet->command == MOBILE_COMMAND_OPEN_TCP_CONNECTION) {
+            debug_print("Open TCP connection");
+        }
+        if (packet->command == MOBILE_COMMAND_OPEN_UDP_CONNECTION) {
+            debug_print("Open UDP connection");
+        }
         if (!send) {
             if (packet->length < 6) {
                 packet_end(adapter, packet, 0);
@@ -285,7 +300,13 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         break;
 
     case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
-        debug_print("Close TCP connection");
+    case MOBILE_COMMAND_CLOSE_UDP_CONNECTION:
+        if (packet->command == MOBILE_COMMAND_CLOSE_TCP_CONNECTION) {
+            debug_print("Close TCP connection");
+        }
+        if (packet->command == MOBILE_COMMAND_CLOSE_UDP_CONNECTION) {
+            debug_print("Close UDP connection");
+        }
         if (packet->length < 1) break;
         debug_print(" (conn %u)", packet->data[0]);
         packet_end(adapter, packet, 1);
