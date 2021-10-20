@@ -192,26 +192,31 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
     return mobile_serial_transfer(adapter, c);
 }
 
+#define MOBILE_CONFIG_SIZE_INTERNAL 0xC0
+#if MOBILE_CONFIG_SIZE_INTERNAL > MOBILE_CONFIG_SIZE
+#error "MOBILE_CONFIG_SIZE isn't big enough!"
+#endif
+
 static void config_clear(void *user)
 {
-    unsigned char buffer[MOBILE_CONFIG_SIZE] = {0};
-    mobile_board_config_write(user, buffer, 0, MOBILE_CONFIG_SIZE);
+    unsigned char buffer[MOBILE_CONFIG_SIZE_INTERNAL] = {0};
+    mobile_board_config_write(user, buffer, 0, MOBILE_CONFIG_SIZE_INTERNAL);
 }
 
 static bool config_verify(void *user)
 {
-    unsigned char buffer[MOBILE_CONFIG_SIZE];
-    mobile_board_config_read(user, buffer, 0, MOBILE_CONFIG_SIZE);
+    unsigned char buffer[MOBILE_CONFIG_SIZE_INTERNAL];
+    mobile_board_config_read(user, buffer, 0, MOBILE_CONFIG_SIZE_INTERNAL);
     if (buffer[0] != 'M' || buffer[1] != 'A') {
         return false;
     }
 
     uint16_t checksum = 0;
-    for (unsigned i = 0; i < MOBILE_CONFIG_SIZE - 2; i++) {
+    for (unsigned i = 0; i < MOBILE_CONFIG_SIZE_INTERNAL - 2; i++) {
         checksum += buffer[i];
     }
-    uint16_t config_checksum = buffer[MOBILE_CONFIG_SIZE - 2] << 8 |
-                               buffer[MOBILE_CONFIG_SIZE - 1]; 
+    uint16_t config_checksum = buffer[MOBILE_CONFIG_SIZE_INTERNAL - 2] << 8 |
+                               buffer[MOBILE_CONFIG_SIZE_INTERNAL - 1];
     return checksum == config_checksum;
 }
 

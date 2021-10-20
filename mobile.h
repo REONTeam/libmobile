@@ -329,17 +329,16 @@ bool mobile_board_sock_accept(void *user, unsigned conn);
 // - conn: Socket number
 // - data: Data to be sent
 // - size: Size of data to be sent
-// - addr: Address to send to, if using a UDP socket
+// - addr: Address to send to, if using a UDP socket. NULL if none.
 int mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
 
 // mobile_board_sock_recv - Receive data from a socket
 //
 // Receives data from the specified socket, optionally returning the origin
 // address through the <addr> parameter. The implementation must be able to
-// receive at least MOBILE_MAX_TRANSFER_SIZE bytes at once. The <size>
-// parameter specifies the maximum amount of data to be stored in the buffer
-// pointed to by the <data> parameter. If there isn't enough data, returning
-// less is OK.
+// receive at least 512 bytes at once. The <size> parameter specifies the
+// maximum amount of data to be stored in the buffer pointed to by the <data>
+// parameter. If there isn't enough data, returning less is OK.
 //
 // If the <addr> parameter is non-NULL, and at least one byte has been
 // received, the <struct mobile_addr> buffer pointed to by it must be filled

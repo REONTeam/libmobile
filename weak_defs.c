@@ -52,7 +52,7 @@ A_WEAK bool mobile_board_sock_accept(A_UNUSED void *user, A_UNUSED unsigned conn
 }
 A_WEAK int mobile_board_sock_send(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED const void *data, A_UNUSED unsigned size, A_UNUSED const struct mobile_addr *addr)
 {
-    return true;
+    return size;
 }
 A_WEAK int mobile_board_sock_recv(A_UNUSED void *user, A_UNUSED unsigned conn, A_UNUSED void *data, A_UNUSED unsigned size, A_UNUSED struct mobile_addr *addr)
 {
