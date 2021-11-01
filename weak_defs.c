@@ -18,7 +18,7 @@ struct mobile_packet;
 
 A_WEAK void mobile_board_debug_log(A_UNUSED void *user, A_UNUSED const char *line) {}
 A_WEAK void mobile_board_serial_disable(A_UNUSED void *user) {}
-A_WEAK void mobile_board_serial_enable(A_UNUSED void *user) {}
+A_WEAK void mobile_board_serial_enable(A_UNUSED void *user, A_UNUSED bool mode_32bit) {}
 A_WEAK bool mobile_board_config_read(A_UNUSED void *user, void *dest, A_UNUSED uintptr_t offset, size_t size)
 {
     memset(dest, 0xFF, size);

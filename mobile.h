@@ -140,7 +140,7 @@ void mobile_board_serial_disable(void *user);
 //
 // Exact opposite of mobile_board_serial_disable(). This function indicates
 // mobile_transfer() may be called again, resuming communications.
-void mobile_board_serial_enable(void *user);
+void mobile_board_serial_enable(void *user, bool mode_32bit);
 
 // mobile_board_config_read - Read from the configuration data
 //
