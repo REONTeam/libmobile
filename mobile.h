@@ -134,13 +134,13 @@ void mobile_board_debug_log(void *user, const char *line);
 // was called. If mobile_transfer() and mobile_loop() are implemented as
 // separate threads, a mutex-like locking mechanism may be used to accomplish
 // this.
-void mobile_board_serial_disable(void *user);
+void mobile_board_serial_disable(void *user, bool mode_32bit);
 
 // mobile_board_serial_enable - Enable serial communications
 //
 // Exact opposite of mobile_board_serial_disable(). This function indicates
 // mobile_transfer() may be called again, resuming communications.
-void mobile_board_serial_enable(void *user);
+void mobile_board_serial_enable(void *user, bool mode_32bit);
 
 // mobile_board_config_read - Read from the configuration data
 //

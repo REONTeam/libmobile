@@ -129,13 +129,13 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         break;
 
     case MOBILE_ACTION_CHANGE_32BIT_MODE:
-        mobile_board_serial_disable(_u);
+        mobile_board_serial_disable(_u, adapter->serial.mode_32bit);
         mode_32bit_change(adapter);
-        mobile_board_serial_enable(_u);
+        mobile_board_serial_enable(_u, adapter->serial.mode_32bit);
         break;
 
     case MOBILE_ACTION_DROP_CONNECTION:
-        mobile_board_serial_disable(_u);
+        mobile_board_serial_disable(_u, adapter->serial.mode_32bit);
 
         // "Emulate" an end session.
         mobile_serial_init(adapter);
@@ -148,11 +148,11 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mobile_debug_endl(adapter);
 
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        mobile_board_serial_enable(_u);
+        mobile_board_serial_enable(_u, adapter->serial.mode_32bit);
         break;
 
     case MOBILE_ACTION_RESET:
-        mobile_board_serial_disable(_u);
+        mobile_board_serial_disable(_u, adapter->serial.mode_32bit);
 
         adapter->commands.mode_32bit = false;
         mode_32bit_change(adapter);
@@ -160,13 +160,13 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         adapter->serial.active = false;
 
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        mobile_board_serial_enable(_u);
+        mobile_board_serial_enable(_u, adapter->serial.mode_32bit);
         break;
 
     case MOBILE_ACTION_RESET_SERIAL:
-        mobile_board_serial_disable(_u);
+        mobile_board_serial_disable(_u, adapter->serial.mode_32bit);
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        mobile_board_serial_enable(_u);
+        mobile_board_serial_enable(_u, adapter->serial.mode_32bit);
         break;
 
     default:
@@ -236,5 +236,5 @@ void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile
     mobile_commands_init(adapter);
     mobile_serial_init(adapter);
     mobile_dns_init(adapter);
-    mobile_board_serial_enable(user);
+    mobile_board_serial_enable(user, adapter->serial.mode_32bit);
 }
