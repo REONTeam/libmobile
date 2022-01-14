@@ -7,6 +7,12 @@
 
 #include "compat.h"
 
+void mobile_global_init(struct mobile_adapter *adapter)
+{
+    adapter->global.active = false;
+    adapter->global.packet_parsed = false;
+}
+
 static void packet_parse(struct mobile_packet *packet, const unsigned char *buffer)
 {
     packet->command = buffer[0];
@@ -40,13 +46,13 @@ static void packet_create(unsigned char *buffer, const struct mobile_packet *pac
 
 static bool command_handle(struct mobile_adapter *adapter)
 {
-    struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_adapter_global *s = &adapter->global;
 
     // If the packet hasn't been parsed yet, parse and store it
     if (!s->packet_parsed) {
         packet_parse(&s->packet, adapter->serial.buffer);
         mobile_debug_command(adapter, &s->packet, false);
-        s->processing = 0;
+        adapter->commands.processing = 0;
         s->packet_parsed = true;
     }
 
@@ -74,7 +80,12 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 {
     void *_u = adapter->user;
 
-    enum mobile_serial_state serial_state = adapter->serial.state;
+    // If the serial has been active at all, latch the timer
+    if (adapter->serial.active) {
+        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
+        adapter->global.active = true;
+        adapter->serial.active = false;
+    }
 
     // If the adapter is stuck waiting, with no signal from the game,
     //   put it out of its misery.
@@ -84,21 +95,21 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
         return MOBILE_ACTION_DROP_CONNECTION;
     }
 
-    // If the serial was active recently, but nothing has been obtained since,
-    //   reset it.
-    if (adapter->serial.active &&
+    // If the serial stops receiving data after a while since the session was
+    //   ended, perform a reset.
+    if (adapter->global.active &&
             !adapter->commands.session_begun &&
             mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 3000)) {
         return MOBILE_ACTION_RESET;
     }
 
     // Process a packet if one is waiting
-    if (serial_state == MOBILE_SERIAL_RESPONSE_WAITING) {
+    if (adapter->serial.state == MOBILE_SERIAL_RESPONSE_WAITING) {
         return MOBILE_ACTION_PROCESS_COMMAND;
     }
 
     // If the mode_32bit should be changed, change it.
-    if (serial_state == MOBILE_SERIAL_WAITING &&
+    if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
             adapter->commands.mode_32bit != adapter->serial.mode_32bit) {
         return MOBILE_ACTION_CHANGE_32BIT_MODE;
     }
@@ -119,8 +130,8 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
     void *_u = adapter->user;
 
     switch (action) {
+    // After the client has finished sending data, process a command
     case MOBILE_ACTION_PROCESS_COMMAND:
-        // Pretty much everything's in a wonky state if this isn't the case...
         if (adapter->serial.state != MOBILE_SERIAL_RESPONSE_WAITING) break;
 
         if (command_handle(adapter)) {
@@ -128,21 +139,27 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         }
         break;
 
+    // Once the exchange has finished, switch the 32bit mode flag
     case MOBILE_ACTION_CHANGE_32BIT_MODE:
+        if (adapter->serial.state != MOBILE_SERIAL_WAITING) break;
+
         mobile_board_serial_disable(_u);
         mode_32bit_change(adapter);
         mobile_board_serial_enable(_u);
         break;
 
+    // End the session and reset everything
     case MOBILE_ACTION_DROP_CONNECTION:
+        if (!adapter->commands.session_begun) break;
+
         mobile_board_serial_disable(_u);
 
-        // "Emulate" an end session.
-        mobile_serial_init(adapter);
+        // End the session and reset
         mobile_commands_reset(adapter);
         mode_32bit_change(adapter);
-        adapter->commands.packet_parsed = false;
-        adapter->serial.active = false;
+        mobile_serial_init(adapter);
+        mobile_global_init(adapter);
+
         mobile_debug_print(adapter, PSTR("<<< 11 End session (timeout)"));
         mobile_debug_endl(adapter);
         mobile_debug_endl(adapter);
@@ -151,18 +168,21 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mobile_board_serial_enable(_u);
         break;
 
+    // Resets everything when the session has ended
     case MOBILE_ACTION_RESET:
+        if (adapter->commands.session_begun) break;
+
         mobile_board_serial_disable(_u);
 
         adapter->commands.mode_32bit = false;
         mode_32bit_change(adapter);
-        adapter->commands.packet_parsed = false;
-        adapter->serial.active = false;
+        mobile_global_init(adapter);
 
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
         mobile_board_serial_enable(_u);
         break;
 
+    // Reset the serial's current bit state in an attempt to synchronize
     case MOBILE_ACTION_RESET_SERIAL:
         mobile_board_serial_disable(_u);
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
@@ -179,7 +199,6 @@ void mobile_loop(struct mobile_adapter *adapter) {
 }
 
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
-    mobile_board_time_latch(adapter->user, MOBILE_TIMER_SERIAL);
     adapter->serial.active = true;
 
     // Nothing should be done while switching the mode_32bit

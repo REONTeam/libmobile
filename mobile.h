@@ -184,10 +184,6 @@ bool mobile_board_config_write(void *user, const void *src, uintptr_t offset, si
 // This function will "latch" the current time to the specified timer, by
 // storing the current value so it may later be compared.
 //
-// Please note that all of the mobile_board_time_* functions may be called from
-// both mobile_loop and mobile_transfer. Make sure to use a locking mechanism
-// if these are executed in separate threads!
-// 
 // Parameters:
 // - timer: timer that should be latched
 void mobile_board_time_latch(void *user, enum mobile_timers timer);
@@ -200,10 +196,6 @@ void mobile_board_time_latch(void *user, enum mobile_timers timer);
 //
 // Checking a timer that hasn't been latched is undefined, libmobile shall never
 // do this.
-//
-// Please note that all of the mobile_board_time_* functions may be called from
-// both mobile_loop and mobile_transfer. Make sure to use a locking mechanism
-// if these are executed in separate threads!
 //
 // Returns: true if the specified time has passed, false otherwise
 // Parameters:

@@ -33,7 +33,6 @@ static const char *const isp_numbers[] PROGMEM = {
 void mobile_commands_init(struct mobile_adapter *adapter)
 {
     adapter->commands.session_begun = false;
-    adapter->commands.packet_parsed = false;
     adapter->commands.mode_32bit = false;
 }
 
@@ -795,7 +794,7 @@ static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adap
             packet->length, ip);
 
         // The adapter weirdly enough only returns an error if the address is
-        //   0, despite the "parse error" value being -1.
+        //   0, despite the "parse error" value being -1 (it used inet_addr()).
         const unsigned char ip0[MOBILE_HOSTLEN_IPV4] = {0};
         if (memcmp(ip, ip0, sizeof(ip)) == 0) return error_packet(packet, 2);
 

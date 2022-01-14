@@ -51,9 +51,6 @@ struct mobile_adapter_commands {
     _Atomic bool session_begun;
     _Atomic bool mode_32bit;
 
-    bool packet_parsed;
-    struct mobile_packet packet;
-
     unsigned processing;
     unsigned char processing_data[4];
     struct mobile_addr processing_addr;
