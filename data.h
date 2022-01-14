@@ -11,8 +11,16 @@
 #include "serial.h"
 #include "dns.h"
 
+struct mobile_adapter_global {
+    bool active;
+
+    bool packet_parsed;
+    struct mobile_packet packet;
+};
+
 struct mobile_adapter {
     void *user;
+    struct mobile_adapter_global global;
     struct mobile_adapter_config config;
     struct mobile_adapter_serial serial;
     struct mobile_adapter_commands commands;

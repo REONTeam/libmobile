@@ -27,7 +27,6 @@ static const char *isp_numbers[] = {
 void mobile_commands_init(struct mobile_adapter *adapter)
 {
     adapter->commands.session_begun = false;
-    adapter->commands.packet_parsed = false;
     adapter->commands.mode_32bit = false;
 }
 
