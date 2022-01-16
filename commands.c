@@ -82,10 +82,13 @@ static bool do_hang_up_telephone(struct mobile_adapter *adapter)
 
 static void do_end_session(struct mobile_adapter *adapter)
 {
+    do_hang_up_telephone(adapter);
+
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    // Clean up a possibly residual connection that wasn't established
+    // Clean up a possibly residual connection that wasn't established by
+    //   the command_wait_for_telephone_call function
     if (s->connections[p2p_conn]) mobile_board_sock_close(_u, p2p_conn);
 
     s->session_begun = false;
@@ -164,7 +167,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     }
     if (packet->length < 1) return error_packet(packet, 2);
 
-    // Close any connection created by "wait for telephone call"
+    // Close any connection created by command_wait_for_telephone_call
     if (s->connections[p2p_conn]) {
         mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
