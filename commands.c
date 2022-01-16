@@ -76,6 +76,8 @@ static bool do_hang_up_telephone(struct mobile_adapter *adapter)
 
 static void do_end_session(struct mobile_adapter *adapter)
 {
+    do_hang_up_telephone(adapter);
+
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
