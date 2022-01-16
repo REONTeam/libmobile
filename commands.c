@@ -46,6 +46,21 @@ static struct mobile_packet *error_packet(struct mobile_packet *packet, const un
     return packet;
 }
 
+static bool connection_new(struct mobile_adapter *adapter, unsigned char *out_conn)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+
+    // Find a free connection slot
+    unsigned char conn;
+    for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
+        if (!s->connections[conn]) break;
+    }
+    if (conn >= MOBILE_MAX_CONNECTIONS) return false;
+
+    *out_conn = conn;
+    return true;
+}
+
 static bool do_isp_logout(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -144,6 +159,11 @@ static struct mobile_packet *command_end_session(struct mobile_adapter *adapter,
     return packet;
 }
 
+enum process_dial_telephone {
+    PROCESS_DIAL_TELEPHONE_BEGIN,
+    PROCESS_DIAL_TELEPHONE_IP
+};
+
 static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -191,7 +211,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
             return error_packet(packet, 3);
         }
         s->connections[p2p_conn] = true;
-        s->processing = 1;  // command_dial_telephone_ip
+        s->processing = PROCESS_DIAL_TELEPHONE_IP;
         return NULL;
     }
 
@@ -240,10 +260,10 @@ static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapt
     void *_u = adapter->user;
 
     switch (s->processing) {
-    case 0:
+    case PROCESS_DIAL_TELEPHONE_BEGIN:
         mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
         return command_dial_telephone_begin(adapter, packet);
-    case 1:
+    case PROCESS_DIAL_TELEPHONE_IP:
         if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
             mobile_board_sock_close(_u, p2p_conn);
             s->connections[p2p_conn] = false;
@@ -301,6 +321,15 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
     return packet;
 }
 
+enum process_transfer_data {
+    PROCESS_TRANSFER_DATA_BEGIN,
+    PROCESS_TRANSFER_DATA_MAIN
+};
+
+enum procdata_transfer_data {
+    PROCDATA_TRANSFER_DATA_SENT_SIZE
+};
+
 // Errors:
 // 0 - Invalid connection/communication failed
 // 1 - Invalid use (Call was ended/never made)
@@ -323,13 +352,13 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
         return error_packet(packet, 0);
     }
 
-    if (s->processing == 0) {
-        s->processing_data[0] = 0;
+    if (s->processing == PROCESS_TRANSFER_DATA_BEGIN) {
+        s->processing_data[PROCDATA_TRANSFER_DATA_SENT_SIZE] = 0;
         mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
-        s->processing = 1;
+        s->processing = PROCESS_TRANSFER_DATA_MAIN;
     }
 
-    unsigned sent_size = s->processing_data[0];
+    unsigned sent_size = s->processing_data[PROCDATA_TRANSFER_DATA_SENT_SIZE];
     unsigned char *data = packet->data + 1;
     unsigned send_size = packet->length - 1;
 
@@ -338,7 +367,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
             send_size - sent_size, NULL);
         if (rc < 0) return error_packet(packet, 0);
         sent_size += rc;
-        s->processing_data[0] = sent_size;
+        s->processing_data[PROCDATA_TRANSFER_DATA_SENT_SIZE] = sent_size;
 
         // Attempt to send again while not everything has been sent
         if (send_size > sent_size) {
@@ -598,6 +627,15 @@ static struct mobile_packet *command_isp_logout(struct mobile_adapter *adapter, 
     return packet;
 }
 
+enum process_open_tcp_connection {
+    PROCESS_OPEN_TCP_CONNECTION_BEGIN,
+    PROCESS_OPEN_TCP_CONNECTION_CONNECTING
+};
+
+enum procdata_open_tcp_connection {
+    PROCDATA_OPEN_TCP_CONNECTION_CONN
+};
+
 static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -610,14 +648,8 @@ static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_ada
         return error_packet(packet, 3);
     }
 
-    // Find a free connection to use
     unsigned char conn;
-    for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
-        if (!s->connections[conn]) break;
-    }
-    if (conn >= MOBILE_MAX_CONNECTIONS) {
-        return error_packet(packet, 0);
-    }
+    if (!connection_new(adapter, &conn)) return error_packet(packet, 0);
 
     if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_TCP,
             MOBILE_ADDRTYPE_IPV4, 0)) {
@@ -625,8 +657,8 @@ static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_ada
     }
     s->connections[conn] = true;
 
-    s->processing_data[0] = conn;
-    s->processing = 1;  // command_open_tcp_connection_connecting
+    s->processing_data[PROCDATA_OPEN_TCP_CONNECTION_CONN] = conn;
+    s->processing = PROCESS_OPEN_TCP_CONNECTION_CONNECTING;
     return NULL;
 }
 
@@ -635,7 +667,7 @@ static struct mobile_packet *command_open_tcp_connection_connecting(struct mobil
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    unsigned char conn = s->processing_data[0];
+    unsigned char conn = s->processing_data[PROCDATA_OPEN_TCP_CONNECTION_CONN];
 
     struct mobile_addr4 addr = {
         .type = MOBILE_ADDRTYPE_IPV4,
@@ -666,14 +698,16 @@ static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *
     void *_u = adapter->user;
 
     switch (s->processing) {
-    case 0:
+    case PROCESS_OPEN_TCP_CONNECTION_BEGIN:
         mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
         return command_open_tcp_connection_begin(adapter, packet);
-    case 1:
+    case PROCESS_OPEN_TCP_CONNECTION_CONNECTING:
         // TODO: Verify this timeout with a game
         if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
-            mobile_board_sock_close(_u, s->processing_data[0]);
-            s->connections[s->processing_data[0]] = false;
+            unsigned char conn =
+                s->processing_data[PROCDATA_OPEN_TCP_CONNECTION_CONN];
+            mobile_board_sock_close(_u, conn);
+            s->connections[conn] = false;
             return error_packet(packet, 3);
         }
         return command_open_tcp_connection_connecting(adapter, packet);
@@ -731,6 +765,16 @@ static struct mobile_packet *command_close_udp_connection(struct mobile_adapter 
     return error_packet(packet, 1);
 }
 
+enum process_dns_query {
+    PROCESS_DNS_QUERY_BEGIN,
+    PROCESS_DNS_QUERY_CHECK
+};
+
+enum procdata_dns_query {
+    PROCDATA_DNS_QUERY_CONN,
+    PROCDATA_DNS_QUERY_ADDR_ID
+};
+
 static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned char id)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -781,7 +825,7 @@ static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet 
     return addr_id;
 }
 
-static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_dns_query_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -806,21 +850,15 @@ static struct mobile_packet *command_dns_query_start(struct mobile_adapter *adap
         return packet;
     }
 
-    // Find a free connection to use for the query
     unsigned char conn;
-    for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
-        if (!s->connections[conn]) break;
-    }
-    if (conn >= MOBILE_MAX_CONNECTIONS) {
-        return error_packet(packet, 2);
-    }
+    if (!connection_new(adapter, &conn)) return error_packet(packet, 2);
 
     int addr_id = dns_query_start(adapter, packet, conn, 0);
     if (addr_id < 0) return error_packet(packet, 2);
 
-    s->processing_data[0] = conn;
-    s->processing_data[1] = addr_id;
-    s->processing = 1;  // command_dns_query_check
+    s->processing_data[PROCDATA_DNS_QUERY_CONN] = conn;
+    s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID] = addr_id;
+    s->processing = PROCESS_DNS_QUERY_CHECK;
     return NULL;
 }
 
@@ -829,8 +867,8 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    unsigned char conn = s->processing_data[0];
-    int addr_id = s->processing_data[1];
+    unsigned char conn = s->processing_data[PROCDATA_DNS_QUERY_CONN];
+    int addr_id = s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID];
     struct mobile_addr *addr = dns_get_addr(adapter, addr_id);
 
     unsigned char ip[MOBILE_HOSTLEN_IPV4];
@@ -846,7 +884,7 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
         if (addr_id < 2) {
             addr_id = dns_query_start(adapter, packet, conn, 2);
             if (addr_id < 0) return error_packet(packet, 2);
-            s->processing_data[1] = addr_id;
+            s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID] = addr_id;
             return NULL;
         }
 
@@ -870,9 +908,9 @@ static struct mobile_packet *command_dns_query(struct mobile_adapter *adapter, s
     struct mobile_adapter_commands *s = &adapter->commands;
 
     switch (s->processing) {
-    case 0:
-        return command_dns_query_start(adapter, packet);
-    case 1:
+    case PROCESS_DNS_QUERY_BEGIN:
+        return command_dns_query_begin(adapter, packet);
+    case PROCESS_DNS_QUERY_CHECK:
         return command_dns_query_check(adapter, packet);
     default:
         return error_packet(packet, 2);
