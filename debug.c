@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "debug.h"
 
-// This file provides an example implementation of mobile_board_debug_cmd
-//   that you can conditionally compile.
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,8 +13,22 @@ void mobile_debug_init(struct mobile_adapter *adapter)
     adapter->debug.current = 0;
 }
 
+#define debug_write(data, size) mobile_debug_write(adapter, (const char *)data, size)
 #define debug_print(fmt, ...) mobile_debug_print(adapter, PSTR(fmt), ##__VA_ARGS__)
 #define debug_endl() mobile_debug_endl(adapter)
+
+void mobile_debug_write(struct mobile_adapter *adapter, const char *data, unsigned size)
+{
+    struct mobile_adapter_debug *s = &adapter->debug;
+
+    int remaining = MOBILE_DEBUG_BUFFER_SIZE - s->current;
+    if (remaining <= 1) return;
+    unsigned written = size;
+    if (written > (unsigned)remaining - 1) written = remaining - 1;
+    memcpy(s->buffer + s->current, data, written);
+    s->buffer[s->current + written] = 0;
+    s->current += written;
+}
 
 void mobile_debug_print(struct mobile_adapter *adapter, const char *fmt, ...)
 {
@@ -30,11 +41,37 @@ void mobile_debug_print(struct mobile_adapter *adapter, const char *fmt, ...)
     if (remaining <= 1) return;
     int written = vsnprintf_P(s->buffer + s->current, remaining, fmt, ap);
     if (written <= 0) return;
-    unsigned total = s->current + written;
-    if (total >= MOBILE_DEBUG_BUFFER_SIZE - 1) {
-        total = MOBILE_DEBUG_BUFFER_SIZE - 1;
+    s->current += written;
+
+    // Remove the terminator 0 from the s->current size
+    if (s->current >= MOBILE_DEBUG_BUFFER_SIZE) {
+        s->current = MOBILE_DEBUG_BUFFER_SIZE - 1;
     }
-    s->current = total;
+}
+
+void mobile_debug_print_hex(struct mobile_adapter *adapter, const void *data, unsigned size)
+{
+    const unsigned char *d = data;
+    while (size--) debug_print("%02X ", *d++);
+}
+
+void mobile_debug_print_addr(struct mobile_adapter *adapter, const struct mobile_addr *addr)
+{
+    unsigned port;
+    if (addr->type == MOBILE_ADDRTYPE_IPV4) {
+        const struct mobile_addr4 *addr4 = (struct mobile_addr4 *)addr;
+        debug_print("%u.%u.%u.%u",
+            addr4->host[0], addr4->host[1], addr4->host[2], addr4->host[3]);
+        port = addr4->port;
+    } else if (addr->type == MOBILE_ADDRTYPE_IPV6) {
+        const struct mobile_addr6 *addr6 = (struct mobile_addr6 *)addr;
+        // Stubbed, IPv6 addresses can get huge!
+        debug_print("<IPv6 address>");
+        port = addr6->port;
+    } else {
+        return;
+    }
+    debug_print(":%u", port);
 }
 
 void mobile_debug_endl(struct mobile_adapter *adapter)
@@ -52,9 +89,8 @@ static void dump_hex(struct mobile_adapter *adapter, const unsigned char *buf, c
     debug_endl();
     for (unsigned i = 0; i < len; i += 0x10) {
         debug_print("    ");
-        for (unsigned x = i; x < i + 0x10 && x < len; x++)  {
-            debug_print("%02X ", buf[x]);
-        }
+        unsigned x = i + 0x10 > len ? len - i : 0x10;
+        mobile_debug_print_hex(adapter, buf + i, x);
         debug_endl();
     }
 }
@@ -79,7 +115,7 @@ static void dump(struct mobile_adapter *adapter, const unsigned char *buf, const
     if (i < len) return dump_hex(adapter, buf, len);
 
     debug_endl();
-    for (unsigned i = 0; i < len; i++) debug_print("%c", buf[i]);
+    debug_write(buf, len);
     debug_endl();
 }
 
@@ -103,9 +139,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
     switch(packet->command) {
     case MOBILE_COMMAND_BEGIN_SESSION:
         debug_print("Begin session: ");
-        for (unsigned i = 0; i < packet->length; i++){
-            debug_print("%c", packet->data[i]);
-        }
+        debug_write(packet->data, packet->length);
         debug_endl();
         break;
 
@@ -123,9 +157,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
                 break;
             }
             debug_print(" (prot %d): ", packet->data[0]);
-            for (unsigned i = 1; i < packet->length; i++){
-                debug_print("%c", packet->data[i]);
-            }
+            debug_write(packet->data + 1, packet->length - 1);
             debug_endl();
         } else {
             packet_end(adapter, packet, 0);
@@ -238,7 +270,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
                 break;
             }
             debug_print(" (id: ");
-            for (unsigned i = 0; i < data[0]; i++) debug_print("%c", data[i + 1]);
+            debug_write(data + 1, data[0]);
             data += 1 + data[0];
 
             if (packet->data + packet->length < data + 1 + data[0] + 8) {
@@ -316,9 +348,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         debug_print("DNS query");
         if (!send) {
             debug_print(": ");
-            for (unsigned i = 0; i < packet->length; i++) {
-                debug_print("%c", packet->data[i]);
-            }
+            debug_write(packet->data, packet->length);
             debug_endl();
         } else {
             if (packet->length < 4) {
@@ -326,8 +356,8 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
                 break;
             }
             debug_print(": %u.%u.%u.%u",
-                    packet->data[0], packet->data[1],
-                    packet->data[2], packet->data[3]);
+                packet->data[0], packet->data[1],
+                packet->data[2], packet->data[3]);
             packet_end(adapter, packet, 4);
         }
         break;

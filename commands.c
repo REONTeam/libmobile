@@ -180,9 +180,6 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     //         parse this.
 
     if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
-        // TODO: There's a possibility the adapter allows calling a new number
-        //         whilst connected to the internet...
-        //       This disconnects it from the internet, of course.
         return error_packet(packet, 1);
     }
     if (packet->length < 1) return error_packet(packet, 2);
@@ -211,6 +208,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
             return error_packet(packet, 3);
         }
         s->connections[p2p_conn] = true;
+
         s->processing = PROCESS_DIAL_TELEPHONE_IP;
         return NULL;
     }
@@ -233,9 +231,10 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
     }
 
     // Check if we're connected until it either errors or succeeds
-    int rc = mobile_board_sock_connect(_u, p2p_conn, (struct mobile_addr *)&addr);
+    int rc = mobile_board_sock_connect(_u, p2p_conn,
+        (struct mobile_addr *)&addr);
     if (rc == 0) return NULL;  // Not connected, no error; try again
-    if (rc == -1) {
+    if (rc < 0) {
         mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
         return error_packet(packet, 3);
@@ -677,7 +676,7 @@ static struct mobile_packet *command_open_tcp_connection_connecting(struct mobil
 
     int rc = mobile_board_sock_connect(_u, conn, (struct mobile_addr *)&addr);
     if (rc == 0) return NULL;
-    if (rc == -1) {
+    if (rc < 0) {
         mobile_board_sock_close(_u, conn);
         s->connections[conn] = false;
         return error_packet(packet, 3);
@@ -780,9 +779,8 @@ static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned
     struct mobile_adapter_commands *s = &adapter->commands;
 
     // Try DNS2 first if that's the one that worked
-    if (s->dns2_use == 1) {
-        id = (id + 2) % 4;
-    }
+    if (s->dns2_use == 1) id += 2;
+    id %= 4;
 
     switch (id) {
     default:

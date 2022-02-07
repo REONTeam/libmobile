@@ -8,6 +8,8 @@
 #include "atomic.h"
 struct mobile_adapter;
 
+// TODO: Share packet->data with serial.c to save memory?
+
 #define MOBILE_MAX_DATA_SIZE 0xFF
 
 enum mobile_command {

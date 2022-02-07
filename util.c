@@ -4,12 +4,12 @@
 
 #include "data.h"
 
-static unsigned mobile_addr_length(const struct mobile_addr *addr)
+static unsigned mobile_addr_size(const struct mobile_addr *addr)
 {
-    unsigned len = 0;
-    if (addr->type == MOBILE_ADDRTYPE_IPV4) len = sizeof(struct mobile_addr4);
-    if (addr->type == MOBILE_ADDRTYPE_IPV6) len = sizeof(struct mobile_addr6);
-    return len;
+    unsigned size = 0;
+    if (addr->type == MOBILE_ADDRTYPE_IPV4) size = sizeof(struct mobile_addr4);
+    if (addr->type == MOBILE_ADDRTYPE_IPV6) size = sizeof(struct mobile_addr6);
+    return size;
 }
 
 // Copy enough bytes of address <src> into <dest>, without exceeding the
@@ -17,9 +17,9 @@ static unsigned mobile_addr_length(const struct mobile_addr *addr)
 // <dest> must have enough space to hold any kind of address.
 bool mobile_addr_copy(struct mobile_addr *dest, const struct mobile_addr *src)
 {
-    unsigned len = mobile_addr_length(src);
-    if (!len) return false;
-    memcpy(dest, src, len);
+    unsigned size = mobile_addr_size(src);
+    if (!size) return false;
+    memcpy(dest, src, size);
     return true;
 }
 
@@ -27,9 +27,9 @@ bool mobile_addr_copy(struct mobile_addr *dest, const struct mobile_addr *src)
 bool mobile_addr_compare(const struct mobile_addr *addr1, const struct mobile_addr *addr2)
 {
     if (addr1->type != addr2->type) return false;
-    unsigned len = mobile_addr_length(addr2);
-    if (!len) return false;
-    return memcmp(addr1, addr2, len) == 0;
+    unsigned size = mobile_addr_size(addr2);
+    if (!size) return false;
+    return memcmp(addr1, addr2, size) == 0;
 }
 
 // Converts a string of 12 characters to a binary representation for an IPv4

@@ -7,6 +7,7 @@
 
 #include "data.h"
 #include "util.h"
+#include "compat.h"
 
 // Implemented RFCs:
 // RFC1035 - DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
@@ -119,14 +120,16 @@ static bool dns_make_query(struct mobile_adapter_dns *state, enum dns_qtype type
     state->id += 1;
     state->type = type;
 
-    memcpy(state->buffer, (unsigned char []){
-        (state->id >> 8) & 0xFF, (state->id >> 0) & 0xFF,
+    state->buffer[0] = (state->id >> 8) & 0xFF;
+    state->buffer[1] = state->id & 0xFF;
+    static const unsigned char header[] PROGMEM = {
         0x01, 0x00,  // Flags: Standard query, Recursion Desired
         0, 1,  // Questions: 1
         0, 0,  // Answers: 0
         0, 0,  // Authority records: 0
         0, 0,  // Additional records: 0
-    }, DNS_HEADER_SIZE);
+    }; 
+    memcpy_P(state->buffer + 2, header, DNS_HEADER_SIZE - 2);
 
     unsigned offset = DNS_HEADER_SIZE;
     if (!dns_make_name(state, &offset, name, name_len)) return false;
@@ -232,10 +235,7 @@ bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const 
     return true;
 }
 
-// Returns:
-// -1 - error
-// 0 - nothing received
-// 1 - success
+// Returns: -1 on error, 0 if processing, 1 on success
 int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len, unsigned char *ip)
 {
     struct mobile_adapter_dns *s = &adapter->dns;

@@ -83,7 +83,7 @@ struct mobile_addr {
     union {
         enum mobile_addrtype type;
 
-        // Don't access these directly, cast instead.
+        // Don't access these directly, cast instead
         struct mobile_addr4 _addr4;
         struct mobile_addr6 _addr6;
     };
@@ -227,8 +227,8 @@ bool mobile_board_time_check_ms(void *user, enum mobile_timers timer, unsigned m
 // Returns: true if socket was created successfully, false on error
 // Parameters:
 // - conn: Socket number
-// - type: TCP vs UDP
-// - addrtype: IPV4 vs IPV6
+// - type: MOBILE_SOCKTYPE_TCP vs MOBILE_SOCKTYPE_UDP
+// - addrtype: MOBILE_ADDRTYPE_IPV4 vs MOBILE_ADDRTYPE_IPV6
 // - bindport: Port to bind()
 bool mobile_board_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
 
