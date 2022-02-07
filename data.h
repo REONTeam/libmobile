@@ -11,6 +11,7 @@
 #include "commands.h"
 #include "serial.h"
 #include "dns.h"
+#include "relay.h"
 
 struct mobile_adapter_global {
     bool active;
@@ -27,4 +28,5 @@ struct mobile_adapter {
     struct mobile_adapter_serial serial;
     struct mobile_adapter_commands commands;
     struct mobile_adapter_dns dns;
+    struct mobile_adapter_relay relay;
 };

@@ -248,12 +248,13 @@ void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile
     if (config) {
         adapter->config = *config;
     } else {
-        adapter->config = MOBILE_ADAPTER_CONFIG_DEFAULT;
+        adapter->config = MOBILE_DEFAULT_ADAPTER_CONFIG;
     }
     mobile_board_time_latch(user, MOBILE_TIMER_SERIAL);
     mobile_debug_init(adapter);
     mobile_commands_init(adapter);
     mobile_serial_init(adapter);
     mobile_dns_init(adapter);
+    mobile_relay_init(adapter);
     mobile_board_serial_enable(user);
 }

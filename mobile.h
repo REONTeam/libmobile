@@ -89,8 +89,18 @@ struct mobile_addr {
     };
 };
 
+#define MOBILE_DEFAULT_P2P_PORT 1027
+#define MOBILE_DEFAULT_P2P_RELAY_PORT 1027
+
 struct mobile_adapter_config {
+    // What device to emulate
     enum mobile_adapter_device device;
+
+    // If p2p_relay.type isn't MOBILE_ADDRTYPE_NONE, use this relay server
+    //   for p2p communication, instead of direct TCP connections
+    struct mobile_addr p2p_relay;
+
+    // What port to use for direct TCP connections
     unsigned p2p_port;
 
     // Signals Pokémon Crystal (jp) that the connection isn't metered,
@@ -98,12 +108,14 @@ struct mobile_adapter_config {
     // We have no idea of the effects of this in other games.
     bool unmetered;
 
+    // DNS servers to override the gameboy's chosen servers with.
+    // Only overridden if their type isn't MOBILE_ADDRTYPE_NONE.
     struct mobile_addr dns1;
     struct mobile_addr dns2;
 };
-#define MOBILE_ADAPTER_CONFIG_DEFAULT (struct mobile_adapter_config){ \
+#define MOBILE_DEFAULT_ADAPTER_CONFIG (struct mobile_adapter_config){ \
     .device = MOBILE_ADAPTER_BLUE, \
-    .p2p_port = 1027, \
+    .p2p_port = MOBILE_DEFAULT_P2P_PORT, \
 }
 
 // Data in this header depends on the config/types above

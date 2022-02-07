@@ -161,7 +161,8 @@ static struct mobile_packet *command_end_session(struct mobile_adapter *adapter,
 
 enum process_dial_telephone {
     PROCESS_DIAL_TELEPHONE_BEGIN,
-    PROCESS_DIAL_TELEPHONE_IP
+    PROCESS_DIAL_TELEPHONE_IP,
+    PROCESS_DIAL_TELEPHONE_RELAY
 };
 
 static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -199,6 +200,19 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
             packet->length = 0;
             return packet;
         }
+    }
+
+    // If the p2p_relay is enabled, start the connection
+    if (adapter->config.p2p_relay.type != MOBILE_ADDRTYPE_NONE) {
+        if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
+                adapter->config.p2p_relay.type, 0)) {
+            return error_packet(packet, 3);
+        }
+        s->connections[p2p_conn] = true;
+
+        mobile_relay_reset(adapter);
+        s->processing = PROCESS_DIAL_TELEPHONE_RELAY;
+        return NULL;
     }
 
     // Interpret the number as an IP and connect to someone
@@ -247,6 +261,43 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
     return packet;
 }
 
+static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    int rc = mobile_relay_connect(adapter, p2p_conn,
+        &adapter->config.p2p_relay);
+    if (rc > 0) {
+        rc = mobile_relay_call(adapter, p2p_conn, (char *)packet->data + 1,
+            packet->length - 1);
+    }
+    if (rc == 0) return NULL;
+    if (rc < 0) {
+        mobile_board_sock_close(_u, p2p_conn);
+        s->connections[p2p_conn] = false;
+        return error_packet(packet, 3);
+    }
+
+    // TODO: Don't close connection so we can redial using the smae
+    if (rc == MOBILE_RELAY_CALL_RESULT_UNAVAILABLE) {
+        mobile_board_sock_close(_u, p2p_conn);
+        s->connections[p2p_conn] = false;
+        return error_packet(packet, 4);  // UNKERR
+    }
+    if (rc == MOBILE_RELAY_CALL_RESULT_BUSY) {
+        mobile_board_sock_close(_u, p2p_conn);
+        s->connections[p2p_conn] = false;
+        return error_packet(packet, 0);  // UNKERR
+    }
+
+    s->state = MOBILE_CONNECTION_CALL;
+    s->call_packets_sent = 0;
+
+    packet->length = 0;
+    return packet;
+}
+
 // Errors:
 // 0 - Telephone line is busy
 // 1 - Invalid use (already connected)
@@ -269,6 +320,13 @@ static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapt
             return error_packet(packet, 3);
         }
         return command_dial_telephone_ip(adapter, packet);
+    case PROCESS_DIAL_TELEPHONE_RELAY:
+        if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
+            mobile_board_sock_close(_u, p2p_conn);
+            s->connections[p2p_conn] = false;
+            return error_packet(packet, 3);
+        }
+        return command_dial_telephone_relay(adapter, packet);
     default:
         return error_packet(packet, 3);
     }
@@ -283,19 +341,15 @@ static struct mobile_packet *command_hang_up_telephone(struct mobile_adapter *ad
     return packet;
 }
 
-// Errors:
-// 0 - No call received/phone not connected
-// 1 - Invalid use (already calling)
-// 3 - Internal error (ringing but picking up fails)
-static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapter *adapter, struct mobile_packet *packet)
+enum process_wait_for_telephone_call {
+    PROCESS_WAIT_FOR_TELEPHONE_CALL_BEGIN,
+    PROCESS_WAIT_FOR_TELEPHONE_CALL_MAIN,
+};
+
+static struct mobile_packet *command_wait_for_telephone_call_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
-
-    if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
-        packet->length = 0;
-        return packet;
-    }
 
     if (!s->connections[p2p_conn]) {
         if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
@@ -318,6 +372,68 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
 
     packet->length = 0;
     return packet;
+}
+
+static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    if (s->processing == PROCESS_WAIT_FOR_TELEPHONE_CALL_BEGIN) {
+        mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
+        s->processing = PROCESS_WAIT_FOR_TELEPHONE_CALL_MAIN;
+    } else {
+        // Just long enough until Pokémon Crystal times out
+        if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 30000)) {
+            return error_packet(packet, 0);
+        }
+    }
+
+    if (!s->connections[p2p_conn]) {
+        if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
+                adapter->config.p2p_relay.type, 0)) {
+            return error_packet(packet, 0);
+        }
+        s->connections[p2p_conn] = true;
+        mobile_relay_reset(adapter);
+    }
+
+    int rc = mobile_relay_connect(adapter, p2p_conn,
+        &adapter->config.p2p_relay);
+    if (rc > 0) {
+        rc = mobile_relay_wait(adapter, p2p_conn);
+    }
+    if (rc == 0) return NULL;
+    if (rc < 0) {
+        mobile_board_sock_close(_u, p2p_conn);
+        s->connections[p2p_conn] = false;
+        return error_packet(packet, 0);
+    }
+
+    s->state = MOBILE_CONNECTION_CALL;
+    s->call_packets_sent = 0;
+
+    packet->length = 0;
+    return packet;
+}
+
+// Errors:
+// 0 - No call received/phone not connected
+// 1 - Invalid use (already calling)
+// 3 - Internal error (ringing but picking up fails)
+static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+
+    if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
+        packet->length = 0;
+        return packet;
+    }
+
+    if (adapter->config.p2p_relay.type != MOBILE_ADDRTYPE_NONE) {
+        return command_wait_for_telephone_call_relay(adapter, packet);
+    }
+    return command_wait_for_telephone_call_ip(adapter, packet);
 }
 
 enum process_transfer_data {
