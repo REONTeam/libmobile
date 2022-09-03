@@ -46,7 +46,7 @@ static struct mobile_packet *error_packet(struct mobile_packet *packet, const un
     return packet;
 }
 
-static bool connection_new(struct mobile_adapter *adapter, unsigned char *out_conn)
+static int connection_new(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -55,10 +55,8 @@ static bool connection_new(struct mobile_adapter *adapter, unsigned char *out_co
     for (conn = 0; conn < MOBILE_MAX_CONNECTIONS; conn++) {
         if (!s->connections[conn]) break;
     }
-    if (conn >= MOBILE_MAX_CONNECTIONS) return false;
-
-    *out_conn = conn;
-    return true;
+    if (conn >= MOBILE_MAX_CONNECTIONS) return -1;
+    return conn;
 }
 
 static bool do_isp_logout(struct mobile_adapter *adapter)
@@ -647,8 +645,8 @@ static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_ada
         return error_packet(packet, 3);
     }
 
-    unsigned char conn;
-    if (!connection_new(adapter, &conn)) return error_packet(packet, 0);
+    int conn = connection_new(adapter);
+    if (conn < 0) return error_packet(packet, 0);
 
     if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_TCP,
             MOBILE_ADDRTYPE_IPV4, 0)) {
@@ -848,8 +846,8 @@ static struct mobile_packet *command_dns_query_begin(struct mobile_adapter *adap
         return packet;
     }
 
-    unsigned char conn;
-    if (!connection_new(adapter, &conn)) return error_packet(packet, 2);
+    int conn = connection_new(adapter);
+    if (conn < 0) return error_packet(packet, 2);
 
     int addr_id = dns_query_start(adapter, packet, conn, 0);
     if (addr_id < 0) return error_packet(packet, 2);
