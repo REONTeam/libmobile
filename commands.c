@@ -579,7 +579,7 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
     // Check if the DNS addresses are empty
     static const unsigned char dns0[MOBILE_HOSTLEN_IPV4] = {0};
     bool dns1_empty = memcmp(dns1, dns0, MOBILE_HOSTLEN_IPV4) == 0;
-    bool dns2_empty = memcmp(dns2, dns0, 4) == 0;
+    bool dns2_empty = memcmp(dns2, dns0, MOBILE_HOSTLEN_IPV4) == 0;
 
     // Initialize the DNS address structures with whatever data we've got
     s->dns1.type = dns1_empty ? MOBILE_ADDRTYPE_NONE : MOBILE_ADDRTYPE_IPV4;
