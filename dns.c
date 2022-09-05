@@ -156,13 +156,9 @@ static int dns_verify_response(struct mobile_adapter_dns *state, unsigned *offse
     // - We've got a response (bit 0) for a QUERY opcode (bits 1-4)
     // - It's not a truncated message (bit 6)
     // - The server supports recursion (bits 7 and 8)
-    // - Nothing is assigned to the zero-area, as according to spec (bits 9-11)
-    //   - These are used to know whether this is a verified answer or not,
-    //     but if zero in the request the server should never return unverified
-    //     responses.
     // - No error has happened (bits 12-15)
     unsigned flags = state->buffer[2] << 8 | state->buffer[3];
-    if ((flags & 0xFBFF) != 0x8180) {
+    if ((flags & 0xFB8F) != 0x8180) {
         return -2 - (flags & 0xF);
     }
 
@@ -254,14 +250,19 @@ int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const s
 
     unsigned offset;
     int ancount = dns_verify_response(s, &offset, host, host_len);
-    if (ancount < 0) return -1;
+    if (ancount < 0) {
+        mobile_debug_print("<DNS> Query result error: %d", ancount);
+        mobile_debug_endl();
+        return -1;
+    }
 
     while (ancount--) {
         int anoffset = dns_get_answer(s, &offset, host, host_len);
         if (anoffset < -1) continue;
-        if (anoffset == -1) return -1;
+        if (anoffset == -1) break;
         memcpy(ip, s->buffer + anoffset, MOBILE_HOSTLEN_IPV4);
-        break;
+        return 1;
     }
-    return 1;
+    mobile_debug_print("<DNS> No valid answer received");
+    mobile_debug_endl();
 }
