@@ -15,13 +15,6 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 {
     struct mobile_adapter_serial *s = &adapter->serial;
 
-    // TODO: Set F0 in the acknowledgement byte if the command is unknown
-    // Valid commands are:
-    // 0xf-0x1a
-    // 0x21-0x26
-    // 0x28
-    // 0x3f
-
     enum mobile_serial_state state = s->state;  // Workaround for atomic load in clang...
     switch (state) {
     case MOBILE_SERIAL_WAITING:
@@ -94,7 +87,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
     case MOBILE_SERIAL_ACKNOWLEDGE:
         // Receive the acknowledgement byte, send error if applicable.
 
-        // Perform requested alignment when in 32-bit mode
+        // Perform requested alignment when in 32bit mode
         if (s->current > 0) {
             if (s->current++ == 2) {
                 s->current = 0;
