@@ -21,19 +21,22 @@ enum mobile_relay_command {
 };
 
 enum mobile_relay_state {
+    // Connection states
     MOBILE_RELAY_DISCONNECTED,
-    MOBILE_RELAY_CONNECTING,
-    MOBILE_RELAY_HANDSHAKE,
     MOBILE_RELAY_CONNECTED,
-    MOBILE_RELAY_GETTING_NUMBER,
-    MOBILE_RELAY_CALLING,
-    MOBILE_RELAY_WAITING,
-    MOBILE_RELAY_LINKED
+    MOBILE_RELAY_LINKED,
+
+    // Waiting for command states
+    MOBILE_RELAY_RECV_CONNECT,
+    MOBILE_RELAY_RECV_HANDSHAKE,
+    MOBILE_RELAY_RECV_CALL,
+    MOBILE_RELAY_RECV_WAIT,
+    MOBILE_RELAY_RECV_GET_NUMBER
 };
 
 enum mobile_relay_call_result {
     MOBILE_RELAY_CALL_RESULT_FAILURE = -1,
-    MOBILE_RELAY_CALL_RESULT_PROCESSING,
+    MOBILE_RELAY_CALL_RESULT_PROCESSING = 0,
     MOBILE_RELAY_CALL_RESULT_ACCEPTED,  // Call established
     MOBILE_RELAY_CALL_RESULT_UNAVAILABLE,  // Number not available
     MOBILE_RELAY_CALL_RESULT_BUSY,  // Number is busy
@@ -42,6 +45,7 @@ enum mobile_relay_call_result {
 
 struct mobile_adapter_relay {
     enum mobile_relay_state state;
+    unsigned char processing;
 
     bool has_token;
     unsigned char token[MOBILE_RELAY_TOKEN_SIZE];
@@ -55,3 +59,4 @@ void mobile_relay_reset(struct mobile_adapter *adapter);
 int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server);
 int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const char *number, unsigned number_len);
 int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn);
+int mobile_relay_get_number(struct mobile_adapter *adapter, unsigned char conn, char *number, unsigned *number_len);

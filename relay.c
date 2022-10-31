@@ -39,11 +39,13 @@ void mobile_relay_init(struct mobile_adapter *adapter)
 {
     adapter->relay.has_token = false;
     adapter->relay.state = MOBILE_RELAY_DISCONNECTED;
+    adapter->relay.processing = 0;
 }
 
 void mobile_relay_reset(struct mobile_adapter *adapter)
 {
     adapter->relay.state = MOBILE_RELAY_DISCONNECTED;
+    adapter->relay.processing = 0;
 }
 
 static void relay_recv_reset(struct mobile_adapter *adapter) {
@@ -323,25 +325,26 @@ int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, con
         mobile_debug_print(adapter, PSTR("<RELAY> Connecting to "));
         mobile_debug_print_addr(adapter, server);
         mobile_debug_endl(adapter);
-        s->state = MOBILE_RELAY_CONNECTING;
+        s->state = MOBILE_RELAY_RECV_CONNECT;
         // fallthrough
 
-    case MOBILE_RELAY_CONNECTING:
+    case MOBILE_RELAY_RECV_CONNECT:
         rc = mobile_board_sock_connect(_u, conn, server);
         if (rc == 0) return 0;
         if (rc < 0) {
             mobile_debug_print(adapter, PSTR("<RELAY> Connection failed"));
             mobile_debug_endl(adapter);
+            s->state = MOBILE_RELAY_DISCONNECTED;
             return -1;
         }
 
         relay_handshake_send_debug(adapter);
         if (!relay_handshake_send(adapter, conn)) return -1;
         relay_recv_reset(adapter);
-        s->state = MOBILE_RELAY_HANDSHAKE;
+        s->state = MOBILE_RELAY_RECV_HANDSHAKE;
         return 0;
 
-    case MOBILE_RELAY_HANDSHAKE:
+    case MOBILE_RELAY_RECV_HANDSHAKE:
         rc = relay_handshake_recv(adapter, conn);
         if (rc == 0) return 0;
         if (rc < 0) {
@@ -381,10 +384,10 @@ int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const 
         relay_call_send_debug(adapter, number, number_len);
         if (!relay_call_send(adapter, conn, number, number_len)) return -1;
         relay_recv_reset(adapter);
-        s->state = MOBILE_RELAY_CALLING;
+        s->state = MOBILE_RELAY_RECV_CALL;
         return 0;
 
-    case MOBILE_RELAY_CALLING:
+    case MOBILE_RELAY_RECV_CALL:
         rc = relay_call_recv(adapter, conn);
         if (rc == 0) return 0;
         if (rc < 0) {
@@ -394,7 +397,11 @@ int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const 
             return -1;
         }
         relay_call_recv_debug(adapter);
-        s->state = MOBILE_RELAY_LINKED;
+        if (rc == MOBILE_RELAY_CALL_RESULT_ACCEPTED) {
+            s->state = MOBILE_RELAY_LINKED;
+        } else {
+            s->state = MOBILE_RELAY_CONNECTED;
+        }
         return rc;
 
     case MOBILE_RELAY_LINKED:
@@ -425,10 +432,10 @@ int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn)
         relay_wait_send_debug(adapter);
         if (!relay_wait_send(adapter, conn)) return -1;
         relay_recv_reset(adapter);
-        s->state = MOBILE_RELAY_WAITING;
+        s->state = MOBILE_RELAY_RECV_WAIT;
         return 0;
 
-    case MOBILE_RELAY_WAITING:
+    case MOBILE_RELAY_RECV_WAIT:
         rc = relay_wait_recv(adapter, conn);
         if (rc == 0) return 0;
         if (rc < 0) {
@@ -471,10 +478,10 @@ int mobile_relay_get_number(struct mobile_adapter *adapter, unsigned char conn, 
         relay_get_number_send_debug(adapter);
         if (!relay_get_number_send(adapter, conn)) return -1;
         relay_recv_reset(adapter);
-        s->state = MOBILE_RELAY_GETTING_NUMBER;
+        s->state = MOBILE_RELAY_RECV_GET_NUMBER;
         return 0;
 
-    case MOBILE_RELAY_GETTING_NUMBER:
+    case MOBILE_RELAY_RECV_GET_NUMBER:
         rc = relay_get_number_recv(adapter, conn, number, number_len);
         if (rc == 0) return 0;
         if (rc < 0) {
@@ -486,8 +493,102 @@ int mobile_relay_get_number(struct mobile_adapter *adapter, unsigned char conn, 
         relay_get_number_recv_debug(adapter);
         s->state = MOBILE_RELAY_CONNECTED;
         return 1;
- 
+
     default:
         return -1;
     }
+}
+
+enum process_call {
+    PROCESS_CALL_BEGIN,
+    PROCESS_CALL_GET_NUMBER,
+    PROCESS_CALL_CALL,
+    PROCESS_CALL_DONE
+};
+
+// mobile_relay_proc_call - Stateful outgoing call procedure
+int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server, const char *number, unsigned number_len)
+{
+    struct mobile_adapter_relay *s = &adapter->relay;
+
+    char own_number[MOBILE_RELAY_MAX_NUMBER_LEN];
+    unsigned own_number_len;
+
+    int rc = -1;
+
+    switch (s->processing) {
+    case PROCESS_CALL_BEGIN:
+        rc = mobile_relay_connect(adapter, conn, server);
+        if (rc > 0) {
+            s->processing = PROCESS_CALL_GET_NUMBER;
+        }
+        break;
+
+    case PROCESS_CALL_GET_NUMBER:
+        rc = mobile_relay_get_number(adapter, conn, own_number, &own_number_len);
+        if (rc > 0) {
+            // TODO: Callback to set number
+            s->processing = PROCESS_CALL_CALL;
+        }
+        break;
+
+    case PROCESS_CALL_CALL:
+        rc = mobile_relay_call(adapter, conn, number, number_len);
+        if (rc > 0) {
+            s->processing = PROCESS_CALL_DONE;
+        }
+        break;
+
+    case PROCESS_CALL_DONE:
+        return 1;
+    }
+
+    return rc;
+}
+
+enum process_wait {
+    PROCESS_WAIT_BEGIN,
+    PROCESS_WAIT_GET_NUMBER,
+    PROCESS_WAIT_WAIT,
+    PROCESS_WAIT_DONE
+};
+
+// mobile_relay_proc_wait - Stateful incoming call procedure
+int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server)
+{
+    struct mobile_adapter_relay *s = &adapter->relay;
+
+    char own_number[MOBILE_RELAY_MAX_NUMBER_LEN];
+    unsigned own_number_len;
+
+    int rc = -1;
+
+    switch (s->processing) {
+    case PROCESS_WAIT_BEGIN:
+        rc = mobile_relay_connect(adapter, conn, server);
+        if (rc > 0) {
+            s->processing = PROCESS_WAIT_GET_NUMBER;
+        }
+        break;
+
+    case PROCESS_WAIT_GET_NUMBER:
+        rc = mobile_relay_get_number(adapter, conn, own_number, &own_number_len);
+        if (rc > 0) {
+            // TODO: Callback to set number
+            s->processing = PROCESS_WAIT_WAIT;
+        }
+        break;
+
+    case PROCESS_WAIT_WAIT:
+        rc = mobile_relay_wait(adapter, conn);
+        if (rc > 0) {
+            s->processing = PROCESS_WAIT_DONE;
+        }
+        break;
+
+    case PROCESS_WAIT_DONE:
+        return 1;
+    }
+
+    return rc;
 }

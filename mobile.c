@@ -251,6 +251,7 @@ void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile
         adapter->config = MOBILE_DEFAULT_ADAPTER_CONFIG;
     }
     mobile_board_time_latch(user, MOBILE_TIMER_SERIAL);
+    mobile_global_init(adapter);
     mobile_debug_init(adapter);
     mobile_commands_init(adapter);
     mobile_serial_init(adapter);
