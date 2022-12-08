@@ -251,8 +251,8 @@ int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const s
     unsigned offset;
     int ancount = dns_verify_response(s, &offset, host, host_len);
     if (ancount < 0) {
-        mobile_debug_print("<DNS> Query result error: %d", ancount);
-        mobile_debug_endl();
+        mobile_debug_print(adapter, "<DNS> Query result error: %d", ancount);
+        mobile_debug_endl(adapter);
         return -1;
     }
 
@@ -263,6 +263,7 @@ int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const s
         memcpy(ip, s->buffer + anoffset, MOBILE_HOSTLEN_IPV4);
         return 1;
     }
-    mobile_debug_print("<DNS> No valid answer received");
-    mobile_debug_endl();
+    mobile_debug_print(adapter, "<DNS> No valid answer received");
+    mobile_debug_endl(adapter);
+    return -1;
 }
