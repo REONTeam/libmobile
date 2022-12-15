@@ -396,12 +396,13 @@ int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const 
             s->state = MOBILE_RELAY_CONNECTED;
             return -1;
         }
+
         relay_call_recv_debug(adapter);
-        if (rc == MOBILE_RELAY_CALL_RESULT_ACCEPTED) {
-            s->state = MOBILE_RELAY_LINKED;
-        } else {
+        if (rc != MOBILE_RELAY_CALL_RESULT_ACCEPTED) {
             s->state = MOBILE_RELAY_CONNECTED;
+            return rc;
         }
+        s->state = MOBILE_RELAY_LINKED;
         return rc;
 
     case MOBILE_RELAY_LINKED:
@@ -444,6 +445,7 @@ int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn)
             s->state = MOBILE_RELAY_CONNECTED;
             return -1;
         }
+
         relay_wait_recv_debug(adapter);
         s->state = MOBILE_RELAY_LINKED;
         return 1;
@@ -502,8 +504,7 @@ int mobile_relay_get_number(struct mobile_adapter *adapter, unsigned char conn, 
 enum process_call {
     PROCESS_CALL_BEGIN,
     PROCESS_CALL_GET_NUMBER,
-    PROCESS_CALL_CALL,
-    PROCESS_CALL_DONE
+    PROCESS_CALL_CALL
 };
 
 // mobile_relay_proc_call - Stateful outgoing call procedure
@@ -519,28 +520,21 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
     switch (s->processing) {
     case PROCESS_CALL_BEGIN:
         rc = mobile_relay_connect(adapter, conn, server);
-        if (rc > 0) {
-            s->processing = PROCESS_CALL_GET_NUMBER;
-        }
-        break;
+        if (rc <= 0) break;
+
+        s->processing = PROCESS_CALL_GET_NUMBER;
+        // fallthrough
 
     case PROCESS_CALL_GET_NUMBER:
         rc = mobile_relay_get_number(adapter, conn, own_number, &own_number_len);
-        if (rc > 0) {
-            // TODO: Callback to set number
-            s->processing = PROCESS_CALL_CALL;
-        }
-        break;
+        if (rc <= 0) break;
+        // TODO: Callback to set number
+
+        s->processing = PROCESS_CALL_CALL;
+        // fallthrough
 
     case PROCESS_CALL_CALL:
         rc = mobile_relay_call(adapter, conn, number, number_len);
-        if (rc > 0) {
-            s->processing = PROCESS_CALL_DONE;
-        }
-        break;
-
-    case PROCESS_CALL_DONE:
-        return 1;
     }
 
     return rc;
@@ -549,8 +543,7 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
 enum process_wait {
     PROCESS_WAIT_BEGIN,
     PROCESS_WAIT_GET_NUMBER,
-    PROCESS_WAIT_WAIT,
-    PROCESS_WAIT_DONE
+    PROCESS_WAIT_WAIT
 };
 
 // mobile_relay_proc_wait - Stateful incoming call procedure
@@ -566,28 +559,21 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
     switch (s->processing) {
     case PROCESS_WAIT_BEGIN:
         rc = mobile_relay_connect(adapter, conn, server);
-        if (rc > 0) {
-            s->processing = PROCESS_WAIT_GET_NUMBER;
-        }
-        break;
+        if (rc <= 0) break;
+
+        s->processing = PROCESS_WAIT_GET_NUMBER;
+        // fallthrough
 
     case PROCESS_WAIT_GET_NUMBER:
         rc = mobile_relay_get_number(adapter, conn, own_number, &own_number_len);
-        if (rc > 0) {
-            // TODO: Callback to set number
-            s->processing = PROCESS_WAIT_WAIT;
-        }
-        break;
+        if (rc <= 0) break;
+        // TODO: Callback to set number
+
+        s->processing = PROCESS_WAIT_WAIT;
+        // fallthrough
 
     case PROCESS_WAIT_WAIT:
         rc = mobile_relay_wait(adapter, conn);
-        if (rc > 0) {
-            s->processing = PROCESS_WAIT_DONE;
-        }
-        break;
-
-    case PROCESS_WAIT_DONE:
-        return 1;
     }
 
     return rc;
