@@ -279,9 +279,10 @@ static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter 
     int errcode;
     switch (rc) {
     case MOBILE_RELAY_CALL_RESULT_ACCEPTED: errcode = -1; break;
-    case MOBILE_RELAY_CALL_RESULT_UNAVAILABLE: errcode = 4; break;
+    case MOBILE_RELAY_CALL_RESULT_INTERNAL: errcode = 3; break;
     case MOBILE_RELAY_CALL_RESULT_BUSY: errcode = 0; break;
-    default: errcode = 0; break;
+    case MOBILE_RELAY_CALL_RESULT_UNAVAILABLE: errcode = 0; break;
+    default: errcode = 3; break;
     }
     if (errcode != -1) {
         // TODO: Don't close the connection so we can redial using the same
@@ -298,11 +299,11 @@ static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter 
 }
 
 // Errors:
-// 0 - Telephone line is busy
+// 0 - "BUSY" (the called number is busy)
 // 1 - Invalid use (already connected)
 // 2 - Invalid contents (first byte isn't correct)
-// 3 - Communication failed/phone not connected
-// 4 - Call not established, redial
+// 3 - "NO CARRIER"/"ERROR"/timeout (internal phone/communication error)
+// 4 - "REDIAL ERROR"
 static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -394,7 +395,21 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
     if (rc < 0) {
         mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
-        return error_packet(packet, 0);
+        return error_packet(packet, 4);  // NEWERR
+    }
+
+    // Interpret the result
+    int errcode;
+    switch (rc) {
+        case MOBILE_RELAY_WAIT_RESULT_ACCEPTED: errcode = -1; break;
+        case MOBILE_RELAY_WAIT_RESULT_INTERNAL: errcode = 3; break;
+        default: errcode = 3; break;
+    }
+    if (errcode != -1) {
+        // TODO: Don't close the connection so we can redial using the same
+        mobile_board_sock_close(_u, p2p_conn);
+        s->connections[p2p_conn] = false;
+        return error_packet(packet, errcode);
     }
 
     s->state = MOBILE_CONNECTION_CALL;
@@ -408,6 +423,7 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
 // 0 - No call received/phone not connected
 // 1 - Invalid use (already calling)
 // 3 - Internal error (ringing but picking up fails)
+// 4 - NEWERR: Internal error (server communication error)
 static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -488,7 +504,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
         }
     }
 
-    int recv_size = 0;
+    int recv_size;
     if (s->state != MOBILE_CONNECTION_CALL || s->call_packets_sent) {
         recv_size = mobile_board_sock_recv(_u, conn, data,
             MOBILE_MAX_TRANSFER_SIZE, NULL);
@@ -641,10 +657,9 @@ static struct mobile_packet *command_write_configuration_data(struct mobile_adap
 }
 
 // Errors:
-// 0 - NEWERR: Invalid contents
 // 1 - Invalid use (Not in a call)
-// 2 - Unknown error (some kind of timeout?)
-// 3 - Unknown error (internal error?)
+// 2 - Invalid contents
+// 3 - Unknown error (internal error)
 static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
@@ -660,19 +675,19 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
 
     const unsigned char *data = packet->data;
     if (packet->data + packet->length < data + 1) {
-        return error_packet(packet, 0);  // NEWERR
+        return error_packet(packet, 2);
     }
     unsigned id_size = *data++;
     if (id_size > 0x20) id_size = 0x20;
     if (packet->data + packet->length < data + id_size + 1) {
-        return error_packet(packet, 0);  // NEWERR
+        return error_packet(packet, 2);
     }
     // const unsigned char *id = data;
     data += id_size;
     unsigned pass_size = *data++;
     if (pass_size > 0x20) pass_size = 0x20;
     if (packet->data + packet->length < data + pass_size + 8) {
-        return error_packet(packet, 0);  // NEWERR
+        return error_packet(packet, 2);
     }
     // const unsigned char *pass = data;
     data += pass_size;
@@ -923,7 +938,7 @@ static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet 
     s->connections[conn] = true;
 
     // Return the DNS ID that was used
-    return addr_id;
+    return (int)addr_id;
 }
 
 static struct mobile_packet *command_dns_query_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)

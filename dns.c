@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "dns.h"
 
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "data.h"

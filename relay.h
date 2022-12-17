@@ -38,9 +38,18 @@ enum mobile_relay_call_result {
     MOBILE_RELAY_CALL_RESULT_FAILURE = -1,
     MOBILE_RELAY_CALL_RESULT_PROCESSING = 0,
     MOBILE_RELAY_CALL_RESULT_ACCEPTED,  // Call established
-    MOBILE_RELAY_CALL_RESULT_UNAVAILABLE,  // Number not available
+    MOBILE_RELAY_CALL_RESULT_INTERNAL,  // Internal error
     MOBILE_RELAY_CALL_RESULT_BUSY,  // Number is busy
+    MOBILE_RELAY_CALL_RESULT_UNAVAILABLE,  // Number not available
     MOBILE_RELAY_MAX_CALL_RESULT
+};
+
+enum mobile_relay_wait_result {
+    MOBILE_RELAY_WAIT_RESULT_FAILURE = -1,
+    MOBILE_RELAY_WAIT_RESULT_PROCESSING = 0,
+    MOBILE_RELAY_WAIT_RESULT_ACCEPTED,  // Call established
+    MOBILE_RELAY_WAIT_RESULT_INTERNAL,  // Internal error
+    MOBILE_RELAY_MAX_WAIT_RESULT
 };
 
 struct mobile_adapter_relay {
