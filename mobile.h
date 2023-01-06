@@ -355,10 +355,108 @@ int mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned
 // - addr: Origin address buffer
 int mobile_board_sock_recv(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
 
+// mobile_action_get - Advanced library main loop, get next action
+//
+// This function may be used in place of mobile_loop(), to see which action is
+// about to be executed. The user may use this knowledge to influence user
+// code, such as putting the main loop thread to sleep if no action has been
+// received for a bit. They may also prevent certain actions from being
+// executed, but never trigger actions that weren't received through this
+// function.
+//
+// If unsure, use mobile_loop() instead.
+//
+// Parameters:
+// - adapter: Library state
+// Returns: Action to execute
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
+
+// mobile_action_process - Advanced library main loop, process next action
+//
+// Execute the action received through mobile_action_get(), see its
+// documentation for more details.
+//
+// This function may NEVER be used to manually execute library actions, and may
+// only be called with the result of mobile_action_get().
+//
+// Parameters:
+// - adapter: Library state
+// - action: Action to execute
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
+
+// mobile_loop - Library main loop
+//
+// Must be called regularly for the library to function. Ideally as frequently
+// as possible, but at a minimum every 100ms, in a main loop. This function
+// will never block, and will manage its own timeouts, unless a blocking action
+// is performed by the user in one of the mobile_board_* callbacks. So, unless
+// absolutely sure, let it do its thing.
+//
+// Shorthand for mobile_action_process(adapter, mobile_action_get(adapter))
+// See the documentation for either of these functions for advanced useage.
+//
+// Parameters:
+// - adapter: Library state
 void mobile_loop(struct mobile_adapter *adapter);
+
+// mobile_transfer - Exchange a byte between the adapter and the console
+//
+// This function takes the byte received during the last exchange with the
+// console, and returns the byte that must be sent during the next exchange.
+//
+// In simpler terms, here's what a serial slave interrupt service routine would
+// look like (e.g. on a game boy or other hardware):
+//     void serial_isr() {
+//         SB = mobile_transfer(adapter, SB);
+//     }
+//
+// Yet, on something like an emulator, which intercepts the byte mid-transfer
+// on the sending console's side, it might look more like this:
+//     unsigned char slave_SB;
+//     void serial_exchange() {  // Called if ((SC & 0x80) != 0)
+//         unsigned char temp_SB = emu_SB;
+//         emu_SB = slave_SB;  // Send previous byte to master
+//         slave_SB = mobile_transfer(adapter, temp_SB);
+//     }
+//
+// This is the only thread-safe function in the library, and as such, may be
+// called wherever and whenever. The recommended practice on hardware devices
+// is to have this function be called during an interrupt. On emulators, one
+// can opt to execute this function in the main emulation thread, while
+// delegating the rest of the library to for example the GUI thread, or simply
+// run the entire library in the same thread.
+//
+// To ensure thread-safety, this function may NEVER be executed after
+// mobile_board_serial_disable() has been called, before the serial is enabled
+// again. The user may use a mutex-like locking mechanism or disable interrupts
+// to achieve this. See the documentation on mobile_board_serial_disable() for
+// more information.
+//
+// Parameters:
+// - adapter: Library state
+// - c: Byte received in previous exchange
+// Returns: Byte to send in next exchange
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
+
+// mobile_init - Initialize library
+//
+// Initializes the library state at <adapter>. No other functions may be used
+// before this one. Can be used to reset the library as well, though care must
+// be taken that no other library functions are running when this function is
+// executed.
+//
+// Multiple instances of the library may be initialized and used concurrently,
+// each instance having its own <adapter> library state, provided the
+// user-provided mobile_board_* callback functions take this into account (e.g.
+// by storing all instance-specific state in the <user> parameter).
+//
+// The <user> parameter is not used by the library for any other purpose than
+// being passed to the mobile_board_* functions.
+//
+// Parameters:
+// - adapter: Library state
+// - user: User data pointer for callbacks
+// - config: Initial configuration data
 void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile_adapter_config *config);
 
 #ifdef __cplusplus
