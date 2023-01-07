@@ -169,8 +169,8 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    // TODO: Max length: 0x20
-    // TODO: Acceptable characters: 0-9, # and *. Unacceptable characters are
+    // TODO: Max length: 0x20 (including invalid characters)
+    // TODO: Acceptable characters: 0-9, # and *. Invalid characters are
     //         ignored.
     // TODO: First byte must be:
     //       0 for blue adapter
@@ -201,10 +201,10 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         }
     }
 
-    // If the p2p_relay is enabled, start the connection
-    if (adapter->config.p2p_relay.type != MOBILE_ADDRTYPE_NONE) {
+    // If the relay is enabled, start the connection
+    if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
         if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
-                adapter->config.p2p_relay.type, 0)) {
+                adapter->config.relay.type, 0)) {
             return error_packet(packet, 3);
         }
         s->connections[p2p_conn] = true;
@@ -265,8 +265,7 @@ static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter 
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    int rc = mobile_relay_proc_call(adapter, p2p_conn,
-            &adapter->config.p2p_relay,
+    int rc = mobile_relay_proc_call(adapter, p2p_conn, &adapter->config.relay,
             (char *)packet->data + 1, packet->length - 1);
     if (rc == 0) return NULL;
     if (rc < 0) {
@@ -319,7 +318,7 @@ static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapt
             s->connections[p2p_conn] = false;
             return error_packet(packet, 3);
         }
-        if (adapter->config.p2p_relay.type != MOBILE_ADDRTYPE_NONE) {
+        if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
             return command_dial_telephone_relay(adapter, packet);
         }
         return command_dial_telephone_ip(adapter, packet);
@@ -375,7 +374,7 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
     // Open the connection
     if (!s->connections[p2p_conn]) {
         if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
-                adapter->config.p2p_relay.type, 0)) {
+                adapter->config.relay.type, 0)) {
             return error_packet(packet, 0);
         }
         s->connections[p2p_conn] = true;
@@ -383,8 +382,7 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
     }
 
     // Connect to the server and wait for a call
-    int rc = mobile_relay_proc_wait(adapter, p2p_conn,
-        &adapter->config.p2p_relay);
+    int rc = mobile_relay_proc_wait(adapter, p2p_conn, &adapter->config.relay);
     if (rc == 0) {
         // Process not completed, but at this point we can do whatever
         if (adapter->relay.state == MOBILE_RELAY_RECV_WAIT) {
@@ -433,7 +431,7 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
         return packet;
     }
 
-    if (adapter->config.p2p_relay.type != MOBILE_ADDRTYPE_NONE) {
+    if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
         return command_wait_for_telephone_call_relay(adapter, packet);
     }
     return command_wait_for_telephone_call_ip(adapter, packet);
@@ -586,7 +584,7 @@ static struct mobile_packet *command_telephone_status(struct mobile_adapter *ada
         packet->data[1] = 0x48;
         break;
     }
-    packet->data[2] = adapter->config.unmetered ? 0xF0 : 0x00;
+    packet->data[2] = adapter->config.device_unmetered ? 0xF0 : 0x00;
     packet->length = 3;
     return packet;
 }

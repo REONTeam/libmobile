@@ -7,6 +7,7 @@
 
 #define MOBILE_INTERNAL
 #include "mobile.h"
+#include "config.h"
 #include "debug.h"
 #include "commands.h"
 #include "serial.h"
@@ -14,8 +15,11 @@
 #include "relay.h"
 
 struct mobile_adapter_global {
+    // Whether the adapter is currently awake or not
+    // Used to reset everything after a bit of inactivity
     bool active;
 
+    // Packet data to pass between "serial" and "commands"
     bool packet_parsed;
     struct mobile_packet packet;
 };
