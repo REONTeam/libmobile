@@ -3,15 +3,16 @@
 
 #define MOBILE_INTERNAL
 #include "mobile.h"
+#include "atomic.h"
+
+// Signals Pokémon Crystal (jp) that the connection isn't metered,
+//   removing the time limit in mobile battles.
+// We have no idea of the effects of this in other games.
+#define MOBILE_CONFIG_DEVICE_UNMETERED 0x80
 
 struct mobile_adapter_config {
     // What device to emulate
-    enum mobile_adapter_device device;
-
-    // Signals Pokémon Crystal (jp) that the connection isn't metered,
-    //   removing the time limit in mobile battles.
-    // We have no idea of the effects of this in other games.
-    bool device_unmetered;
+    _Atomic unsigned char device;  // Read by serial thread
 
     // DNS servers to override the gameboy's chosen servers with.
     // Only overridden if their type isn't MOBILE_ADDRTYPE_NONE.
@@ -27,3 +28,5 @@ struct mobile_adapter_config {
 };
 
 void mobile_config_init(struct mobile_adapter *adapter);
+
+#undef _Atomic  // "atomic.h"

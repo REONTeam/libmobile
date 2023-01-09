@@ -14,10 +14,11 @@
 // between adapters is established, the server acts as a "tunnel" between the
 // devices, and relays all data between them.
 //
-// Adapters are assigned a mobile number, which is used to indentify other
-// adapters. The mobile number is associated with a token, which is kept
-// secret, and is stored in the adapter 
-// 
+// To be able to connect different users, each adapter is assigned a "phone
+// number" of sorts by the server. Alongside this number, an authentication
+// token is generated, which may be kept secret by the client to keep the
+// assigned number across multiple connections and application restarts. The
+// phone numbers are expected to be exchanged between users.
 
 #define PROTOCOL_VERSION 0
 
@@ -542,7 +543,8 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
         // fallthrough
 
     case PROCESS_CALL_GET_NUMBER:
-        rc = mobile_relay_get_number(adapter, conn, own_number, &own_number_len);
+        rc = mobile_relay_get_number(adapter, conn, own_number,
+                &own_number_len);
         if (rc <= 0) break;
         // TODO: Callback to set number
 
@@ -581,7 +583,8 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
         // fallthrough
 
     case PROCESS_WAIT_GET_NUMBER:
-        rc = mobile_relay_get_number(adapter, conn, own_number, &own_number_len);
+        rc = mobile_relay_get_number(adapter, conn, own_number,
+                &own_number_len);
         if (rc <= 0) break;
         // TODO: Callback to set number
 

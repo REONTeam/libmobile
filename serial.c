@@ -58,13 +58,19 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
                 s->state = MOBILE_SERIAL_WAITING;
             }
 
-            // If we haven't begun a session, this is as good as any place to
-            //   stop parsing, as we shouldn't react to this.
-            // TODO: Re-verify this behavior on hardware.
-            if (!adapter->commands.session_begun &&
-                    s->buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
-                s->current = 0;
-                s->state = MOBILE_SERIAL_WAITING;
+            if (!adapter->commands.session_begun) {
+                // If we haven't begun a session, this is as good as any place to
+                //   stop parsing, as we shouldn't react to this.
+                // TODO: Re-verify this behavior on hardware.
+                if (s->buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
+                    s->current = 0;
+                    s->state = MOBILE_SERIAL_WAITING;
+                }
+
+                // Update device type
+                unsigned char d = adapter->config.device;
+                s->device = d & ~MOBILE_CONFIG_DEVICE_UNMETERED;
+                s->device_unmetered = d & MOBILE_CONFIG_DEVICE_UNMETERED;
             }
 
             // If the command doesn't exist, set the error...
@@ -87,7 +93,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             }
             s->current = 0;
             s->state = MOBILE_SERIAL_ACKNOWLEDGE;
-            return adapter->config.device | 0x80;
+            return s->device | 0x80;
         }
         break;
 
@@ -105,7 +111,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
         // The blue adapter doesn't check the device ID apparently,
         //   the other adapters don't check it in 32bit mode.
-        if (adapter->config.device != MOBILE_ADAPTER_BLUE &&
+        if (s->device != MOBILE_ADAPTER_BLUE &&
                 !s->mode_32bit &&
                 c != (MOBILE_ADAPTER_GAMEBOY | 0x80) &&
                 c != (MOBILE_ADAPTER_GAMEBOY_ADVANCE | 0x80)) {
@@ -181,7 +187,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
     case MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE:
         if (s->current == 0) {
             s->current++;
-            return adapter->config.device | 0x80;
+            return s->device | 0x80;
         } else if (s->current == 1) {
             // There's nothing we can do with the received device ID.
             // In fact, the real adapter doesn't care for this value, either.

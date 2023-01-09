@@ -23,7 +23,6 @@ void mobile_addr_copy(struct mobile_addr *dest, const struct mobile_addr *src)
         return;
     }
     memcpy(dest, src, size);
-    return;
 }
 
 // Compare addresses <addr1> and <addr2> without reading out of their bounds.

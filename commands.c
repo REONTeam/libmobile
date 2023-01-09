@@ -74,7 +74,7 @@ static bool do_isp_logout(struct mobile_adapter *adapter)
             s->connections[conn] = false;
         }
     }
-    s->state = MOBILE_CONNECTION_CALL;
+    s->state = MOBILE_CONNECTION_CALL_ISP;
     return true;
 }
 
@@ -86,7 +86,11 @@ static bool do_hang_up_telephone(struct mobile_adapter *adapter)
     void *_u = adapter->user;
 
     // Clean up p2p connections if in a call
-    if (s->state != MOBILE_CONNECTION_CALL) return false;
+    if (s->state != MOBILE_CONNECTION_CALL &&
+            s->state != MOBILE_CONNECTION_CALL_RECV &&
+            s->state != MOBILE_CONNECTION_CALL_ISP) {
+        return false;
+    }
     if (s->connections[p2p_conn]) {
         mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
@@ -134,7 +138,7 @@ static struct mobile_packet *command_begin_session(struct mobile_adapter *adapte
     struct mobile_adapter_commands *s = &adapter->commands;
 
     if (s->session_begun) return error_packet(packet, 1);
-    if (adapter->config.device != MOBILE_ADAPTER_RED) {
+    if (adapter->serial.device != MOBILE_ADAPTER_RED) {
         if (packet->length != 8) return error_packet(packet, 2);
     } else {
         if (packet->length < 8) return error_packet(packet, 2);
@@ -161,7 +165,8 @@ static struct mobile_packet *command_end_session(struct mobile_adapter *adapter,
 
 enum process_dial_telephone {
     PROCESS_DIAL_TELEPHONE_BEGIN,
-    PROCESS_DIAL_TELEPHONE_WAIT
+    PROCESS_DIAL_TELEPHONE_IP,
+    PROCESS_DIAL_TELEPHONE_RELAY
 };
 
 static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -179,7 +184,9 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     //       red adapter also accepts 9 for some reason, yellow adapter doesn't
     //         parse this.
 
-    if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
+    if (s->state != MOBILE_CONNECTION_DISCONNECTED &&
+            s->state != MOBILE_CONNECTION_WAIT &&
+            s->state != MOBILE_CONNECTION_WAIT_RELAY) {
         return error_packet(packet, 1);
     }
     if (packet->length < 1) return error_packet(packet, 2);
@@ -189,13 +196,14 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
     }
+    s->state = MOBILE_CONNECTION_DISCONNECTED;
 
     // Ignore the ISP phone numbers for now, treat them as if we're connected
     for (const char *const *number = isp_numbers; *number; number++) {
         if (packet->length - 1 != strlen_P(pgm_read_ptr(number))) continue;
         if (memcmp_P(packet->data + 1, pgm_read_ptr(number),
                 packet->length - 1) == 0) {
-            s->state = MOBILE_CONNECTION_CALL;
+            s->state = MOBILE_CONNECTION_CALL_ISP;
             packet->length = 0;
             return packet;
         }
@@ -208,9 +216,10 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
             return error_packet(packet, 3);
         }
         s->connections[p2p_conn] = true;
-
         mobile_relay_reset(adapter);
-        s->processing = PROCESS_DIAL_TELEPHONE_WAIT;
+
+        mobile_addr_copy(&s->processing_addr, &adapter->config.relay);
+        s->processing = PROCESS_DIAL_TELEPHONE_RELAY;
         return NULL;
     }
 
@@ -222,7 +231,15 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         }
         s->connections[p2p_conn] = true;
 
-        s->processing = PROCESS_DIAL_TELEPHONE_WAIT;
+        // Convert the numerical phone "ip address" into a real ipv4 address
+        struct mobile_addr4 *addr = (struct mobile_addr4 *)&s->processing_addr;
+        addr->type = MOBILE_ADDRTYPE_IPV4;
+        addr->port = adapter->config.p2p_port;
+        if (!mobile_parse_phoneaddr(addr->host, (char *)packet->data + 1)) {
+            return error_packet(packet, 3);
+        }
+
+        s->processing = PROCESS_DIAL_TELEPHONE_IP;
         return NULL;
     }
 
@@ -234,18 +251,8 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    // Convert the numerical phone "ip address" into a real ipv4 address
-    struct mobile_addr4 addr = {
-        .type = MOBILE_ADDRTYPE_IPV4,
-        .port = adapter->config.p2p_port,
-    };
-    if (!mobile_parse_phoneaddr(addr.host, (char *)packet->data + 1)) {
-        return error_packet(packet, 3);
-    }
-
     // Check if we're connected until it either errors or succeeds
-    int rc = mobile_board_sock_connect(_u, p2p_conn,
-        (struct mobile_addr *)&addr);
+    int rc = mobile_board_sock_connect(_u, p2p_conn, &s->processing_addr);
     if (rc == 0) return NULL;  // Not connected, no error; try again
     if (rc < 0) {
         mobile_board_sock_close(_u, p2p_conn);
@@ -265,7 +272,7 @@ static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter 
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    int rc = mobile_relay_proc_call(adapter, p2p_conn, &adapter->config.relay,
+    int rc = mobile_relay_proc_call(adapter, p2p_conn, &s->processing_addr,
             (char *)packet->data + 1, packet->length - 1);
     if (rc == 0) return NULL;
     if (rc < 0) {
@@ -312,16 +319,20 @@ static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapt
     case PROCESS_DIAL_TELEPHONE_BEGIN:
         mobile_board_time_latch(_u, MOBILE_TIMER_COMMAND);
         return command_dial_telephone_begin(adapter, packet);
-    case PROCESS_DIAL_TELEPHONE_WAIT:
+    case PROCESS_DIAL_TELEPHONE_IP:
         if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
             mobile_board_sock_close(_u, p2p_conn);
             s->connections[p2p_conn] = false;
             return error_packet(packet, 3);
         }
-        if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
-            return command_dial_telephone_relay(adapter, packet);
-        }
         return command_dial_telephone_ip(adapter, packet);
+    case PROCESS_DIAL_TELEPHONE_RELAY:
+        if (mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 60000)) {
+            mobile_board_sock_close(_u, p2p_conn);
+            s->connections[p2p_conn] = false;
+            return error_packet(packet, 3);
+        }
+        return command_dial_telephone_relay(adapter, packet);
     default:
         return error_packet(packet, 3);
     }
@@ -336,30 +347,48 @@ static struct mobile_packet *command_hang_up_telephone(struct mobile_adapter *ad
     return packet;
 }
 
+static struct mobile_packet *command_wait_for_telephone_call_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
+{
+    struct mobile_adapter_commands *s = &adapter->commands;
+    void *_u = adapter->user;
+
+    if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
+        // Open the relay connection
+        if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
+                    adapter->config.relay.type, 0)) {
+            return error_packet(packet, 0);
+        }
+        s->connections[p2p_conn] = true;
+        mobile_relay_reset(adapter);
+
+        mobile_addr_copy(&s->processing_addr, &adapter->config.relay);
+        s->state = MOBILE_CONNECTION_WAIT_RELAY;
+        return NULL;
+    }
+
+    // Open the connection and start listening
+    if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
+            MOBILE_ADDRTYPE_IPV4, adapter->config.p2p_port)) {
+        return error_packet(packet, 0);
+    }
+    if (!mobile_board_sock_listen(_u, p2p_conn)) {
+        mobile_board_sock_close(_u, p2p_conn);
+        return error_packet(packet, 0);
+    }
+    s->connections[p2p_conn] = true;
+    s->state = MOBILE_CONNECTION_WAIT;
+    return NULL;
+}
+
 static struct mobile_packet *command_wait_for_telephone_call_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    // Open the connection and start listening
-    if (!s->connections[p2p_conn]) {
-        if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
-                MOBILE_ADDRTYPE_IPV4, adapter->config.p2p_port)) {
-            return error_packet(packet, 0);
-        }
-        if (!mobile_board_sock_listen(_u, p2p_conn)) {
-            mobile_board_sock_close(_u, p2p_conn);
-            return error_packet(packet, 0);
-        }
-        s->connections[p2p_conn] = true;
-    }
-
     // Check if we've received any connection
-    if (!mobile_board_sock_accept(_u, 0)) {
-        return error_packet(packet, 0);
-    }
+    if (!mobile_board_sock_accept(_u, 0)) return error_packet(packet, 0);
 
-    s->state = MOBILE_CONNECTION_CALL;
+    s->state = MOBILE_CONNECTION_CALL_RECV;
     s->call_packets_sent = 0;
 
     packet->length = 0;
@@ -371,18 +400,8 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    // Open the connection
-    if (!s->connections[p2p_conn]) {
-        if (!mobile_board_sock_open(_u, p2p_conn, MOBILE_SOCKTYPE_TCP,
-                adapter->config.relay.type, 0)) {
-            return error_packet(packet, 0);
-        }
-        s->connections[p2p_conn] = true;
-        mobile_relay_reset(adapter);
-    }
-
     // Connect to the server and wait for a call
-    int rc = mobile_relay_proc_wait(adapter, p2p_conn, &adapter->config.relay);
+    int rc = mobile_relay_proc_wait(adapter, p2p_conn, &s->processing_addr);
     if (rc == 0) {
         // Process not completed, but at this point we can do whatever
         if (adapter->relay.state == MOBILE_RELAY_RECV_WAIT) {
@@ -393,6 +412,7 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
     if (rc < 0) {
         mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
+        s->state = MOBILE_CONNECTION_DISCONNECTED;
         return error_packet(packet, 4);  // NEWERR
     }
 
@@ -404,13 +424,13 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
         default: errcode = 3; break;
     }
     if (errcode != -1) {
-        // TODO: Don't close the connection so we can redial using the same
         mobile_board_sock_close(_u, p2p_conn);
         s->connections[p2p_conn] = false;
+        s->state = MOBILE_CONNECTION_DISCONNECTED;
         return error_packet(packet, errcode);
     }
 
-    s->state = MOBILE_CONNECTION_CALL;
+    s->state = MOBILE_CONNECTION_CALL_RECV;
     s->call_packets_sent = 0;
 
     packet->length = 0;
@@ -426,15 +446,22 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    if (s->state != MOBILE_CONNECTION_DISCONNECTED) {
+    if (s->state != MOBILE_CONNECTION_DISCONNECTED &&
+            s->state != MOBILE_CONNECTION_WAIT &&
+            s->state != MOBILE_CONNECTION_WAIT_RELAY) {
         packet->length = 0;
         return packet;
     }
 
-    if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
+    switch (s->state) {
+    default:
+    case MOBILE_CONNECTION_DISCONNECTED:
+        return command_wait_for_telephone_call_begin(adapter, packet);
+    case MOBILE_CONNECTION_WAIT:
+        return command_wait_for_telephone_call_ip(adapter, packet);
+    case MOBILE_CONNECTION_WAIT_RELAY:
         return command_wait_for_telephone_call_relay(adapter, packet);
     }
-    return command_wait_for_telephone_call_ip(adapter, packet);
 }
 
 enum process_transfer_data {
@@ -454,15 +481,18 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     struct mobile_adapter_commands *s = &adapter->commands;
     void *_u = adapter->user;
 
-    if (s->state == MOBILE_CONNECTION_DISCONNECTED) {
+    if (s->state != MOBILE_CONNECTION_CALL &&
+            s->state != MOBILE_CONNECTION_CALL_RECV &&
+            s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
     }
     if (packet->length < 1) return error_packet(packet, 0);
+    const bool internet = s->state == MOBILE_CONNECTION_INTERNET;
 
     unsigned char conn = packet->data[0];
 
     // P2P connections use ID 0xFF, but the adapter ignores this
-    if (s->state == MOBILE_CONNECTION_CALL) conn = p2p_conn;
+    if (!internet) conn = p2p_conn;
 
     if (conn >= MOBILE_MAX_CONNECTIONS || !s->connections[conn]) {
         return error_packet(packet, 0);
@@ -497,13 +527,11 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
         // Pokémon Crystal expects communications to be "synchronized".
         // For this, we only try to receive packets when we've sent one.
         // TODO: Check other games with peer to peer functionality.
-        if (s->state == MOBILE_CONNECTION_CALL) {
-            s->call_packets_sent++;
-        }
+        if (!internet) s->call_packets_sent++;
     }
 
     int recv_size;
-    if (s->state != MOBILE_CONNECTION_CALL || s->call_packets_sent) {
+    if (internet || s->call_packets_sent) {
         recv_size = mobile_board_sock_recv(_u, conn, data,
             MOBILE_MAX_TRANSFER_SIZE, NULL);
     } else {
@@ -512,13 +540,13 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
         if (recv_size >= 0) recv_size = 0;
     }
 
-    if (s->state == MOBILE_CONNECTION_CALL && recv_size > 0) {
+    if (!internet && recv_size > 0) {
         if (s->call_packets_sent) s->call_packets_sent--;
     }
 
     // If connected to the internet, and a disconnect is received, we should
-    // inform the game about this.
-    if (recv_size == -2 && s->state == MOBILE_CONNECTION_INTERNET) {
+    // inform the game about a remote disconnect.
+    if (internet && recv_size == -2) {
         mobile_board_sock_close(_u, conn);
         s->connections[conn] = false;
         packet->command = MOBILE_COMMAND_TRANSFER_DATA_END;
@@ -534,7 +562,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
 
     // If nothing was sent, try to receive for at least one second
     // TODO: Don't delay for UDP connections
-    if (s->state == MOBILE_CONNECTION_INTERNET && !send_size && !recv_size &&
+    if (internet && !send_size && !recv_size &&
             !mobile_board_time_check_ms(_u, MOBILE_TIMER_COMMAND, 1000)) {
         return NULL;
     }
@@ -564,17 +592,20 @@ static struct mobile_packet *command_telephone_status(struct mobile_adapter *ada
 
     switch (s->state) {
     // 0xFF if phone is disconnected
-    // 1 if phone is ringing, 5 if incoming call is picked up
     default:
-    case MOBILE_CONNECTION_DISCONNECTED:
         packet->data[0] = 0;
         break;
+    //case ???:
+        //packet->data[0] = 1;  // Incoming ringing call
     case MOBILE_CONNECTION_CALL:
     case MOBILE_CONNECTION_INTERNET:
-        packet->data[0] = 4;  // Outgoing call
+        packet->data[0] = 4;  // Outgoing established call
+        break;
+    case MOBILE_CONNECTION_CALL_RECV:
+        packet->data[0] = 5;  // Incoming established call
         break;
     }
-    switch (adapter->config.device) {
+    switch (adapter->serial.device) {
     default:
     case MOBILE_ADAPTER_BLUE:
         packet->data[1] = 0x4D;
@@ -584,7 +615,7 @@ static struct mobile_packet *command_telephone_status(struct mobile_adapter *ada
         packet->data[1] = 0x48;
         break;
     }
-    packet->data[2] = adapter->config.device_unmetered ? 0xF0 : 0x00;
+    packet->data[2] = adapter->serial.device_unmetered ? 0xF0 : 0x00;
     packet->length = 3;
     return packet;
 }
@@ -664,7 +695,7 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
 
     // TODO: The original adapter allows logging in multiple times without
     //         logging out first, but I'm unsure if that's a bug.
-    if (s->state != MOBILE_CONNECTION_CALL) {
+    if (s->state != MOBILE_CONNECTION_CALL_ISP) {
         return error_packet(packet, 1);
     }
 
@@ -922,14 +953,15 @@ static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet 
         if (addr_send->type != MOBILE_ADDRTYPE_NONE) break;
     }
     if (addr_id >= 4) return -1;
+    mobile_addr_copy(&s->processing_addr, addr_send);
 
     // Open connection and send query
     if (!mobile_board_sock_open(_u, conn, MOBILE_SOCKTYPE_UDP,
-            addr_send->type, 0)) {
+            s->processing_addr.type, 0)) {
         return -1;
     }
-    if (!mobile_dns_query_send(adapter, conn, addr_send, (char *)packet->data,
-            packet->length)) {
+    if (!mobile_dns_query_send(adapter, conn, &s->processing_addr,
+            (char *)packet->data, packet->length)) {
         mobile_board_sock_close(_u, conn);
         return -1;
     }
@@ -983,11 +1015,10 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
 
     unsigned char conn = s->processing_data[PROCDATA_DNS_QUERY_CONN];
     int addr_id = s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID];
-    struct mobile_addr *addr = dns_get_addr(adapter, addr_id);
 
     unsigned char ip[MOBILE_HOSTLEN_IPV4];
-    int rc = mobile_dns_query_recv(adapter, conn, addr, (char *)packet->data,
-        packet->length, ip);
+    int rc = mobile_dns_query_recv(adapter, conn, &s->processing_addr,
+        (char *)packet->data, packet->length, ip);
     if (rc == 0) return NULL;
 
     mobile_board_sock_close(_u, conn);

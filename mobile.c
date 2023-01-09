@@ -82,9 +82,10 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 
     // If the serial has been active at all, latch the timer
     if (adapter->serial.active) {
-        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        adapter->global.active = true;
+        // NOTE: Race condition possible, but not critical.
         adapter->serial.active = false;
+        adapter->global.active = true;
+        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
     }
 
     // If the adapter is stuck waiting, with no signal from the game,
@@ -174,9 +175,10 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
         mobile_board_serial_disable(_u);
 
+        // Retain parsed packet if packet has already been parsed
+        adapter->global.active = false;
         adapter->commands.mode_32bit = false;
         mode_32bit_change(adapter);
-        mobile_global_init(adapter);
 
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
         mobile_board_serial_enable(_u);
