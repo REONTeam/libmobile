@@ -54,8 +54,8 @@ struct mobile_packet {
 };
 
 struct mobile_adapter_commands {
-    _Atomic bool session_begun;
-    _Atomic bool mode_32bit;
+    _Atomic volatile bool session_begun;
+    _Atomic volatile bool mode_32bit;
 
     unsigned char processing;
     unsigned char processing_data[4];

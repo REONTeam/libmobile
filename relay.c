@@ -38,13 +38,6 @@ static const unsigned char handshake_magic[] PROGMEM = {
 
 void mobile_relay_init(struct mobile_adapter *adapter)
 {
-    adapter->relay.has_token = false;
-    adapter->relay.state = MOBILE_RELAY_DISCONNECTED;
-    adapter->relay.processing = 0;
-}
-
-void mobile_relay_reset(struct mobile_adapter *adapter)
-{
     adapter->relay.state = MOBILE_RELAY_DISCONNECTED;
     adapter->relay.processing = 0;
 }
@@ -75,13 +68,15 @@ static int relay_recv(struct mobile_adapter *adapter, unsigned conn, unsigned si
 
 static void relay_handshake_send_debug(struct mobile_adapter *adapter)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
-
     mobile_debug_print(adapter, PSTR("<RELAY> Authenticating"));
-    if (s->has_token) {
+    if (adapter->config.relay_token_init) {
+#ifdef NDEBUG
+        mobile_debug_print(adapter, PSTR(" (with token)"));
+#else
         mobile_debug_print(adapter, PSTR(" (with token: "));
-        mobile_debug_print_hex(adapter, s->token, 4);
+        mobile_debug_print_hex(adapter, adapter->config.relay_token, 4);
         mobile_debug_print(adapter, PSTR("...)"));
+#endif
     } else {
         mobile_debug_print(adapter, PSTR(" (without token)"));
     }
@@ -97,9 +92,9 @@ static bool relay_handshake_send(struct mobile_adapter *adapter, unsigned char c
     memcpy_P(s->buffer, handshake_magic, sizeof(handshake_magic));
 
     unsigned char *auth = s->buffer + sizeof(handshake_magic);
-    auth[0] = s->has_token;
-    if (s->has_token) {
-        memcpy(auth + 1, s->token, MOBILE_RELAY_TOKEN_SIZE);
+    auth[0] = adapter->config.relay_token_init;
+    if (adapter->config.relay_token_init) {
+        memcpy(auth + 1, adapter->config.relay_token, MOBILE_RELAY_TOKEN_SIZE);
         buffer_len += MOBILE_RELAY_TOKEN_SIZE;
     }
 
@@ -111,10 +106,15 @@ static void relay_handshake_recv_debug(struct mobile_adapter *adapter)
     struct mobile_adapter_relay *s = &adapter->relay;
 
     mobile_debug_print(adapter, PSTR("<RELAY> Logged in"));
-    if (s->buffer[sizeof(handshake_magic)] == 1) {
+    unsigned char *auth = s->buffer + sizeof(handshake_magic);
+    if (auth[0] == 1) {
+#ifdef NDEBUG
+        mobile_debug_print(adapter, PSTR(" (new token)"));
+#else
         mobile_debug_print(adapter, PSTR(" (new token: "));
-        mobile_debug_print_hex(adapter, s->token, 4);
+        mobile_debug_print_hex(adapter, auth + 1, 4);
         mobile_debug_print(adapter, PSTR("...)"));
+#endif
     }
     mobile_debug_endl(adapter);
 }
@@ -133,19 +133,18 @@ static int relay_handshake_recv(struct mobile_adapter *adapter, unsigned char co
 
     unsigned char *auth = s->buffer + sizeof(handshake_magic);
     if (auth[0] == 0) {
-        if (!s->has_token) return -1;
+        return 1;
     } else if (auth[0] == 1) {
         recv_size += MOBILE_RELAY_TOKEN_SIZE;
         int recv = relay_recv(adapter, conn, recv_size);
         if (recv <= 0) return recv;
 
-        memcpy(s->token, auth + 1, MOBILE_RELAY_TOKEN_SIZE);
-        s->has_token = true;
+        memcpy(adapter->config.relay_token, auth + 1, MOBILE_RELAY_TOKEN_SIZE);
+        adapter->config.relay_token_init = true;
+        return 2;
     } else {
         return -1;
     }
-
-    return 1;
 }
 
 static void relay_call_send_debug(struct mobile_adapter *adapter, const char *number, unsigned number_len)
@@ -366,6 +365,7 @@ int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, con
             s->state = MOBILE_RELAY_DISCONNECTED;
             return -1;
         }
+        // TODO: Callback to signal updated token
         relay_handshake_recv_debug(adapter);
         s->state = MOBILE_RELAY_CONNECTED;
         return 1;

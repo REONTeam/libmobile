@@ -16,10 +16,11 @@ extern "C" {
 struct mobile_adapter;  // data.h
 
 // Limits any user of this library should abide by
-#define MOBILE_CONFIG_SIZE 0x100
 #define MOBILE_MAX_CONNECTIONS 2
 #define MOBILE_MAX_TIMERS 4
 #define MOBILE_MAX_TRANSFER_SIZE 0xFE  // MOBILE_MAX_DATA_SIZE - 1
+#define MOBILE_CONFIG_SIZE 0x100
+#define MOBILE_RELAY_TOKEN_SIZE 0x10
 
 enum mobile_adapter_device {
     // The clients.
@@ -344,6 +345,8 @@ void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapte
 void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns1, const struct mobile_addr *dns2);
 void mobile_config_set_p2p_port(struct mobile_adapter *adapter, unsigned p2p_port);
 void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile_addr *relay);
+void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token);
+bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token);
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);

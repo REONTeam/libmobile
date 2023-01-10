@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "config.h"
 
+#include <string.h>
 #include "data.h"
 #include "util.h"
 
@@ -11,6 +12,8 @@ void mobile_config_init(struct mobile_adapter *adapter)
     adapter->config.dns2 = (struct mobile_addr){.type = MOBILE_ADDRTYPE_NONE};
     adapter->config.p2p_port = MOBILE_DEFAULT_P2P_PORT;
     adapter->config.relay = (struct mobile_addr){.type = MOBILE_ADDRTYPE_NONE};
+    adapter->config.relay_token_init = false;
+    memset(adapter->config.relay_token, 0, MOBILE_RELAY_TOKEN_SIZE);
 }
 
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered)
@@ -39,4 +42,17 @@ void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile
 {
     // Latched whenever a number a dialed or the wait command is executed
     mobile_addr_copy(&adapter->config.relay, relay);
+}
+
+void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token)
+{
+    adapter->config.relay_token_init = true;
+    memcpy(adapter->config.relay_token, token, MOBILE_RELAY_TOKEN_SIZE);
+}
+
+bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token)
+{
+    if (!adapter->config.relay_token_init) return false;
+    memcpy(token, adapter->config.relay_token, MOBILE_RELAY_TOKEN_SIZE);
+    return true;
 }

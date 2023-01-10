@@ -41,8 +41,8 @@ enum mobile_serial_error {
 };
 
 struct mobile_adapter_serial {
-    _Atomic enum mobile_serial_state state;  // Read/written to by mobile.c
-    _Atomic bool active;
+    _Atomic volatile enum mobile_serial_state state;
+    _Atomic volatile bool active;
     enum mobile_serial_error error;
 
     bool mode_32bit;

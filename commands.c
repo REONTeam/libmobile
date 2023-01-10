@@ -216,7 +216,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
             return error_packet(packet, 3);
         }
         s->connections[p2p_conn] = true;
-        mobile_relay_reset(adapter);
+        mobile_relay_init(adapter);
 
         mobile_addr_copy(&s->processing_addr, &adapter->config.relay);
         s->processing = PROCESS_DIAL_TELEPHONE_RELAY;
@@ -359,7 +359,7 @@ static struct mobile_packet *command_wait_for_telephone_call_begin(struct mobile
             return error_packet(packet, 0);
         }
         s->connections[p2p_conn] = true;
-        mobile_relay_reset(adapter);
+        mobile_relay_init(adapter);
 
         mobile_addr_copy(&s->processing_addr, &adapter->config.relay);
         s->state = MOBILE_CONNECTION_WAIT_RELAY;
