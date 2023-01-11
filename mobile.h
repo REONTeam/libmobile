@@ -14,13 +14,13 @@ extern "C" {
 #include <stdbool.h>
 
 struct mobile_adapter;  // data.h
-struct mobile_packet;  // commands.h
 
 // Limits any user of this library should abide by
-#define MOBILE_CONFIG_SIZE 0x100
 #define MOBILE_MAX_CONNECTIONS 2
 #define MOBILE_MAX_TIMERS 4
 #define MOBILE_MAX_TRANSFER_SIZE 0xFE  // MOBILE_MAX_DATA_SIZE - 1
+#define MOBILE_CONFIG_SIZE 0x100
+#define MOBILE_RELAY_TOKEN_SIZE 0x10
 
 enum mobile_adapter_device {
     // The clients.
@@ -89,22 +89,8 @@ struct mobile_addr {
     };
 };
 
-struct mobile_adapter_config {
-    enum mobile_adapter_device device;
-    unsigned p2p_port;
-
-    // Signals Pokémon Crystal (jp) that the connection isn't metered,
-    //   removing the time limit in mobile battles.
-    // We have no idea of the effects of this in other games.
-    bool unmetered;
-
-    struct mobile_addr dns1;
-    struct mobile_addr dns2;
-};
-#define MOBILE_ADAPTER_CONFIG_DEFAULT (struct mobile_adapter_config){ \
-    .device = MOBILE_ADAPTER_BLUE, \
-    .p2p_port = 1027, \
-}
+#define MOBILE_DEFAULT_P2P_PORT 1027
+#define MOBILE_DEFAULT_RELAY_PORT 1027
 
 // Data in this header depends on the config/types above
 #ifndef MOBILE_INTERNAL
@@ -355,6 +341,14 @@ int mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned
 // - addr: Origin address buffer
 int mobile_board_sock_recv(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
 
+void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered);
+void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns1, const struct mobile_addr *dns2);
+void mobile_config_set_p2p_port(struct mobile_adapter *adapter, unsigned p2p_port);
+void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile_addr *relay);
+void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token);
+bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token);
+void mobile_config_clear_relay_token(struct mobile_adapter *adapter);
+
 // mobile_action_get - Advanced library main loop, get next action
 //
 // This function may be used in place of mobile_loop(), to see which action is
@@ -456,8 +450,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
 // Parameters:
 // - adapter: Library state
 // - user: User data pointer for callbacks
-// - config: Initial configuration data
-void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile_adapter_config *config);
+void mobile_init(struct mobile_adapter *adapter, void *user);
 
 #ifdef __cplusplus
 }

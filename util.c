@@ -15,12 +15,14 @@ static unsigned mobile_addr_size(const struct mobile_addr *addr)
 // Copy enough bytes of address <src> into <dest>, without exceeding the
 //   contents of <src>.
 // <dest> must have enough space to hold any kind of address.
-bool mobile_addr_copy(struct mobile_addr *dest, const struct mobile_addr *src)
+void mobile_addr_copy(struct mobile_addr *dest, const struct mobile_addr *src)
 {
     unsigned size = mobile_addr_size(src);
-    if (!size) return false;
+    if (!size) {
+        dest->type = MOBILE_ADDRTYPE_NONE;
+        return;
+    }
     memcpy(dest, src, size);
-    return true;
 }
 
 // Compare addresses <addr1> and <addr2> without reading out of their bounds.

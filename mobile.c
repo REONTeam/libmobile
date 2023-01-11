@@ -7,7 +7,7 @@
 
 #include "compat.h"
 
-void mobile_global_init(struct mobile_adapter *adapter)
+static void mobile_global_init(struct mobile_adapter *adapter)
 {
     adapter->global.active = false;
     adapter->global.packet_parsed = false;
@@ -82,9 +82,10 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 
     // If the serial has been active at all, latch the timer
     if (adapter->serial.active) {
-        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        adapter->global.active = true;
+        // NOTE: Race condition possible, but not critical.
         adapter->serial.active = false;
+        adapter->global.active = true;
+        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
     }
 
     // If the adapter is stuck waiting, with no signal from the game,
@@ -116,7 +117,7 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 
     // If nothing else is being triggered, reset the serial periodically,
     //   in an attempt to synchronize.
-    if (!adapter->serial.active &&
+    if (!adapter->global.active &&
             !adapter->commands.session_begun &&
             mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 500)) {
         return MOBILE_ACTION_RESET_SERIAL;
@@ -174,9 +175,10 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
         mobile_board_serial_disable(_u);
 
+        // Retain parsed packet if packet has already been parsed
+        adapter->global.active = false;
         adapter->commands.mode_32bit = false;
         mode_32bit_change(adapter);
-        mobile_global_init(adapter);
 
         mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
         mobile_board_serial_enable(_u);
@@ -239,21 +241,20 @@ static bool config_verify(void *user)
     return checksum == config_checksum;
 }
 
-void mobile_init(struct mobile_adapter *adapter, void *user, const struct mobile_adapter_config *config)
+void mobile_init(struct mobile_adapter *adapter, void *user)
 {
     adapter->user = user;
 
     if (!config_verify(user)) config_clear(user);
 
-    if (config) {
-        adapter->config = *config;
-    } else {
-        adapter->config = MOBILE_ADAPTER_CONFIG_DEFAULT;
-    }
-    mobile_board_time_latch(user, MOBILE_TIMER_SERIAL);
+    mobile_global_init(adapter);
+    mobile_config_init(adapter);
     mobile_debug_init(adapter);
     mobile_commands_init(adapter);
     mobile_serial_init(adapter);
     mobile_dns_init(adapter);
+    mobile_relay_init(adapter);
+
+    mobile_board_time_latch(user, MOBILE_TIMER_SERIAL);
     mobile_board_serial_enable(user);
 }

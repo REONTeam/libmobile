@@ -20,6 +20,5 @@
 
 #endif
 
-
 // When including this header, remember to unset _Atomic afterwards:
 //#undef _Atomic

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "dns.h"
 
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "data.h"
@@ -128,7 +126,7 @@ static bool dns_make_query(struct mobile_adapter_dns *state, enum dns_qtype type
         0, 0,  // Answers: 0
         0, 0,  // Authority records: 0
         0, 0,  // Additional records: 0
-    }; 
+    };
     memcpy_P(state->buffer + 2, header, DNS_HEADER_SIZE - 2);
 
     unsigned offset = DNS_HEADER_SIZE;

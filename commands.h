@@ -39,7 +39,11 @@ enum mobile_command {
 
 enum mobile_connection_state {
     MOBILE_CONNECTION_DISCONNECTED,
+    MOBILE_CONNECTION_WAIT,
+    MOBILE_CONNECTION_WAIT_RELAY,
     MOBILE_CONNECTION_CALL,
+    MOBILE_CONNECTION_CALL_RECV,
+    MOBILE_CONNECTION_CALL_ISP,
     MOBILE_CONNECTION_INTERNET,
 };
 
@@ -50,17 +54,17 @@ struct mobile_packet {
 };
 
 struct mobile_adapter_commands {
-    _Atomic bool session_begun;
-    _Atomic bool mode_32bit;
+    _Atomic volatile bool session_begun;
+    _Atomic volatile bool mode_32bit;
 
-    unsigned processing;
+    unsigned char processing;
     unsigned char processing_data[4];
     struct mobile_addr processing_addr;
 
     enum mobile_connection_state state;
     bool connections[MOBILE_MAX_CONNECTIONS];
-    unsigned call_packets_sent;
     bool dns2_use;
+    unsigned call_packets_sent;
     struct mobile_addr4 dns1;
     struct mobile_addr4 dns2;
 };
