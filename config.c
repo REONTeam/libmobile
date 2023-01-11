@@ -56,3 +56,8 @@ bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char
     memcpy(token, adapter->config.relay_token, MOBILE_RELAY_TOKEN_SIZE);
     return true;
 }
+
+void mobile_config_clear_relay_token(struct mobile_adapter *adapter)
+{
+    adapter->config.relay_token_init = false;
+}

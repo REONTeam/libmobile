@@ -347,6 +347,7 @@ void mobile_config_set_p2p_port(struct mobile_adapter *adapter, unsigned p2p_por
 void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile_addr *relay);
 void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token);
 bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token);
+void mobile_config_clear_relay_token(struct mobile_adapter *adapter);
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
