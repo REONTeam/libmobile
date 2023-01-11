@@ -90,7 +90,7 @@ struct mobile_addr {
 };
 
 #define MOBILE_DEFAULT_P2P_PORT 1027
-#define MOBILE_DEFAULT_RELAY_PORT 1027
+#define MOBILE_DEFAULT_RELAY_PORT 31227
 
 // Data in this header depends on the config/types above
 #ifndef MOBILE_INTERNAL
