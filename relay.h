@@ -62,7 +62,7 @@ struct mobile_adapter_relay {
 void mobile_relay_init(struct mobile_adapter *adapter);
 int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server);
 int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const char *number, unsigned number_len);
-int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn);
+int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn, char *number, unsigned *number_len);
 int mobile_relay_get_number(struct mobile_adapter *adapter, unsigned char conn, char *number, unsigned *number_len);
 int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server, const char *number, unsigned number_len);
 int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server);

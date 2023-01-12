@@ -58,5 +58,6 @@ A_WEAK int mobile_board_sock_recv(A_UNUSED void *user, A_UNUSED unsigned conn, A
 {
     return -10;
 }
+A_WEAK void mobile_board_update_number(A_UNUSED void *user, A_UNUSED enum mobile_number type, A_UNUSED const char *number) {}
 
 #endif

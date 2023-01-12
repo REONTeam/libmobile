@@ -239,7 +239,7 @@ static void relay_wait_recv_debug(struct mobile_adapter *adapter)
     mobile_debug_endl(adapter);
 }
 
-static int relay_wait_recv(struct mobile_adapter *adapter, unsigned char conn)
+static int relay_wait_recv(struct mobile_adapter *adapter, unsigned char conn, char *number, unsigned *number_len)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
@@ -252,13 +252,16 @@ static int relay_wait_recv(struct mobile_adapter *adapter, unsigned char conn)
     int result = s->buffer[2] + 1;
     if (result >= MOBILE_RELAY_MAX_WAIT_RESULT) return -1;
 
-    unsigned number_len = s->buffer[3];
-    if (number_len == 0 || number_len > MOBILE_RELAY_MAX_NUMBER_LEN) return -1;
+    unsigned _number_len = s->buffer[3];
+    if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_LEN) {
+        return -1;
+    }
 
-    // Number received not actually used for now
-    recv_size += number_len;
+    recv_size += _number_len;
     recv = relay_recv(adapter, conn, recv_size);
     if (recv <= 0) return recv;
+    memcpy(number, s->buffer + 4, _number_len);
+    *number_len = _number_len;
 
     return result;
 }
@@ -305,7 +308,6 @@ static int relay_get_number_recv(struct mobile_adapter *adapter, unsigned char c
     if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_LEN) {
         return -1;
     }
-    *number_len = _number_len;
 
     recv_size += _number_len;
     recv = relay_recv(adapter, conn, recv_size);
@@ -434,8 +436,11 @@ int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const 
 // Once this function is called, you won't be able to execute any other
 // functions unless the connection is closed and restarted from scratch.
 //
+// Parameters:
+// - number: Buffer to copy the number into
+// - number_len: Pointer to resulting size of the number
 // Returns: enum mobile_relay_wait_result value
-int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn)
+int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn, char *number, unsigned *number_len)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
@@ -450,7 +455,7 @@ int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn)
         return 0;
 
     case MOBILE_RELAY_RECV_WAIT:
-        rc = relay_wait_recv(adapter, conn);
+        rc = relay_wait_recv(adapter, conn, number, number_len);
         if (rc == 0) return 0;
         if (rc < 0) {
             mobile_debug_print(adapter, PSTR("<RELAY> Wait failed"));
@@ -528,9 +533,10 @@ enum process_call {
 int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server, const char *number, unsigned number_len)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
+    void *_u = adapter->user;
 
-    char own_number[MOBILE_RELAY_MAX_NUMBER_LEN];
-    unsigned own_number_len;
+    char _number[MOBILE_RELAY_MAX_NUMBER_LEN + 1];
+    unsigned _number_len;
 
     int rc = -1;
 
@@ -543,16 +549,25 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
         // fallthrough
 
     case PROCESS_CALL_GET_NUMBER:
-        rc = mobile_relay_get_number(adapter, conn, own_number,
-                &own_number_len);
+        rc = mobile_relay_get_number(adapter, conn, _number, &_number_len);
         if (rc <= 0) break;
-        // TODO: Callback to set number
+
+        _number[_number_len] = '\0';
+        mobile_board_update_number(_u, MOBILE_NUMBER_USER, _number);
 
         s->processing = PROCESS_CALL_CALL;
         // fallthrough
 
     case PROCESS_CALL_CALL:
         rc = mobile_relay_call(adapter, conn, number, number_len);
+        if (rc == MOBILE_RELAY_CALL_RESULT_ACCEPTED) {
+            // NOTE: mobile_relay_call checks max number length
+            _number_len = number_len;
+            memcpy(_number, number, _number_len);
+
+            _number[_number_len] = '\0';
+            mobile_board_update_number(_u, MOBILE_NUMBER_PEER, _number);
+        }
     }
 
     return rc;
@@ -568,9 +583,10 @@ enum process_wait {
 int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
+    void *_u = adapter->user;
 
-    char own_number[MOBILE_RELAY_MAX_NUMBER_LEN];
-    unsigned own_number_len;
+    char _number[MOBILE_RELAY_MAX_NUMBER_LEN + 1];
+    unsigned _number_len;
 
     int rc = -1;
 
@@ -583,16 +599,21 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
         // fallthrough
 
     case PROCESS_WAIT_GET_NUMBER:
-        rc = mobile_relay_get_number(adapter, conn, own_number,
-                &own_number_len);
+        rc = mobile_relay_get_number(adapter, conn, _number, &_number_len);
         if (rc <= 0) break;
-        // TODO: Callback to set number
+
+        _number[_number_len] = '\0';
+        mobile_board_update_number(_u, MOBILE_NUMBER_USER, _number);
 
         s->processing = PROCESS_WAIT_WAIT;
         // fallthrough
 
     case PROCESS_WAIT_WAIT:
-        rc = mobile_relay_wait(adapter, conn);
+        rc = mobile_relay_wait(adapter, conn, _number, &_number_len);
+        if (rc == MOBILE_RELAY_WAIT_RESULT_ACCEPTED) {
+            _number[_number_len] = '\0';
+            mobile_board_update_number(_u, MOBILE_NUMBER_PEER, _number);
+        }
     }
 
     return rc;

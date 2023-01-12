@@ -22,6 +22,13 @@ struct mobile_adapter;  // data.h
 #define MOBILE_CONFIG_SIZE 0x100
 #define MOBILE_RELAY_TOKEN_SIZE 0x10
 
+#define MOBILE_DNS_PORT 53
+#define MOBILE_DEFAULT_P2P_PORT 1027
+#define MOBILE_DEFAULT_RELAY_PORT 31227
+
+#define MOBILE_HOSTLEN_IPV4 4
+#define MOBILE_HOSTLEN_IPV6 16
+
 enum mobile_adapter_device {
     // The clients.
     MOBILE_ADAPTER_GAMEBOY,
@@ -61,10 +68,10 @@ enum mobile_addrtype {
     MOBILE_ADDRTYPE_IPV6,
 };
 
-#define MOBILE_DNS_PORT 53
-
-#define MOBILE_HOSTLEN_IPV4 4
-#define MOBILE_HOSTLEN_IPV6 16
+enum mobile_number {
+    MOBILE_NUMBER_USER,
+    MOBILE_NUMBER_PEER
+};
 
 struct mobile_addr4 {
     enum mobile_addrtype type;
@@ -88,9 +95,6 @@ struct mobile_addr {
         struct mobile_addr6 _addr6;
     };
 };
-
-#define MOBILE_DEFAULT_P2P_PORT 1027
-#define MOBILE_DEFAULT_RELAY_PORT 31227
 
 // Data in this header depends on the config/types above
 #ifndef MOBILE_INTERNAL
@@ -340,6 +344,21 @@ int mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned
 // - size: Maximum data to receive
 // - addr: Origin address buffer
 int mobile_board_sock_recv(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
+
+// mobile_board_update_number - Receive number
+//
+// This function is called whenever the library connects to either the relay to
+// retrieve its own mobile number, or when a different number is dialed.
+//
+// Implementing this callback is purely informational, but highly recommended,
+// as this information should be shown to the user. The information is usually
+// also relayed through the mobile_board_debug_log function, but it's harder
+// for the user to find in there.
+//
+// Parameters:
+// - type: Which number is being updated
+// - number: Zero-delimited ASCII string containing the number
+void mobile_board_update_number(void *user, enum mobile_number type, const char *number);
 
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered);
 void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns1, const struct mobile_addr *dns2);
