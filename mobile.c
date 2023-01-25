@@ -85,14 +85,14 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
         // NOTE: Race condition possible, but not critical.
         adapter->serial.active = false;
         adapter->global.active = true;
-        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
+        mobile_impl_time_latch(_u, MOBILE_TIMER_SERIAL);
     }
 
     // If the adapter is stuck waiting, with no signal from the game,
     //   put it out of its misery.
     // Timeout has been verified on hardware.
     if (adapter->commands.session_begun &&
-            mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 3000)) {
+            mobile_impl_time_check_ms(_u, MOBILE_TIMER_SERIAL, 3000)) {
         return MOBILE_ACTION_DROP_CONNECTION;
     }
 
@@ -100,7 +100,7 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
     //   ended, perform a reset.
     if (adapter->global.active &&
             !adapter->commands.session_begun &&
-            mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 3000)) {
+            mobile_impl_time_check_ms(_u, MOBILE_TIMER_SERIAL, 3000)) {
         return MOBILE_ACTION_RESET;
     }
 
@@ -124,7 +124,7 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
     //   in an attempt to synchronize.
     if (!adapter->global.active &&
             !adapter->commands.session_begun &&
-            mobile_board_time_check_ms(_u, MOBILE_TIMER_SERIAL, 500)) {
+            mobile_impl_time_check_ms(_u, MOBILE_TIMER_SERIAL, 500)) {
         return MOBILE_ACTION_RESET_SERIAL;
     }
 
@@ -149,7 +149,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
     case MOBILE_ACTION_DROP_CONNECTION:
         if (!adapter->commands.session_begun) break;
 
-        mobile_board_serial_disable(_u);
+        mobile_impl_serial_disable(_u);
 
         // End the session and reset
         mobile_commands_reset(adapter);
@@ -161,39 +161,39 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mobile_debug_endl(adapter);
         mobile_debug_endl(adapter);
 
-        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        mobile_board_serial_enable(_u);
+        mobile_impl_time_latch(_u, MOBILE_TIMER_SERIAL);
+        mobile_impl_serial_enable(_u);
         break;
 
     // Resets everything when the session has ended
     case MOBILE_ACTION_RESET:
         if (adapter->commands.session_begun) break;
 
-        mobile_board_serial_disable(_u);
+        mobile_impl_serial_disable(_u);
 
         // Retain parsed packet if packet has already been parsed
         adapter->global.active = false;
         adapter->commands.mode_32bit = false;
         mode_32bit_change(adapter);
 
-        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        mobile_board_serial_enable(_u);
+        mobile_impl_time_latch(_u, MOBILE_TIMER_SERIAL);
+        mobile_impl_serial_enable(_u);
         break;
 
     // Reset the serial's current bit state in an attempt to synchronize
     case MOBILE_ACTION_RESET_SERIAL:
-        mobile_board_serial_disable(_u);
-        mobile_board_time_latch(_u, MOBILE_TIMER_SERIAL);
-        mobile_board_serial_enable(_u);
+        mobile_impl_serial_disable(_u);
+        mobile_impl_time_latch(_u, MOBILE_TIMER_SERIAL);
+        mobile_impl_serial_enable(_u);
         break;
 
     // Once the exchange has finished, switch the 32bit mode flag
     case MOBILE_ACTION_CHANGE_32BIT_MODE:
         if (adapter->serial.state != MOBILE_SERIAL_WAITING) break;
 
-        mobile_board_serial_disable(_u);
+        mobile_impl_serial_disable(_u);
         mode_32bit_change(adapter);
-        mobile_board_serial_enable(_u);
+        mobile_impl_serial_enable(_u);
         break;
 
     // If the config is dirty, update it in one go
@@ -235,6 +235,6 @@ void mobile_init(struct mobile_adapter *adapter, void *user)
     mobile_dns_init(adapter);
     mobile_relay_init(adapter);
 
-    mobile_board_time_latch(user, MOBILE_TIMER_SERIAL);
-    mobile_board_serial_enable(user);
+    mobile_impl_time_latch(user, MOBILE_TIMER_SERIAL);
+    mobile_impl_serial_enable(user);
 }

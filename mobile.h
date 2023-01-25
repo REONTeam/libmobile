@@ -104,7 +104,7 @@ struct mobile_addr {
 
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 
-// mobile_board_debug_log - Output a line of text for debug
+// mobile_impl_debug_log - Output a line of text for debug
 //
 // Called to output a line of text to the debug log. This is extremely useful
 // for both development of the frontend, as well as development of homebrew
@@ -115,9 +115,9 @@ struct mobile_addr {
 // "blocks" of communication. The <line> parameter is a null-terminated string.
 //
 // This function is completely optional.
-void mobile_board_debug_log(void *user, const char *line);
+void mobile_impl_debug_log(void *user, const char *line);
 
-// mobile_board_serial_disable - Disable serial communications
+// mobile_impl_serial_disable - Disable serial communications
 //
 // This function must ensure nothing will call mobile_transfer() while the
 // serial communcations are disabled, and the current byte transfer state is
@@ -125,15 +125,15 @@ void mobile_board_debug_log(void *user, const char *line);
 // was called. If mobile_transfer() and mobile_loop() are implemented as
 // separate threads, a mutex-like locking mechanism may be used to accomplish
 // this.
-void mobile_board_serial_disable(void *user);
+void mobile_impl_serial_disable(void *user);
 
-// mobile_board_serial_enable - Enable serial communications
+// mobile_impl_serial_enable - Enable serial communications
 //
-// Exact opposite of mobile_board_serial_disable(). This function indicates
+// Exact opposite of mobile_impl_serial_disable(). This function indicates
 // mobile_transfer() may be called again, resuming communications.
-void mobile_board_serial_enable(void *user);
+void mobile_impl_serial_enable(void *user);
 
-// mobile_board_config_read - Read from the configuration data
+// mobile_impl_config_read - Read from the configuration data
 //
 // The mobile adapter is able to store configuration data. This function may
 // read from it. Use MOBILE_CONFIG_SIZE to determine the size of this data.
@@ -146,11 +146,11 @@ void mobile_board_serial_enable(void *user);
 // - offset: Configuration data offset to read from
 // - size: Amount of data in bytes to be read
 // Returns: true on success, false if the configuration can't be read
-bool mobile_board_config_read(void *user, void *dest, uintptr_t offset, size_t size);
+bool mobile_impl_config_read(void *user, void *dest, uintptr_t offset, size_t size);
 
-// mobile_board_config_write - Write to the configuration data
+// mobile_impl_config_write - Write to the configuration data
 //
-// Analogue of mobile_board_config_read(), writing to the configuration data
+// Analogue of mobile_impl_config_read(), writing to the configuration data
 // instead. The same information applies here as well.
 //
 // Parameters:
@@ -158,9 +158,9 @@ bool mobile_board_config_read(void *user, void *dest, uintptr_t offset, size_t s
 // - offset: Configuration data offset to write to
 // - size: Amount of data in bytes to write
 // Returns: true on success, false if the configuration can't be written
-bool mobile_board_config_write(void *user, const void *src, uintptr_t offset, size_t size);
+bool mobile_impl_config_write(void *user, const void *src, uintptr_t offset, size_t size);
 
-// mobile_board_time_latch - Latch a timer
+// mobile_impl_time_latch - Latch a timer
 //
 // Timers are used to keep track of time, allowing libmobile to implement
 // timeouts and other time-related mechanisms. The time tracked must reflect
@@ -177,12 +177,12 @@ bool mobile_board_config_write(void *user, const void *src, uintptr_t offset, si
 //
 // Parameters:
 // - timer: timer that should be latched
-void mobile_board_time_latch(void *user, enum mobile_timers timer);
+void mobile_impl_time_latch(void *user, enum mobile_timers timer);
 
-// mobile_board_time_check_ms - Check if a certain amount of time has passed
+// mobile_impl_time_check_ms - Check if a certain amount of time has passed
 //
 // Checks if a specified amount of milliseconds has passed since a timer has
-// been latched by mobile_board_time_latch(). The notes on that function apply
+// been latched by mobile_impl_time_latch(). The notes on that function apply
 // here as well.
 //
 // Checking a timer that hasn't been latched is undefined, libmobile shall never
@@ -192,9 +192,9 @@ void mobile_board_time_latch(void *user, enum mobile_timers timer);
 // Parameters:
 // - timer: timer that should be compared against
 // - ms: amount of milliseconds that should be compared with
-bool mobile_board_time_check_ms(void *user, enum mobile_timers timer, unsigned ms);
+bool mobile_impl_time_check_ms(void *user, enum mobile_timers timer, unsigned ms);
 
-// mobile_board_sock_open - Open a socket
+// mobile_impl_sock_open - Open a socket
 //
 // Creates a socket of the specified type and address type. The available
 // socket types are TCP and UDP, and address types are IPV4 and IPV6. Both
@@ -212,7 +212,7 @@ bool mobile_board_time_check_ms(void *user, enum mobile_timers timer, unsigned m
 //
 // Opening a socket that hasn't been closed is undefined and may produce an
 // error or terminate the program, libmobile shall never do this. Similarly,
-// using an unopened socket with any of the mobile_board_sock_* functions may
+// using an unopened socket with any of the mobile_impl_sock_* functions may
 // result in the same.
 //
 // Returns: true if socket was created successfully, false on error
@@ -221,29 +221,29 @@ bool mobile_board_time_check_ms(void *user, enum mobile_timers timer, unsigned m
 // - type: MOBILE_SOCKTYPE_TCP vs MOBILE_SOCKTYPE_UDP
 // - addrtype: MOBILE_ADDRTYPE_IPV4 vs MOBILE_ADDRTYPE_IPV6
 // - bindport: Port to bind()
-bool mobile_board_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
+bool mobile_impl_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
 
-// mobile_board_sock_close - Close a socket
+// mobile_impl_sock_close - Close a socket
 //
-// Closes a socket opened through mobile_board_sock_open().
+// Closes a socket opened through mobile_impl_sock_open().
 //
 // Closing a socket that hasn't been opened is undefined and may produce an
 // error or terminate the program, libmobile shall never do this.
 //
 // Parameters:
 // - conn: Socket number
-void mobile_board_sock_close(void *user, unsigned conn);
+void mobile_impl_sock_close(void *user, unsigned conn);
 
-// mobile_board_sock_connect - Connect a socket
+// mobile_impl_sock_connect - Connect a socket
 //
 // Performs a TCP connect on a TCP socket, against the address specified in
 // <addr>. The request is non-blocking, and will be called repeatedly until it
 // either connects, errors out, or the connection is canceled by calling
-// mobile_board_sock_close().
+// mobile_impl_sock_close().
 //
 // If the socket is a UDP socket, this function merely sets the default
-// recipient for any further mobile_board_sock_send() and
-// mobile_board_sock_recv() calls, discarding any other source addresses.
+// recipient for any further mobile_impl_sock_send() and
+// mobile_impl_sock_recv() calls, discarding any other source addresses.
 //
 // Connecting a socket to an <addr> of a different type as the socket should
 // produce an error, libmobile shall never do this.
@@ -252,13 +252,13 @@ void mobile_board_sock_close(void *user, unsigned conn);
 // Parameters:
 // - conn: Socket number
 // - addr: Address to connect to
-int mobile_board_sock_connect(void *user, unsigned conn, const struct mobile_addr *addr);
+int mobile_impl_sock_connect(void *user, unsigned conn, const struct mobile_addr *addr);
 
-// mobile_board_sock_listen - Start listening on a socket
+// mobile_impl_sock_listen - Start listening on a socket
 //
 // Starts listening on an opened TCP socket, with a queue/backlog of one
-// connection, that will be accepted later through mobile_board_sock_accept().
-// The bound address/port is specified through mobile_board_sock_open().
+// connection, that will be accepted later through mobile_impl_sock_accept().
+// The bound address/port is specified through mobile_impl_sock_open().
 //
 // Listening on an UDP socket, or a connected TCP socket should produce an
 // error, libmobile shall never do this.
@@ -266,9 +266,9 @@ int mobile_board_sock_connect(void *user, unsigned conn, const struct mobile_add
 // Returns: true if socket started listening, false on error
 // Parameters:
 // - conn: Socket number
-bool mobile_board_sock_listen(void *user, unsigned conn);
+bool mobile_impl_sock_listen(void *user, unsigned conn);
 
-// mobile_board_sock_accept - Accept an incoming connection
+// mobile_impl_sock_accept - Accept an incoming connection
 //
 // Accepts an incoming TCP connection on a listening socket. This automatically
 // discards the listening socket upon success, and any further actions using
@@ -288,9 +288,9 @@ bool mobile_board_sock_listen(void *user, unsigned conn);
 //          false if there's no incoming connections
 // Parameters:
 // - conn: Socket number
-bool mobile_board_sock_accept(void *user, unsigned conn);
+bool mobile_impl_sock_accept(void *user, unsigned conn);
 
-// mobile_board_sock_send - Send data over a socket
+// mobile_impl_sock_send - Send data over a socket
 //
 // Sends data over the specified socket, optionally specifying a destination
 // address through the <addr> parameter. The implementation must be able to
@@ -298,7 +298,7 @@ bool mobile_board_sock_accept(void *user, unsigned conn);
 //
 // If a TCP socket is being used and the <addr> parameter is not NULL, the
 // parameter must be ignored. If a UDP socket is being used that hasn't been
-// connected through mobile_board_sock_connect(), and the <addr> parameter is
+// connected through mobile_impl_sock_connect(), and the <addr> parameter is
 // NULL, this function should produce an error. Sending to an address of a
 // different type as the one the socket was opened with should produce an
 // error. Similarly, sending using a TCP socket that isn't connected should
@@ -313,9 +313,9 @@ bool mobile_board_sock_accept(void *user, unsigned conn);
 // - data: Data to be sent
 // - size: Size of data to be sent
 // - addr: Address to send to, if using a UDP socket. NULL if none.
-int mobile_board_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
+int mobile_impl_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
 
-// mobile_board_sock_recv - Receive data from a socket
+// mobile_impl_sock_recv - Receive data from a socket
 //
 // Receives data from the specified socket, optionally returning the origin
 // address through the <addr> parameter. The implementation must be able to
@@ -406,7 +406,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 // Must be called regularly for the library to function. Ideally as frequently
 // as possible, but at a minimum every 100ms, in a main loop. This function
 // will never block, and will manage its own timeouts, unless a blocking action
-// is performed by the user in one of the mobile_board_* callbacks. So, unless
+// is performed by the user in one of the mobile_impl_* callbacks. So, unless
 // absolutely sure, let it do its thing.
 //
 // Shorthand for mobile_action_process(adapter, mobile_action_get(adapter))
@@ -444,9 +444,9 @@ void mobile_loop(struct mobile_adapter *adapter);
 // run the entire library in the same thread.
 //
 // To ensure thread-safety, this function may NEVER be executed after
-// mobile_board_serial_disable() has been called, before the serial is enabled
+// mobile_impl_serial_disable() has been called, before the serial is enabled
 // again. The user may use a mutex-like locking mechanism or disable interrupts
-// to achieve this. See the documentation on mobile_board_serial_disable() for
+// to achieve this. See the documentation on mobile_impl_serial_disable() for
 // more information.
 //
 // Parameters:
@@ -464,11 +464,11 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
 //
 // Multiple instances of the library may be initialized and used concurrently,
 // each instance having its own <adapter> library state, provided the
-// user-provided mobile_board_* callback functions take this into account (e.g.
+// user-provided mobile_impl_* callback functions take this into account (e.g.
 // by storing all instance-specific state in the <user> parameter).
 //
 // The <user> parameter is not used by the library for any other purpose than
-// being passed to the mobile_board_* functions.
+// being passed to the mobile_impl_* functions.
 //
 // Parameters:
 // - adapter: Library state

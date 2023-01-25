@@ -80,7 +80,7 @@ void mobile_debug_endl(struct mobile_adapter *adapter)
     void *_u = adapter->user;
 
     // Write the current line out
-    mobile_board_debug_log(_u, s->current ? s->buffer : "");
+    mobile_impl_debug_log(_u, s->current ? s->buffer : "");
     s->current = 0;
 }
 
