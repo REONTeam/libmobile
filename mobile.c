@@ -115,6 +115,11 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
         return MOBILE_ACTION_CHANGE_32BIT_MODE;
     }
 
+    // If the config is in need of updating, do that.
+    if (adapter->config.dirty) {
+        return MOBILE_ACTION_WRITE_CONFIG;
+    }
+
     // If nothing else is being triggered, reset the serial periodically,
     //   in an attempt to synchronize.
     if (!adapter->global.active &&
@@ -138,15 +143,6 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         if (command_handle(adapter)) {
             adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
         }
-        break;
-
-    // Once the exchange has finished, switch the 32bit mode flag
-    case MOBILE_ACTION_CHANGE_32BIT_MODE:
-        if (adapter->serial.state != MOBILE_SERIAL_WAITING) break;
-
-        mobile_board_serial_disable(_u);
-        mode_32bit_change(adapter);
-        mobile_board_serial_enable(_u);
         break;
 
     // End the session and reset everything
@@ -191,6 +187,20 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mobile_board_serial_enable(_u);
         break;
 
+    // Once the exchange has finished, switch the 32bit mode flag
+    case MOBILE_ACTION_CHANGE_32BIT_MODE:
+        if (adapter->serial.state != MOBILE_SERIAL_WAITING) break;
+
+        mobile_board_serial_disable(_u);
+        mode_32bit_change(adapter);
+        mobile_board_serial_enable(_u);
+        break;
+
+    // If the config is dirty, update it in one go
+    case MOBILE_ACTION_WRITE_CONFIG:
+        mobile_config_save(adapter);
+        break;
+
     default:
         break;
     }
@@ -213,39 +223,9 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
     return mobile_serial_transfer(adapter, c);
 }
 
-#define MOBILE_CONFIG_SIZE_INTERNAL 0xC0
-#if MOBILE_CONFIG_SIZE_INTERNAL > MOBILE_CONFIG_SIZE
-#error "MOBILE_CONFIG_SIZE isn't big enough!"
-#endif
-
-static void config_clear(void *user)
-{
-    unsigned char buffer[MOBILE_CONFIG_SIZE_INTERNAL] = {0};
-    mobile_board_config_write(user, buffer, 0, MOBILE_CONFIG_SIZE_INTERNAL);
-}
-
-static bool config_verify(void *user)
-{
-    unsigned char buffer[MOBILE_CONFIG_SIZE_INTERNAL];
-    mobile_board_config_read(user, buffer, 0, MOBILE_CONFIG_SIZE_INTERNAL);
-    if (buffer[0] != 'M' || buffer[1] != 'A') {
-        return false;
-    }
-
-    uint16_t checksum = 0;
-    for (unsigned i = 0; i < MOBILE_CONFIG_SIZE_INTERNAL - 2; i++) {
-        checksum += buffer[i];
-    }
-    uint16_t config_checksum = buffer[MOBILE_CONFIG_SIZE_INTERNAL - 2] << 8 |
-                               buffer[MOBILE_CONFIG_SIZE_INTERNAL - 1];
-    return checksum == config_checksum;
-}
-
 void mobile_init(struct mobile_adapter *adapter, void *user)
 {
     adapter->user = user;
-
-    if (!config_verify(user)) config_clear(user);
 
     mobile_global_init(adapter);
     mobile_config_init(adapter);

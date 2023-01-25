@@ -19,7 +19,7 @@ struct mobile_adapter;  // data.h
 #define MOBILE_MAX_CONNECTIONS 2
 #define MOBILE_MAX_TIMERS 4
 #define MOBILE_MAX_TRANSFER_SIZE 0xFE  // MOBILE_MAX_DATA_SIZE - 1
-#define MOBILE_CONFIG_SIZE 0x100
+#define MOBILE_CONFIG_SIZE 0x200
 #define MOBILE_RELAY_TOKEN_SIZE 0x10
 
 #define MOBILE_DNS_PORT 53
@@ -44,10 +44,11 @@ enum mobile_adapter_device {
 enum mobile_action {
     MOBILE_ACTION_NONE,
     MOBILE_ACTION_PROCESS_COMMAND,
-    MOBILE_ACTION_CHANGE_32BIT_MODE,
     MOBILE_ACTION_DROP_CONNECTION,
     MOBILE_ACTION_RESET,
     MOBILE_ACTION_RESET_SERIAL,
+    MOBILE_ACTION_CHANGE_32BIT_MODE,
+    MOBILE_ACTION_WRITE_CONFIG
 };
 
 enum mobile_timers {
@@ -361,12 +362,15 @@ int mobile_board_sock_recv(void *user, unsigned conn, void *data, unsigned size,
 void mobile_board_update_number(void *user, enum mobile_number type, const char *number);
 
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered);
+void mobile_config_get_device(struct mobile_adapter *adapter, enum mobile_adapter_device *device, bool *unmetered);
 void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns1, const struct mobile_addr *dns2);
+void mobile_config_get_dns(struct mobile_adapter *adapter, struct mobile_addr *dns1, struct mobile_addr *dns2);
 void mobile_config_set_p2p_port(struct mobile_adapter *adapter, unsigned p2p_port);
+void mobile_config_get_p2p_port(struct mobile_adapter *adapter, unsigned *p2p_port);
 void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile_addr *relay);
+void mobile_config_get_relay(struct mobile_adapter *adapter, struct mobile_addr *relay);
 void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token);
 bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token);
-void mobile_config_clear_relay_token(struct mobile_adapter *adapter);
 
 // mobile_action_get - Advanced library main loop, get next action
 //

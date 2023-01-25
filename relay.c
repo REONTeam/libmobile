@@ -92,11 +92,8 @@ static bool relay_handshake_send(struct mobile_adapter *adapter, unsigned char c
     memcpy_P(s->buffer, handshake_magic, sizeof(handshake_magic));
 
     unsigned char *auth = s->buffer + sizeof(handshake_magic);
-    auth[0] = adapter->config.relay_token_init;
-    if (adapter->config.relay_token_init) {
-        memcpy(auth + 1, adapter->config.relay_token, MOBILE_RELAY_TOKEN_SIZE);
-        buffer_len += MOBILE_RELAY_TOKEN_SIZE;
-    }
+    auth[0] = mobile_config_get_relay_token(adapter, auth + 1);
+    if (auth[0]) buffer_len += MOBILE_RELAY_TOKEN_SIZE;
 
     return mobile_board_sock_send(_u, conn, s->buffer, buffer_len, NULL);
 }
@@ -139,8 +136,7 @@ static int relay_handshake_recv(struct mobile_adapter *adapter, unsigned char co
         int recv = relay_recv(adapter, conn, recv_size);
         if (recv <= 0) return recv;
 
-        memcpy(adapter->config.relay_token, auth + 1, MOBILE_RELAY_TOKEN_SIZE);
-        adapter->config.relay_token_init = true;
+        mobile_config_set_relay_token(adapter, auth + 1);
         return 2;
     } else {
         return -1;

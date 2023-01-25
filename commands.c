@@ -8,6 +8,12 @@
 #include "compat.h"
 #include "inet_pton.h"
 
+// Accessible area of the mobile config by the game boy
+#define MOBILE_CONFIG_SIZE_REAL 0x100
+#if MOBILE_CONFIG_SIZE_REAL > MOBILE_CONFIG_SIZE
+#error "MOBILE_CONFIG_SIZE isn't big enough!"
+#endif
+
 // UNKERR is used for errors of which we don't really know if they exist, and
 //   if so what error code they return, but have been implemented just in case.
 // NEWERR is used to indicate an error code that we made up ourselves to
@@ -649,7 +655,9 @@ static struct mobile_packet *command_read_configuration_data(struct mobile_adapt
     unsigned offset = packet->data[0];
     unsigned size = packet->data[1];
     if (size > 0x80) return error_packet(packet, 2);
-    if (offset + size > MOBILE_CONFIG_SIZE) return error_packet(packet, 2);
+    if (offset + size > MOBILE_CONFIG_SIZE_REAL) {
+        return error_packet(packet, 2);
+    }
     packet->length = size + 1;  // Preserve offset byte
     if (size) {
         if (!mobile_board_config_read(_u, packet->data + 1, offset, size)) {
@@ -671,7 +679,9 @@ static struct mobile_packet *command_write_configuration_data(struct mobile_adap
     unsigned offset = packet->data[0];
     unsigned size = packet->length - 1;
     if (size > 0x80) return error_packet(packet, 2);
-    if (offset + size > MOBILE_CONFIG_SIZE) return error_packet(packet, 2);
+    if (offset + size > MOBILE_CONFIG_SIZE_REAL) {
+        return error_packet(packet, 2);
+    }
     if (size) {
         if (!mobile_board_config_write(_u, packet->data + 1, offset, size)) {
             return error_packet(packet, 0);
