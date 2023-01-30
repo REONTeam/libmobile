@@ -112,7 +112,10 @@ static void dump(struct mobile_adapter *adapter, const unsigned char *buf, const
             break;
         }
     }
-    if (i < len) return dump_hex(adapter, buf, len);
+    if (i < len) {
+        dump_hex(adapter, buf, len);
+        return;
+    }
 
     debug_endl();
     debug_write(buf, len);

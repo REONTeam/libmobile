@@ -344,22 +344,22 @@ int mobile_impl_sock_send(void *user, unsigned conn, const void *data, unsigned 
 // - data: Receive buffer
 // - size: Maximum data to receive
 // - addr: Origin address buffer
-int mobile_board_sock_recv(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
+int mobile_impl_sock_recv(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
 
-// mobile_board_update_number - Receive number
+// mobile_impl_update_number - Receive number
 //
 // This function is called whenever the library connects to either the relay to
 // retrieve its own mobile number, or when a different number is dialed.
 //
 // Implementing this callback is purely informational, but highly recommended,
 // as this information should be shown to the user. The information is usually
-// also relayed through the mobile_board_debug_log function, but it's harder
+// also relayed through the mobile_impl_debug_log function, but it's harder
 // for the user to find in there.
 //
 // Parameters:
 // - type: Which number is being updated
 // - number: Zero-delimited ASCII string containing the number
-void mobile_board_update_number(void *user, enum mobile_number type, const char *number);
+void mobile_impl_update_number(void *user, enum mobile_number type, const char *number);
 
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered);
 void mobile_config_get_device(struct mobile_adapter *adapter, enum mobile_adapter_device *device, bool *unmetered);

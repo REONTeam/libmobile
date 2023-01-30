@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+#define MOBILE_INTERNAL
 #include "mobile.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 
+#include "data.h"
 #include "compat.h"
 
 static void mobile_global_init(struct mobile_adapter *adapter)

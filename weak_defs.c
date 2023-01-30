@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define MOBILE_INTERNAL
 #include "mobile.h"
 #include "compat.h"
 struct mobile_adapter;
