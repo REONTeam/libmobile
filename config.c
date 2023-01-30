@@ -37,13 +37,19 @@ static bool config_internal_verify(struct mobile_adapter *adapter)
     void *_u = adapter->user;
 
     unsigned char buffer[MOBILE_CONFIG_SIZE_INTERNAL / 2];
-    mobile_impl_config_read(_u, buffer, sizeof(buffer) * 0, sizeof(buffer));
+    if (!mobile_impl_config_read(_u, buffer, sizeof(buffer) * 0,
+            sizeof(buffer))) {
+        return false;
+    }
     if (buffer[0] != 'M' || buffer[1] != 'A') {
         return false;
     }
 
     uint16_t sum = checksum(buffer, sizeof(buffer));
-    mobile_impl_config_read(_u, buffer, sizeof(buffer) * 1, sizeof(buffer));
+    if (!mobile_impl_config_read(_u, buffer, sizeof(buffer) * 1,
+            sizeof(buffer))) {
+        return false;
+    }
     sum += checksum(buffer, sizeof(buffer) - 2);
 
     uint16_t config_sum = buffer[sizeof(buffer) - 2] << 8 |
@@ -74,8 +80,10 @@ static bool config_library_load(struct mobile_adapter *adapter)
     void *_u = adapter->user;
 
     unsigned char buffer[MOBILE_CONFIG_SIZE_LIBRARY];
-    mobile_impl_config_read(_u, buffer, MOBILE_CONFIG_OFFSET_LIBRARY,
-            sizeof(buffer));
+    if (!mobile_impl_config_read(_u, buffer, MOBILE_CONFIG_OFFSET_LIBRARY,
+            sizeof(buffer))) {
+        return false;
+    }
 
     if (buffer[0] != 'L') return false;
     if (buffer[1] != 'M') return false;
