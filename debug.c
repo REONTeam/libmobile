@@ -7,6 +7,7 @@
 
 #include "data.h"
 #include "compat.h"
+#include "callback.h"
 
 void mobile_debug_init(struct mobile_adapter *adapter)
 {
@@ -77,10 +78,9 @@ void mobile_debug_print_addr(struct mobile_adapter *adapter, const struct mobile
 void mobile_debug_endl(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_debug *s = &adapter->debug;
-    void *_u = adapter->user;
 
     // Write the current line out
-    mobile_impl_debug_log(_u, s->current ? s->buffer : "");
+    mobile_cb_debug_log(adapter, s->current ? s->buffer : "");
     s->current = 0;
 }
 

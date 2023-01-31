@@ -5,6 +5,7 @@
 
 #include "data.h"
 #include "compat.h"
+#include "callback.h"
 
 // Protocol description:
 //
@@ -52,12 +53,11 @@ static void relay_recv_reset(struct mobile_adapter *adapter) {
 static int relay_recv(struct mobile_adapter *adapter, unsigned conn, unsigned size)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     if (size > MOBILE_RELAY_PACKET_SIZE) return -1;
     if (s->buffer_len >= size) return (int)size;
 
-    int recv = mobile_impl_sock_recv(_u, conn, s->buffer + s->buffer_len,
+    int recv = mobile_cb_sock_recv(adapter, conn, s->buffer + s->buffer_len,
         size - s->buffer_len, NULL);
     if (recv < 0) return -1;
     s->buffer_len += recv;
@@ -86,7 +86,6 @@ static void relay_handshake_send_debug(struct mobile_adapter *adapter)
 static bool relay_handshake_send(struct mobile_adapter *adapter, unsigned char conn)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     unsigned buffer_len = sizeof(handshake_magic) + 1;
     memcpy_P(s->buffer, handshake_magic, sizeof(handshake_magic));
@@ -95,7 +94,7 @@ static bool relay_handshake_send(struct mobile_adapter *adapter, unsigned char c
     auth[0] = mobile_config_get_relay_token(adapter, auth + 1);
     if (auth[0]) buffer_len += MOBILE_RELAY_TOKEN_SIZE;
 
-    return mobile_impl_sock_send(_u, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
 }
 
 static void relay_handshake_recv_debug(struct mobile_adapter *adapter)
@@ -153,7 +152,6 @@ static void relay_call_send_debug(struct mobile_adapter *adapter, const char *nu
 static bool relay_call_send(struct mobile_adapter *adapter, unsigned char conn, const char *number, unsigned number_len)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     if (number_len > MOBILE_RELAY_MAX_NUMBER_LEN) return false;
     unsigned buffer_len = 3 + number_len;
@@ -162,7 +160,7 @@ static bool relay_call_send(struct mobile_adapter *adapter, unsigned char conn, 
     s->buffer[2] = number_len;
     memcpy(s->buffer + 3, number, number_len);
 
-    return mobile_impl_sock_send(_u, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
 }
 
 static void relay_call_recv_debug(struct mobile_adapter *adapter)
@@ -210,13 +208,12 @@ static void relay_wait_send_debug(struct mobile_adapter *adapter)
 static bool relay_wait_send(struct mobile_adapter *adapter, unsigned char conn)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     unsigned buffer_len = 2;
     s->buffer[0] = PROTOCOL_VERSION;
     s->buffer[1] = MOBILE_RELAY_COMMAND_WAIT;
 
-    return mobile_impl_sock_send(_u, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
 }
 
 static void relay_wait_recv_debug(struct mobile_adapter *adapter)
@@ -271,13 +268,12 @@ static void relay_get_number_send_debug(struct mobile_adapter *adapter)
 static bool relay_get_number_send(struct mobile_adapter *adapter, unsigned char conn)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     unsigned buffer_len = 2;
     s->buffer[0] = PROTOCOL_VERSION;
     s->buffer[1] = MOBILE_RELAY_COMMAND_GET_NUMBER;
 
-    return mobile_impl_sock_send(_u, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
 }
 
 static void relay_get_number_recv_debug(struct mobile_adapter *adapter)
@@ -326,7 +322,6 @@ static int relay_get_number_recv(struct mobile_adapter *adapter, unsigned char c
 int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     int rc;
 
@@ -339,7 +334,7 @@ int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, con
         // fallthrough
 
     case MOBILE_RELAY_RECV_CONNECT:
-        rc = mobile_impl_sock_connect(_u, conn, server);
+        rc = mobile_cb_sock_connect(adapter, conn, server);
         if (rc == 0) return 0;
         if (rc < 0) {
             mobile_debug_print(adapter, PSTR("<RELAY> Connection failed"));
@@ -529,7 +524,6 @@ enum process_call {
 int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server, const char *number, unsigned number_len)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     char _number[MOBILE_RELAY_MAX_NUMBER_LEN + 1];
     unsigned _number_len;
@@ -549,7 +543,7 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
         if (rc <= 0) break;
 
         _number[_number_len] = '\0';
-        mobile_impl_update_number(_u, MOBILE_NUMBER_USER, _number);
+        mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, _number);
 
         s->processing = PROCESS_CALL_CALL;
         // fallthrough
@@ -562,7 +556,7 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
             memcpy(_number, number, _number_len);
 
             _number[_number_len] = '\0';
-            mobile_impl_update_number(_u, MOBILE_NUMBER_PEER, _number);
+            mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER, _number);
         }
     }
 
@@ -579,7 +573,6 @@ enum process_wait {
 int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
-    void *_u = adapter->user;
 
     char _number[MOBILE_RELAY_MAX_NUMBER_LEN + 1];
     unsigned _number_len;
@@ -599,7 +592,7 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
         if (rc <= 0) break;
 
         _number[_number_len] = '\0';
-        mobile_impl_update_number(_u, MOBILE_NUMBER_USER, _number);
+        mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, _number);
 
         s->processing = PROCESS_WAIT_WAIT;
         // fallthrough
@@ -608,7 +601,7 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
         rc = mobile_relay_wait(adapter, conn, _number, &_number_len);
         if (rc == MOBILE_RELAY_WAIT_RESULT_ACCEPTED) {
             _number[_number_len] = '\0';
-            mobile_impl_update_number(_u, MOBILE_NUMBER_PEER, _number);
+            mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER, _number);
         }
     }
 

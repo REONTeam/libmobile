@@ -3,8 +3,10 @@
 
 #include <assert.h>
 #include <string.h>
+
 #include "data.h"
 #include "util.h"
+#include "callback.h"
 
 // The area of the config in which data is actually stored by the game boy
 #define MOBILE_CONFIG_SIZE_INTERNAL 0xC0
@@ -25,19 +27,17 @@ static uint16_t checksum(unsigned char *buf, unsigned len)
 
 static void config_internal_clear(struct mobile_adapter *adapter)
 {
-    void *_u = adapter->user;
-
     unsigned char buffer[MOBILE_CONFIG_SIZE_INTERNAL / 2] = {0};
-    mobile_impl_config_write(_u, buffer, sizeof(buffer) * 0, sizeof(buffer));
-    mobile_impl_config_write(_u, buffer, sizeof(buffer) * 1, sizeof(buffer));
+    mobile_cb_config_write(adapter, buffer, sizeof(buffer) * 0,
+        sizeof(buffer));
+    mobile_cb_config_write(adapter, buffer, sizeof(buffer) * 1,
+        sizeof(buffer));
 }
 
 static bool config_internal_verify(struct mobile_adapter *adapter)
 {
-    void *_u = adapter->user;
-
     unsigned char buffer[MOBILE_CONFIG_SIZE_INTERNAL / 2];
-    if (!mobile_impl_config_read(_u, buffer, sizeof(buffer) * 0,
+    if (!mobile_cb_config_read(adapter, buffer, sizeof(buffer) * 0,
             sizeof(buffer))) {
         return false;
     }
@@ -46,7 +46,7 @@ static bool config_internal_verify(struct mobile_adapter *adapter)
     }
 
     uint16_t sum = checksum(buffer, sizeof(buffer));
-    if (!mobile_impl_config_read(_u, buffer, sizeof(buffer) * 1,
+    if (!mobile_cb_config_read(adapter, buffer, sizeof(buffer) * 1,
             sizeof(buffer))) {
         return false;
     }
@@ -77,10 +77,9 @@ static void config_library_load_host(struct mobile_addr *addr, const void *host,
 static bool config_library_load(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_config *config = &adapter->config;
-    void *_u = adapter->user;
 
     unsigned char buffer[MOBILE_CONFIG_SIZE_LIBRARY];
-    if (!mobile_impl_config_read(_u, buffer, MOBILE_CONFIG_OFFSET_LIBRARY,
+    if (!mobile_cb_config_read(adapter, buffer, MOBILE_CONFIG_OFFSET_LIBRARY,
             sizeof(buffer))) {
         return false;
     }
@@ -133,7 +132,6 @@ static void config_library_save_host(const struct mobile_addr *addr, void *host,
 static void config_library_save(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_config *config = &adapter->config;
-    void *_u = adapter->user;
 
     unsigned char buffer[MOBILE_CONFIG_SIZE_LIBRARY] = {0};
     buffer[0] = 'L';
@@ -164,7 +162,7 @@ static void config_library_save(struct mobile_adapter *adapter)
     buffer[0x03] = sum;
     buffer[0x04] = sum >> 8;
 
-    mobile_impl_config_write(_u, buffer, MOBILE_CONFIG_OFFSET_LIBRARY,
+    mobile_cb_config_write(adapter, buffer, MOBILE_CONFIG_OFFSET_LIBRARY,
         sizeof(buffer));
 }
 

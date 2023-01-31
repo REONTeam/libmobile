@@ -6,6 +6,7 @@
 #include "data.h"
 #include "util.h"
 #include "compat.h"
+#include "callback.h"
 
 // Implemented RFCs:
 // RFC1035 - DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
@@ -216,16 +217,15 @@ void mobile_dns_init(struct mobile_adapter *adapter)
 bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
-    void *_u = adapter->user;
 
     if (!dns_make_query(s, DNS_QTYPE_A, host, host_len)) return false;
 
-    if (!mobile_impl_sock_send(_u, conn, s->buffer, s->buffer_len,
+    if (!mobile_cb_sock_send(adapter, conn, s->buffer, s->buffer_len,
             addr_send)) {
         return false;
     }
 
-    mobile_impl_time_latch(_u, MOBILE_TIMER_COMMAND);
+    mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
     return true;
 }
 
@@ -233,12 +233,13 @@ bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const 
 int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len, unsigned char *ip)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
-    void *_u = adapter->user;
 
-    if (mobile_impl_time_check_ms(_u, MOBILE_TIMER_COMMAND, 3000)) return -1;
+    if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 3000)) {
+        return -1;
+    }
 
     struct mobile_addr addr_recv = {0};
-    int recv = mobile_impl_sock_recv(_u, conn, s->buffer,
+    int recv = mobile_cb_sock_recv(adapter, conn, s->buffer,
         MOBILE_DNS_PACKET_SIZE, &addr_recv);
     if (recv <= 0) return recv;
     s->buffer_len = recv;

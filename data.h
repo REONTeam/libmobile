@@ -7,6 +7,8 @@
 
 #define MOBILE_INTERNAL
 #include "mobile.h"
+#include "mobile_conf.h"
+#include "callback.h"
 #include "config.h"
 #include "debug.h"
 #include "commands.h"
@@ -27,6 +29,9 @@ struct mobile_adapter_global {
 struct mobile_adapter {
     void *user;
     struct mobile_adapter_global global;
+#ifndef MOBILE_LIBCONF_WEAK_IMPL
+    struct mobile_adapter_callback callback;
+#endif
     struct mobile_adapter_config config;
     struct mobile_adapter_debug debug;
     struct mobile_adapter_serial serial;

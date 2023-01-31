@@ -97,14 +97,9 @@ struct mobile_addr {
     };
 };
 
-// Data in this header depends on the config/types above
-#ifndef MOBILE_INTERNAL
-#include "data.h"
-#endif
-
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 
-// mobile_impl_debug_log - Output a line of text for debug
+// mobile_func_debug_log - Output a line of text for debug
 //
 // Called to output a line of text to the debug log. This is extremely useful
 // for both development of the frontend, as well as development of homebrew
@@ -115,9 +110,11 @@ struct mobile_addr {
 // "blocks" of communication. The <line> parameter is a null-terminated string.
 //
 // This function is completely optional.
+typedef void (*mobile_func_debug_log)(void *user, const char *line);
 void mobile_impl_debug_log(void *user, const char *line);
+void mobile_def_debug_log(struct mobile_adapter *adapter, mobile_func_debug_log func);
 
-// mobile_impl_serial_disable - Disable serial communications
+// mobile_func_serial_disable - Disable serial communications
 //
 // This function must ensure nothing will call mobile_transfer() while the
 // serial communcations are disabled, and the current byte transfer state is
@@ -125,15 +122,19 @@ void mobile_impl_debug_log(void *user, const char *line);
 // was called. If mobile_transfer() and mobile_loop() are implemented as
 // separate threads, a mutex-like locking mechanism may be used to accomplish
 // this.
+typedef void (*mobile_func_serial_disable)(void *user);
 void mobile_impl_serial_disable(void *user);
+void mobile_def_serial_disable(struct mobile_adapter *adapter, mobile_func_serial_disable func);
 
-// mobile_impl_serial_enable - Enable serial communications
+// mobile_func_serial_enable - Enable serial communications
 //
-// Exact opposite of mobile_impl_serial_disable(). This function indicates
+// Exact opposite of mobile_func_serial_disable(). This function indicates
 // mobile_transfer() may be called again, resuming communications.
+typedef void (*mobile_func_serial_enable)(void *user);
 void mobile_impl_serial_enable(void *user);
+void mobile_def_serial_enable(struct mobile_adapter *adapter, mobile_func_serial_enable func);
 
-// mobile_impl_config_read - Read from the configuration data
+// mobile_func_config_read - Read from the configuration data
 //
 // The mobile adapter is able to store configuration data. This function may
 // read from it. Use MOBILE_CONFIG_SIZE to determine the size of this data.
@@ -146,11 +147,13 @@ void mobile_impl_serial_enable(void *user);
 // - offset: Configuration data offset to read from
 // - size: Amount of data in bytes to be read
 // Returns: true on success, false if the configuration can't be read
+typedef bool (*mobile_func_config_read)(void *user, void *dest, uintptr_t offset, size_t size);
 bool mobile_impl_config_read(void *user, void *dest, uintptr_t offset, size_t size);
+void mobile_def_config_read(struct mobile_adapter *adapter, mobile_func_config_read func);
 
-// mobile_impl_config_write - Write to the configuration data
+// mobile_func_config_write - Write to the configuration data
 //
-// Analogue of mobile_impl_config_read(), writing to the configuration data
+// Analogue of mobile_func_config_read(), writing to the configuration data
 // instead. The same information applies here as well.
 //
 // Parameters:
@@ -158,9 +161,11 @@ bool mobile_impl_config_read(void *user, void *dest, uintptr_t offset, size_t si
 // - offset: Configuration data offset to write to
 // - size: Amount of data in bytes to write
 // Returns: true on success, false if the configuration can't be written
+typedef bool (*mobile_func_config_write)(void *user, const void *src, uintptr_t offset, size_t size);
 bool mobile_impl_config_write(void *user, const void *src, uintptr_t offset, size_t size);
+void mobile_def_config_write(struct mobile_adapter *adapter, mobile_func_config_write func);
 
-// mobile_impl_time_latch - Latch a timer
+// mobile_func_time_latch - Latch a timer
 //
 // Timers are used to keep track of time, allowing libmobile to implement
 // timeouts and other time-related mechanisms. The time tracked must reflect
@@ -177,12 +182,14 @@ bool mobile_impl_config_write(void *user, const void *src, uintptr_t offset, siz
 //
 // Parameters:
 // - timer: timer that should be latched
+typedef void (*mobile_func_time_latch)(void *user, enum mobile_timers timer);
 void mobile_impl_time_latch(void *user, enum mobile_timers timer);
+void mobile_def_time_latch(struct mobile_adapter *adapter, mobile_func_time_latch func);
 
-// mobile_impl_time_check_ms - Check if a certain amount of time has passed
+// mobile_func_time_check_ms - Check if a certain amount of time has passed
 //
 // Checks if a specified amount of milliseconds has passed since a timer has
-// been latched by mobile_impl_time_latch(). The notes on that function apply
+// been latched by mobile_func_time_latch(). The notes on that function apply
 // here as well.
 //
 // Checking a timer that hasn't been latched is undefined, libmobile shall never
@@ -192,9 +199,11 @@ void mobile_impl_time_latch(void *user, enum mobile_timers timer);
 // Parameters:
 // - timer: timer that should be compared against
 // - ms: amount of milliseconds that should be compared with
+typedef bool (*mobile_func_time_check_ms)(void *user, enum mobile_timers timer, unsigned ms);
 bool mobile_impl_time_check_ms(void *user, enum mobile_timers timer, unsigned ms);
+void mobile_def_time_check_ms(struct mobile_adapter *adapter, mobile_func_time_check_ms func);
 
-// mobile_impl_sock_open - Open a socket
+// mobile_func_sock_open - Open a socket
 //
 // Creates a socket of the specified type and address type. The available
 // socket types are TCP and UDP, and address types are IPV4 and IPV6. Both
@@ -212,7 +221,7 @@ bool mobile_impl_time_check_ms(void *user, enum mobile_timers timer, unsigned ms
 //
 // Opening a socket that hasn't been closed is undefined and may produce an
 // error or terminate the program, libmobile shall never do this. Similarly,
-// using an unopened socket with any of the mobile_impl_sock_* functions may
+// using an unopened socket with any of the mobile_func_sock_* functions may
 // result in the same.
 //
 // Returns: true if socket was created successfully, false on error
@@ -221,29 +230,33 @@ bool mobile_impl_time_check_ms(void *user, enum mobile_timers timer, unsigned ms
 // - type: MOBILE_SOCKTYPE_TCP vs MOBILE_SOCKTYPE_UDP
 // - addrtype: MOBILE_ADDRTYPE_IPV4 vs MOBILE_ADDRTYPE_IPV6
 // - bindport: Port to bind()
+typedef bool (*mobile_func_sock_open)(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
 bool mobile_impl_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
+void mobile_def_sock_open(struct mobile_adapter *adapter, mobile_func_sock_open func);
 
-// mobile_impl_sock_close - Close a socket
+// mobile_func_sock_close - Close a socket
 //
-// Closes a socket opened through mobile_impl_sock_open().
+// Closes a socket opened through mobile_func_sock_open().
 //
 // Closing a socket that hasn't been opened is undefined and may produce an
 // error or terminate the program, libmobile shall never do this.
 //
 // Parameters:
 // - conn: Socket number
+typedef void (*mobile_func_sock_close)(void *user, unsigned conn);
 void mobile_impl_sock_close(void *user, unsigned conn);
+void mobile_def_sock_close(struct mobile_adapter *adapter, mobile_func_sock_close func);
 
-// mobile_impl_sock_connect - Connect a socket
+// mobile_func_sock_connect - Connect a socket
 //
 // Performs a TCP connect on a TCP socket, against the address specified in
 // <addr>. The request is non-blocking, and will be called repeatedly until it
 // either connects, errors out, or the connection is canceled by calling
-// mobile_impl_sock_close().
+// mobile_func_sock_close().
 //
 // If the socket is a UDP socket, this function merely sets the default
-// recipient for any further mobile_impl_sock_send() and
-// mobile_impl_sock_recv() calls, discarding any other source addresses.
+// recipient for any further mobile_func_sock_send() and
+// mobile_func_sock_recv() calls, discarding any other source addresses.
 //
 // Connecting a socket to an <addr> of a different type as the socket should
 // produce an error, libmobile shall never do this.
@@ -252,13 +265,15 @@ void mobile_impl_sock_close(void *user, unsigned conn);
 // Parameters:
 // - conn: Socket number
 // - addr: Address to connect to
+typedef int (*mobile_func_sock_connect)(void *user, unsigned conn, const struct mobile_addr *addr);
 int mobile_impl_sock_connect(void *user, unsigned conn, const struct mobile_addr *addr);
+void mobile_def_sock_connect(struct mobile_adapter *adapter, mobile_func_sock_connect func);
 
-// mobile_impl_sock_listen - Start listening on a socket
+// mobile_func_sock_listen - Start listening on a socket
 //
 // Starts listening on an opened TCP socket, with a queue/backlog of one
-// connection, that will be accepted later through mobile_impl_sock_accept().
-// The bound address/port is specified through mobile_impl_sock_open().
+// connection, that will be accepted later through mobile_func_sock_accept().
+// The bound address/port is specified through mobile_func_sock_open().
 //
 // Listening on an UDP socket, or a connected TCP socket should produce an
 // error, libmobile shall never do this.
@@ -266,9 +281,11 @@ int mobile_impl_sock_connect(void *user, unsigned conn, const struct mobile_addr
 // Returns: true if socket started listening, false on error
 // Parameters:
 // - conn: Socket number
+typedef bool (*mobile_func_sock_listen)(void *user, unsigned conn);
 bool mobile_impl_sock_listen(void *user, unsigned conn);
+void mobile_def_sock_listen(struct mobile_adapter *adapter, mobile_func_sock_listen func);
 
-// mobile_impl_sock_accept - Accept an incoming connection
+// mobile_func_sock_accept - Accept an incoming connection
 //
 // Accepts an incoming TCP connection on a listening socket. This automatically
 // discards the listening socket upon success, and any further actions using
@@ -288,9 +305,11 @@ bool mobile_impl_sock_listen(void *user, unsigned conn);
 //          false if there's no incoming connections
 // Parameters:
 // - conn: Socket number
+typedef bool (*mobile_func_sock_accept)(void *user, unsigned conn);
 bool mobile_impl_sock_accept(void *user, unsigned conn);
+void mobile_def_sock_accept(struct mobile_adapter *adapter, mobile_func_sock_accept func);
 
-// mobile_impl_sock_send - Send data over a socket
+// mobile_func_sock_send - Send data over a socket
 //
 // Sends data over the specified socket, optionally specifying a destination
 // address through the <addr> parameter. The implementation must be able to
@@ -298,7 +317,7 @@ bool mobile_impl_sock_accept(void *user, unsigned conn);
 //
 // If a TCP socket is being used and the <addr> parameter is not NULL, the
 // parameter must be ignored. If a UDP socket is being used that hasn't been
-// connected through mobile_impl_sock_connect(), and the <addr> parameter is
+// connected through mobile_func_sock_connect(), and the <addr> parameter is
 // NULL, this function should produce an error. Sending to an address of a
 // different type as the one the socket was opened with should produce an
 // error. Similarly, sending using a TCP socket that isn't connected should
@@ -313,9 +332,11 @@ bool mobile_impl_sock_accept(void *user, unsigned conn);
 // - data: Data to be sent
 // - size: Size of data to be sent
 // - addr: Address to send to, if using a UDP socket. NULL if none.
+typedef int (*mobile_func_sock_send)(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
 int mobile_impl_sock_send(void *user, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
+void mobile_def_sock_send(struct mobile_adapter *adapter, mobile_func_sock_send func);
 
-// mobile_impl_sock_recv - Receive data from a socket
+// mobile_func_sock_recv - Receive data from a socket
 //
 // Receives data from the specified socket, optionally returning the origin
 // address through the <addr> parameter. The implementation must be able to
@@ -344,22 +365,26 @@ int mobile_impl_sock_send(void *user, unsigned conn, const void *data, unsigned 
 // - data: Receive buffer
 // - size: Maximum data to receive
 // - addr: Origin address buffer
+typedef int (*mobile_func_sock_recv)(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
 int mobile_impl_sock_recv(void *user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
+void mobile_def_sock_recv(struct mobile_adapter *adapter, mobile_func_sock_recv func);
 
-// mobile_impl_update_number - Receive number
+// mobile_func_update_number - Receive number
 //
 // This function is called whenever the library connects to either the relay to
 // retrieve its own mobile number, or when a different number is dialed.
 //
 // Implementing this callback is purely informational, but highly recommended,
 // as this information should be shown to the user. The information is usually
-// also relayed through the mobile_impl_debug_log function, but it's harder
+// also relayed through the mobile_func_debug_log function, but it's harder
 // for the user to find in there.
 //
 // Parameters:
 // - type: Which number is being updated
 // - number: Zero-delimited ASCII string containing the number
+typedef void (*mobile_func_update_number)(void *user, enum mobile_number type, const char *number);
 void mobile_impl_update_number(void *user, enum mobile_number type, const char *number);
+void mobile_def_update_number(struct mobile_adapter *adapter, mobile_func_update_number func);
 
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered);
 void mobile_config_get_device(struct mobile_adapter *adapter, enum mobile_adapter_device *device, bool *unmetered);
@@ -474,6 +499,11 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
 // - adapter: Library state
 // - user: User data pointer for callbacks
 void mobile_init(struct mobile_adapter *adapter, void *user);
+
+// Implementations require the static size of "struct mobile_adapter"
+#ifndef MOBILE_INTERNAL
+#include "data.h"
+#endif
 
 #ifdef __cplusplus
 }
