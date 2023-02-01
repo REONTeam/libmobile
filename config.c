@@ -168,7 +168,8 @@ static void config_library_save(struct mobile_adapter *adapter)
 
 void mobile_config_init(struct mobile_adapter *adapter)
 {
-    adapter->config.dirty = false;
+    adapter->config.loaded = false;
+    adapter->config.dirty = true;
     adapter->config.device = MOBILE_ADAPTER_BLUE;
     adapter->config.dns1 = (struct mobile_addr){.type = MOBILE_ADDRTYPE_NONE};
     adapter->config.dns2 = (struct mobile_addr){.type = MOBILE_ADDRTYPE_NONE};
@@ -176,15 +177,27 @@ void mobile_config_init(struct mobile_adapter *adapter)
     adapter->config.relay = (struct mobile_addr){.type = MOBILE_ADDRTYPE_NONE};
     adapter->config.relay_token_init = false;
     memset(adapter->config.relay_token, 0, MOBILE_RELAY_TOKEN_SIZE);
+}
 
+void mobile_config_load(struct mobile_adapter *adapter)
+{
+    if (adapter->config.loaded) return;
     if (!config_internal_verify(adapter)) config_internal_clear(adapter);
-    if (!config_library_load(adapter)) config_library_save(adapter);
+    if (config_library_load(adapter)) adapter->config.dirty = false;
+    adapter->config.loaded = true;
 }
 
 void mobile_config_save(struct mobile_adapter *adapter)
 {
+    if (!adapter->config.dirty) return;
     config_library_save(adapter);
     adapter->config.dirty = false;
+}
+
+static void mobile_config_apply(struct mobile_adapter *adapter)
+{
+    adapter->config.dirty = true;
+    adapter->config.loaded = true;
 }
 
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered)
@@ -193,6 +206,8 @@ void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapte
     // In serial.c:mobile_serial_transfer()
     adapter->config.device = device |
         (unmetered ? MOBILE_CONFIG_DEVICE_UNMETERED : 0);
+
+    mobile_config_apply(adapter);
 }
 
 void mobile_config_get_device(struct mobile_adapter *adapter, enum mobile_adapter_device *device, bool *unmetered)
@@ -207,7 +222,7 @@ void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_a
     mobile_addr_copy(&adapter->config.dns1, dns1);
     mobile_addr_copy(&adapter->config.dns2, dns2);
 
-    adapter->config.dirty = true;
+    mobile_config_apply(adapter);
 }
 
 void mobile_config_get_dns(struct mobile_adapter *adapter, struct mobile_addr *dns1, struct mobile_addr *dns2)
@@ -222,7 +237,7 @@ void mobile_config_set_p2p_port(struct mobile_adapter *adapter, unsigned p2p_por
     if (p2p_port == 0) return;
     adapter->config.p2p_port = p2p_port;
 
-    adapter->config.dirty = true;
+    mobile_config_apply(adapter);
 }
 
 void mobile_config_get_p2p_port(struct mobile_adapter *adapter, unsigned *p2p_port)
@@ -235,7 +250,7 @@ void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile
     // Latched whenever a number a dialed or the wait command is executed
     mobile_addr_copy(&adapter->config.relay, relay);
 
-    adapter->config.dirty = true;
+    mobile_config_apply(adapter);
 }
 
 void mobile_config_get_relay(struct mobile_adapter *adapter, struct mobile_addr *relay)
@@ -246,10 +261,11 @@ void mobile_config_get_relay(struct mobile_adapter *adapter, struct mobile_addr 
 void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token)
 {
     adapter->config.relay_token_init = !!token;
-    if (!token) return;
-    memcpy(adapter->config.relay_token, token, MOBILE_RELAY_TOKEN_SIZE);
+    if (token) {
+        memcpy(adapter->config.relay_token, token, MOBILE_RELAY_TOKEN_SIZE);
+    }
 
-    adapter->config.dirty = true;
+    mobile_config_apply(adapter);
 }
 
 bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token)

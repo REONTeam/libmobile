@@ -17,12 +17,15 @@
 #include "relay.h"
 
 struct mobile_adapter_global {
+    // Whether the adapter is turned on or not
+    bool start: 1;
+
     // Whether the adapter is currently awake or not
     // Used to reset everything after a bit of inactivity
-    bool active;
+    bool active: 1;
 
     // Packet data to pass between "serial" and "commands"
-    bool packet_parsed;
+    bool packet_parsed: 1;
     struct mobile_packet packet;
 };
 

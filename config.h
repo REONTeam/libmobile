@@ -11,8 +11,11 @@
 #define MOBILE_CONFIG_DEVICE_UNMETERED 0x80
 
 struct mobile_adapter_config {
+    // Whether the config has already been loaded
+    bool loaded: 1;
+
     // Whether the config has been updated recently
-    bool dirty;
+    bool dirty: 1;
 
     // What device to emulate
     _Atomic volatile unsigned char device;  // Read by serial thread
@@ -35,6 +38,5 @@ struct mobile_adapter_config {
 };
 
 void mobile_config_init(struct mobile_adapter *adapter);
-void mobile_config_save(struct mobile_adapter *adapter);
 
 #undef _Atomic  // "atomic.h"

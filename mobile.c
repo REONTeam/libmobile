@@ -12,6 +12,7 @@
 
 static void mobile_global_init(struct mobile_adapter *adapter)
 {
+    adapter->global.start = false;
     adapter->global.active = false;
     adapter->global.packet_parsed = false;
 }
@@ -79,8 +80,20 @@ static void mode_32bit_change(struct mobile_adapter *adapter)
     // TODO: Signal hardware to change?
 }
 
+static void mobile_reset(struct mobile_adapter *adapter)
+{
+    // End the session and reset
+    mobile_commands_reset(adapter);
+    mode_32bit_change(adapter);
+    mobile_serial_init(adapter);
+    adapter->global.active = false;
+    adapter->global.packet_parsed = false;
+}
+
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
 {
+    if (!adapter->global.start) return MOBILE_ACTION_NONE;
+
     // If the serial has been active at all, latch the timer
     if (adapter->serial.active) {
         // NOTE: Race condition possible, but not critical.
@@ -150,16 +163,11 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
         mobile_cb_serial_disable(adapter);
 
-        // End the session and reset
-        mobile_commands_reset(adapter);
-        mode_32bit_change(adapter);
-        mobile_serial_init(adapter);
-        mobile_global_init(adapter);
-
         mobile_debug_print(adapter, PSTR("<<< 11 End session (timeout)"));
         mobile_debug_endl(adapter);
         mobile_debug_endl(adapter);
 
+        mobile_reset(adapter);
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
         mobile_cb_serial_enable(adapter);
         break;
@@ -170,7 +178,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
         mobile_cb_serial_disable(adapter);
 
-        // Retain parsed packet if packet has already been parsed
+        // Avoid resetting the serial subsystem, and retain the parsed packet
         adapter->global.active = false;
         adapter->commands.mode_32bit = false;
         mode_32bit_change(adapter);
@@ -222,6 +230,26 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
     return mobile_serial_transfer(adapter, c);
 }
 
+void mobile_start(struct mobile_adapter *adapter)
+{
+    if (adapter->global.start) return;
+    adapter->global.start = true;
+
+    mobile_config_load(adapter);
+    mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
+    mobile_cb_serial_enable(adapter);
+}
+
+void mobile_stop(struct mobile_adapter *adapter)
+{
+    if (!adapter->global.start) return;
+    adapter->global.start = false;
+
+    mobile_cb_serial_disable(adapter);
+    mobile_reset(adapter);
+    mobile_config_save(adapter);
+}
+
 void mobile_init(struct mobile_adapter *adapter, void *user)
 {
     adapter->user = user;
@@ -233,8 +261,4 @@ void mobile_init(struct mobile_adapter *adapter, void *user)
     mobile_commands_init(adapter);
     mobile_serial_init(adapter);
     mobile_dns_init(adapter);
-    mobile_relay_init(adapter);
-
-    mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
-    mobile_cb_serial_enable(adapter);
 }

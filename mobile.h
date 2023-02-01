@@ -397,6 +397,30 @@ void mobile_config_get_relay(struct mobile_adapter *adapter, struct mobile_addr 
 void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token);
 bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token);
 
+// mobile_config_load - Manually force a load of the configuration values
+//
+// Makes sure the configuration has been loaded. The configuration is loaded
+// only once per instance of the library, and calling this function will
+// guarantee this.
+//
+// The necessary callback functions must be set up before this function is ran.
+//
+// This function is generally optional, but must be executed before any
+// mobile_get_* and mobile_set_* functions are used.
+//
+// Parameters:
+// - adapter: Library state
+void mobile_config_load(struct mobile_adapter *adapter);
+
+// mobile_config_save - Manually force a save of the configuration values
+//
+// Makes sure the configuration has been written. This function is a no-op if
+// none of the configuration values have changed.
+//
+// Parameters:
+// - adapter: Library state
+void mobile_config_save(struct mobile_adapter *adapter);
+
 // mobile_action_get - Advanced library main loop, get next action
 //
 // This function may be used in place of mobile_loop(), to see which action is
@@ -431,7 +455,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 // Must be called regularly for the library to function. Ideally as frequently
 // as possible, but at a minimum every 100ms, in a main loop. This function
 // will never block, and will manage its own timeouts, unless a blocking action
-// is performed by the user in one of the mobile_impl_* callbacks. So, unless
+// is performed by the user in one of the mobile_func_* callbacks. So, unless
 // absolutely sure, let it do its thing.
 //
 // Shorthand for mobile_action_process(adapter, mobile_action_get(adapter))
@@ -468,17 +492,44 @@ void mobile_loop(struct mobile_adapter *adapter);
 // delegating the rest of the library to for example the GUI thread, or simply
 // run the entire library in the same thread.
 //
-// To ensure thread-safety, this function may NEVER be executed after
-// mobile_impl_serial_disable() has been called, before the serial is enabled
-// again. The user may use a mutex-like locking mechanism or disable interrupts
-// to achieve this. See the documentation on mobile_impl_serial_disable() for
-// more information.
+// To ensure thread-safety, this function may NEVER be executed until
+// mobile_func_serial_enable() is called for the first time, or whenever
+// mobile_func_serial_disable() is called, before the serial is enabled again.
+// The user may use a mutex-like locking mechanism or disable interrupts to
+// achieve this. See the documentation on mobile_func_serial_disable() for more
+// information.
 //
 // Parameters:
 // - adapter: Library state
 // - c: Byte received in previous exchange
 // Returns: Byte to send in next exchange
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
+
+// mobile_start - Begin the library operation
+//
+// Does necessary post-initialization, such as making sure the configuration is
+// loaded, and enables the serial communication.
+//
+// This function must be called before mobile_transfer(), mobile_loop() or its
+// component functions are executed, but after the relevant callbacks have been
+// set up and configured.
+//
+// Parameters:
+// - adapter: Library state
+void mobile_start(struct mobile_adapter *adapter);
+
+// mobile_stop - Terminate the library
+//
+// Stops library operation by disabling the serial, saving any necessary state
+// and resetting the library.
+//
+// It's recommended to call this function before ending the program execution,
+// but it may also be used to temporarily pause the library, before calling
+// mobile_start() again.
+//
+// Parameters:
+// - adapter: Library state
+void mobile_stop(struct mobile_adapter *adapter);
 
 // mobile_init - Initialize library
 //
@@ -489,11 +540,11 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
 //
 // Multiple instances of the library may be initialized and used concurrently,
 // each instance having its own <adapter> library state, provided the
-// user-provided mobile_impl_* callback functions take this into account (e.g.
+// user-provided mobile_func_* callback functions take this into account (e.g.
 // by storing all instance-specific state in the <user> parameter).
 //
 // The <user> parameter is not used by the library for any other purpose than
-// being passed to the mobile_impl_* functions.
+// being passed to the mobile_func_* functions.
 //
 // Parameters:
 // - adapter: Library state

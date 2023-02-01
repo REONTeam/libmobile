@@ -210,8 +210,7 @@ static int dns_get_answer(struct mobile_adapter_dns *state, unsigned *offset, co
 
 void mobile_dns_init(struct mobile_adapter *adapter)
 {
-    struct mobile_adapter_dns *state = &adapter->dns;
-    state->id = 0;
+    adapter->dns.id = 0;
 }
 
 bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len)
