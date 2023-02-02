@@ -5,7 +5,6 @@
 // Exposed to the user of this library for the purpose of allocating memory,
 //   but shouldn't be accessed independently.
 
-#define MOBILE_INTERNAL
 #include "mobile.h"
 #include "mobile_conf.h"
 #include "callback.h"

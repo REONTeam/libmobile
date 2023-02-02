@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define MOBILE_INTERNAL
 #include "mobile.h"
 #include "mobile_conf.h"
 

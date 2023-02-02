@@ -13,12 +13,24 @@
 
 // MOBILE_LIBCONF_IMPL_WEAK - use weak implementation callbacks
 //
-// This define makes the library define mobile_impl_* functions as weak
-// symbols, allowing any library user to implement these directly, instead of
-// passing the callbacks as pointers into the mobile_def_* functions.
+// Makes the library define mobile_impl_* functions as weak symbols, allowing
+// any library user to implement these directly, instead of passing the
+// callbacks as pointers into the mobile_def_* functions.
 //
 // If this option is set, and weak symbols aren't detected as supported by the
 // toolchain (see compat.h), all of the mobile_impl_* functions will need to
 // be defined by the user, and the library will only work as a static library.
 //
 //#define MOBILE_LIBCONF_IMPL_WEAK
+
+// MOBILE_LIBCONF_NOALLOC - disable functions for memory allocation
+//
+// Removes any function that calls malloc(). This is primarily useful for
+// platforms where including a memory allocator is unwieldy, requiring too much
+// code memory or ram, and as such are better off managing memory themselves.
+//
+// The library may never be used as a shared library in this fashion, though
+// it's very unlikely that any platform where this is a problem can't use
+// shared libraries regardless.
+//
+//#define MOBILE_LIBCONF_NOALLOC

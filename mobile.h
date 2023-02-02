@@ -546,13 +546,36 @@ void mobile_stop(struct mobile_adapter *adapter);
 // The <user> parameter is not used by the library for any other purpose than
 // being passed to the mobile_func_* functions.
 //
+// See also mobile_new(), which is a recommended wrapper for this function.
+//
 // Parameters:
 // - adapter: Library state
 // - user: User data pointer for callbacks
 void mobile_init(struct mobile_adapter *adapter, void *user);
 
-// Implementations require the static size of "struct mobile_adapter"
-#ifndef MOBILE_INTERNAL
+// mobile_new - Allocate memory and initialize library
+//
+// Allocates space for a mobile_adapter structure and initializes it. This must
+// be used in place of mobile_init() whenever the library is used as a shared
+// library, to ensure forwards ABI compatibility, but is recommended in either
+// case. mobile_init() may be used to reinitialize the allocated memory.
+//
+// The memory returned by this function may be released using free().
+//
+// See mobile_init() for exact behavior.
+//
+// Parameters:
+// - user: User data pointer for callbacks
+// Returns: Library state
+struct mobile_adapter *mobile_new(void *user);
+
+// In case anyone ever needs to reserve memory for the library state
+// themselves, here is a sizeof(struct mobile_adapter).
+extern const size_t mobile_sizeof;
+
+// Implementations may require the static size of "struct mobile_adapter"
+// Only usable whenever the library is linked statically.
+#ifdef MOBILE_EXPORT_STRUCT
 #include "data.h"
 #endif
 

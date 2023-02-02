@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-#define MOBILE_INTERNAL
 #include "mobile.h"
 #include "atomic.h"
 struct mobile_adapter;

@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-#define MOBILE_INTERNAL
 #include "mobile.h"
 
 #include <stdint.h>

@@ -204,7 +204,8 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     s->state = MOBILE_CONNECTION_DISCONNECTED;
 
     // Ignore the ISP phone numbers for now, treat them as if we're connected
-    for (const char *const *number = isp_numbers; *number; number++) {
+    for (const char *const *number = isp_numbers;
+            pgm_read_ptr(number); number++) {
         if (packet->length - 1 != strlen_P(pgm_read_ptr(number))) continue;
         if (memcmp_P(packet->data + 1, pgm_read_ptr(number),
                 packet->length - 1) == 0) {
