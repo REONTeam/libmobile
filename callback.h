@@ -30,18 +30,26 @@ struct mobile_adapter_callback {
 #endif
 void mobile_callback_init(struct mobile_adapter *adapter);
 
-void mobile_cb_debug_log(struct mobile_adapter *adapter, const char *line);
-void mobile_cb_serial_disable(struct mobile_adapter *adapter);
-void mobile_cb_serial_enable(struct mobile_adapter *adapter);
-bool mobile_cb_config_read(struct mobile_adapter *adapter, void *dest, uintptr_t offset, size_t size);
-bool mobile_cb_config_write(struct mobile_adapter *adapter, const void *src, uintptr_t offset, size_t size);
-void mobile_cb_time_latch(struct mobile_adapter *adapter, enum mobile_timers timer);
-bool mobile_cb_time_check_ms(struct mobile_adapter *adapter, enum mobile_timers timer, unsigned ms);
-bool mobile_cb_sock_open(struct mobile_adapter *adapter, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport);
-void mobile_cb_sock_close(struct mobile_adapter *adapter, unsigned conn);
-int mobile_cb_sock_connect(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr);
-bool mobile_cb_sock_listen(struct mobile_adapter *adapter, unsigned conn);
-bool mobile_cb_sock_accept(struct mobile_adapter *adapter, unsigned conn);
-int mobile_cb_sock_send(struct mobile_adapter *adapter, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr);
-int mobile_cb_sock_recv(struct mobile_adapter *adapter, unsigned conn, void *data, unsigned size, struct mobile_addr *addr);
-void mobile_cb_update_number(struct mobile_adapter *adapter, enum mobile_number type, const char *number);
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
+#define mobile_cb(name, adapter, ...) \
+    mobile_impl_ ## name(adapter->user, ##__VA_ARGS__)
+#else
+#define mobile_cb(name, adapter, ...) \
+    adapter->callback.name(adapter->user, ##__VA_ARGS__)
+#endif
+
+#define mobile_cb_debug_log(...) mobile_cb(debug_log, __VA_ARGS__)
+#define mobile_cb_serial_disable(...) mobile_cb(serial_disable, __VA_ARGS__)
+#define mobile_cb_serial_enable(...) mobile_cb(serial_enable, __VA_ARGS__)
+#define mobile_cb_config_read(...) mobile_cb(config_read, __VA_ARGS__)
+#define mobile_cb_config_write(...) mobile_cb(config_write, __VA_ARGS__)
+#define mobile_cb_time_latch(...) mobile_cb(time_latch, __VA_ARGS__)
+#define mobile_cb_time_check_ms(...) mobile_cb(time_check_ms, __VA_ARGS__)
+#define mobile_cb_sock_open(...) mobile_cb(sock_open, __VA_ARGS__)
+#define mobile_cb_sock_close(...) mobile_cb(sock_close, __VA_ARGS__)
+#define mobile_cb_sock_connect(...) mobile_cb(sock_connect, __VA_ARGS__)
+#define mobile_cb_sock_listen(...) mobile_cb(sock_listen, __VA_ARGS__)
+#define mobile_cb_sock_accept(...) mobile_cb(sock_accept, __VA_ARGS__)
+#define mobile_cb_sock_send(...) mobile_cb(sock_send, __VA_ARGS__)
+#define mobile_cb_sock_recv(...) mobile_cb(sock_recv, __VA_ARGS__)
+#define mobile_cb_update_number(...) mobile_cb(update_number, __VA_ARGS__)

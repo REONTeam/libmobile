@@ -114,219 +114,32 @@ void mobile_callback_init(struct mobile_adapter *adapter)
     adapter->callback.sock_connect = mobile_impl_sock_connect;
     adapter->callback.sock_listen = mobile_impl_sock_listen;
     adapter->callback.sock_accept = mobile_impl_sock_accept;
+    adapter->callback.sock_send = mobile_impl_sock_send;
     adapter->callback.sock_recv = mobile_impl_sock_recv;
     adapter->callback.update_number = mobile_impl_update_number;
 #endif
 }
 
-void mobile_cb_debug_log(struct mobile_adapter *adapter, const char *line)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    mobile_impl_debug_log(adapter->user, line);
-#else
-    adapter->callback.debug_log(adapter->user, line);
-#endif
-}
-
-void mobile_cb_serial_disable(struct mobile_adapter *adapter)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    mobile_impl_serial_disable(adapter->user);
-#else
-    adapter->callback.serial_disable(adapter->user);
-#endif
-}
-
-void mobile_cb_serial_enable(struct mobile_adapter *adapter)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    mobile_impl_serial_enable(adapter->user);
-#else
-    adapter->callback.serial_enable(adapter->user);
-#endif
-}
-
-bool mobile_cb_config_read(struct mobile_adapter *adapter, void *dest, uintptr_t offset, size_t size)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_config_read(adapter->user, dest, offset, size);
-#else
-    return adapter->callback.config_read(adapter->user, dest, offset, size);
-#endif
-}
-
-bool mobile_cb_config_write(struct mobile_adapter *adapter, const void *src, uintptr_t offset, size_t size)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_config_write(adapter->user, src, offset, size);
-#else
-    return adapter->callback.config_write(adapter->user, src, offset, size);
-#endif
-}
-
-void mobile_cb_time_latch(struct mobile_adapter *adapter, enum mobile_timers timer)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    mobile_impl_time_latch(adapter->user, timer);
-#else
-    adapter->callback.time_latch(adapter->user, timer);
-#endif
-}
-
-bool mobile_cb_time_check_ms(struct mobile_adapter *adapter, enum mobile_timers timer, unsigned ms)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_time_check_ms(adapter->user, timer, ms);
-#else
-    return adapter->callback.time_check_ms(adapter->user, timer, ms);
-#endif
-}
-
-bool mobile_cb_sock_open(struct mobile_adapter *adapter, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_sock_open(adapter->user, conn, type, addrtype, bindport);
-#else
-    return adapter->callback.sock_open(adapter->user, conn, type, addrtype, bindport);
-#endif
-}
-
-void mobile_cb_sock_close(struct mobile_adapter *adapter, unsigned conn)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    mobile_impl_sock_close(adapter->user, conn);
-#else
-    adapter->callback.sock_close(adapter->user, conn);
-#endif
-}
-
-int mobile_cb_sock_connect(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_sock_connect(adapter->user, conn, addr);
-#else
-    return adapter->callback.sock_connect(adapter->user, conn, addr);
-#endif
-}
-
-bool mobile_cb_sock_listen(struct mobile_adapter *adapter, unsigned conn)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_sock_listen(adapter->user, conn);
-#else
-    return adapter->callback.sock_listen(adapter->user, conn);
-#endif
-}
-
-bool mobile_cb_sock_accept(struct mobile_adapter *adapter, unsigned conn)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_sock_accept(adapter->user, conn);
-#else
-    return adapter->callback.sock_accept(adapter->user, conn);
-#endif
-}
-
-int mobile_cb_sock_send(struct mobile_adapter *adapter, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_sock_send(adapter->user, conn, data, size, addr);
-#else
-    return adapter->callback.sock_send(adapter->user, conn, data, size, addr);
-#endif
-}
-
-int mobile_cb_sock_recv(struct mobile_adapter *adapter, unsigned conn, void *data, unsigned size, struct mobile_addr *addr)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    return mobile_impl_sock_recv(adapter->user, conn, data, size, addr);
-#else
-    return adapter->callback.sock_recv(adapter->user, conn, data, size, addr);
-#endif
-}
-
-void mobile_cb_update_number(struct mobile_adapter *adapter, enum mobile_number type, const char *number)
-{
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
-    mobile_impl_update_number(adapter->user, type, number);
-#else
-    adapter->callback.update_number(adapter->user, type, number);
-#endif
-}
-
 #ifndef MOBILE_LIBCONF_IMPL_WEAK
-void mobile_def_debug_log(struct mobile_adapter *adapter, mobile_func_debug_log func)
-{
-    adapter->callback.debug_log = func;
+#define def(name) \
+void mobile_def_ ## name(struct mobile_adapter *adapter, mobile_func_ ## name func) \
+{ \
+    adapter->callback.name = func; \
 }
 
-void mobile_def_serial_disable(struct mobile_adapter *adapter, mobile_func_serial_disable func)
-{
-    adapter->callback.serial_disable = func;
-}
-
-void mobile_def_serial_enable(struct mobile_adapter *adapter, mobile_func_serial_enable func)
-{
-    adapter->callback.serial_enable = func;
-}
-
-void mobile_def_config_read(struct mobile_adapter *adapter, mobile_func_config_read func)
-{
-    adapter->callback.config_read = func;
-}
-
-void mobile_def_config_write(struct mobile_adapter *adapter, mobile_func_config_write func)
-{
-    adapter->callback.config_write = func;
-}
-
-void mobile_def_time_latch(struct mobile_adapter *adapter, mobile_func_time_latch func)
-{
-    adapter->callback.time_latch = func;
-}
-
-void mobile_def_time_check_ms(struct mobile_adapter *adapter, mobile_func_time_check_ms func)
-{
-    adapter->callback.time_check_ms = func;
-}
-
-void mobile_def_sock_open(struct mobile_adapter *adapter, mobile_func_sock_open func)
-{
-    adapter->callback.sock_open = func;
-}
-
-void mobile_def_sock_close(struct mobile_adapter *adapter, mobile_func_sock_close func)
-{
-    adapter->callback.sock_close = func;
-}
-
-void mobile_def_sock_connect(struct mobile_adapter *adapter, mobile_func_sock_connect func)
-{
-    adapter->callback.sock_connect = func;
-}
-
-void mobile_def_sock_listen(struct mobile_adapter *adapter, mobile_func_sock_listen func)
-{
-    adapter->callback.sock_listen = func;
-}
-
-void mobile_def_sock_accept(struct mobile_adapter *adapter, mobile_func_sock_accept func)
-{
-    adapter->callback.sock_accept = func;
-}
-
-void mobile_def_sock_send(struct mobile_adapter *adapter, mobile_func_sock_send func)
-{
-    adapter->callback.sock_send = func;
-}
-
-void mobile_def_sock_recv(struct mobile_adapter *adapter, mobile_func_sock_recv func)
-{
-    adapter->callback.sock_recv = func;
-}
-
-void mobile_def_update_number(struct mobile_adapter *adapter, mobile_func_update_number func)
-{
-    adapter->callback.update_number = func;
-}
+def(debug_log)
+def(serial_disable)
+def(serial_enable)
+def(config_read)
+def(config_write)
+def(time_latch)
+def(time_check_ms)
+def(sock_open)
+def(sock_close)
+def(sock_connect)
+def(sock_listen)
+def(sock_accept)
+def(sock_send)
+def(sock_recv)
+def(update_number)
 #endif
