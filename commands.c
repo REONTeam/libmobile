@@ -23,6 +23,10 @@
 // Connection number to use for p2p comms
 static const int p2p_conn = 0;
 
+static const char nintendo[] PROGMEM = {
+    'N', 'I', 'N', 'T', 'E', 'N', 'D', 'O'
+};
+
 static const char isp_number_pdc_isp[] PROGMEM = "#9677";
 static const char isp_number_pdc_serv[] PROGMEM = "#9477";
 static const char isp_number_ddi_isp[] PROGMEM = "0077487751";
@@ -141,12 +145,12 @@ static struct mobile_packet *command_begin_session(struct mobile_adapter *adapte
 
     if (s->session_begun) return error_packet(packet, 1);
     if (adapter->serial.device != MOBILE_ADAPTER_RED) {
-        if (packet->length != 8) return error_packet(packet, 2);
+        if (packet->length != sizeof(nintendo)) return error_packet(packet, 2);
     } else {
-        if (packet->length < 8) return error_packet(packet, 2);
-        packet->length = 8;
+        if (packet->length < sizeof(nintendo)) return error_packet(packet, 2);
+        packet->length = sizeof(nintendo);
     }
-    if (memcmp(packet->data, "NINTENDO", 8) != 0) {
+    if (memcmp_P(packet->data, nintendo, sizeof(nintendo)) != 0) {
         return error_packet(packet, 2);
     }
 
