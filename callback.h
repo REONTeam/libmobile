@@ -9,7 +9,7 @@
 #include "mobile.h"
 #include "mobile_conf.h"
 
-#ifndef MOBILE_LIBCONF_WEAK_IMPL
+#ifndef MOBILE_LIBCONF_IMPL_WEAK
 struct mobile_adapter_callback {
     mobile_func_debug_log debug_log;
     mobile_func_serial_disable serial_disable;

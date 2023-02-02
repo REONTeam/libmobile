@@ -32,7 +32,7 @@ struct mobile_adapter_global {
 struct mobile_adapter {
     void *user;
     struct mobile_adapter_global global;
-#ifndef MOBILE_LIBCONF_WEAK_IMPL
+#ifndef MOBILE_LIBCONF_IMPL_WEAK
     struct mobile_adapter_callback callback;
 #endif
     struct mobile_adapter_config config;

@@ -11,7 +11,7 @@
 //   dispatched using pointers or similar depending on the Library
 //   configuration.
 
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
 #ifdef A_WEAK
 #define IMPL A_WEAK
 #endif  // IMPL undefined if weak symbols aren't supported
@@ -101,7 +101,7 @@ IMPL void mobile_impl_update_number(A_UNUSED void *user, A_UNUSED enum mobile_nu
 void mobile_callback_init(struct mobile_adapter *adapter)
 {
     (void)adapter;
-#ifndef MOBILE_LIBCONF_WEAK_IMPL
+#ifndef MOBILE_LIBCONF_IMPL_WEAK
     adapter->callback.debug_log = mobile_impl_debug_log;
     adapter->callback.serial_disable = mobile_impl_serial_disable;
     adapter->callback.serial_enable = mobile_impl_serial_enable;
@@ -121,7 +121,7 @@ void mobile_callback_init(struct mobile_adapter *adapter)
 
 void mobile_cb_debug_log(struct mobile_adapter *adapter, const char *line)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     mobile_impl_debug_log(adapter->user, line);
 #else
     adapter->callback.debug_log(adapter->user, line);
@@ -130,7 +130,7 @@ void mobile_cb_debug_log(struct mobile_adapter *adapter, const char *line)
 
 void mobile_cb_serial_disable(struct mobile_adapter *adapter)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     mobile_impl_serial_disable(adapter->user);
 #else
     adapter->callback.serial_disable(adapter->user);
@@ -139,7 +139,7 @@ void mobile_cb_serial_disable(struct mobile_adapter *adapter)
 
 void mobile_cb_serial_enable(struct mobile_adapter *adapter)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     mobile_impl_serial_enable(adapter->user);
 #else
     adapter->callback.serial_enable(adapter->user);
@@ -148,7 +148,7 @@ void mobile_cb_serial_enable(struct mobile_adapter *adapter)
 
 bool mobile_cb_config_read(struct mobile_adapter *adapter, void *dest, uintptr_t offset, size_t size)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_config_read(adapter->user, dest, offset, size);
 #else
     return adapter->callback.config_read(adapter->user, dest, offset, size);
@@ -157,7 +157,7 @@ bool mobile_cb_config_read(struct mobile_adapter *adapter, void *dest, uintptr_t
 
 bool mobile_cb_config_write(struct mobile_adapter *adapter, const void *src, uintptr_t offset, size_t size)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_config_write(adapter->user, src, offset, size);
 #else
     return adapter->callback.config_write(adapter->user, src, offset, size);
@@ -166,7 +166,7 @@ bool mobile_cb_config_write(struct mobile_adapter *adapter, const void *src, uin
 
 void mobile_cb_time_latch(struct mobile_adapter *adapter, enum mobile_timers timer)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     mobile_impl_time_latch(adapter->user, timer);
 #else
     adapter->callback.time_latch(adapter->user, timer);
@@ -175,7 +175,7 @@ void mobile_cb_time_latch(struct mobile_adapter *adapter, enum mobile_timers tim
 
 bool mobile_cb_time_check_ms(struct mobile_adapter *adapter, enum mobile_timers timer, unsigned ms)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_time_check_ms(adapter->user, timer, ms);
 #else
     return adapter->callback.time_check_ms(adapter->user, timer, ms);
@@ -184,7 +184,7 @@ bool mobile_cb_time_check_ms(struct mobile_adapter *adapter, enum mobile_timers 
 
 bool mobile_cb_sock_open(struct mobile_adapter *adapter, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_sock_open(adapter->user, conn, type, addrtype, bindport);
 #else
     return adapter->callback.sock_open(adapter->user, conn, type, addrtype, bindport);
@@ -193,7 +193,7 @@ bool mobile_cb_sock_open(struct mobile_adapter *adapter, unsigned conn, enum mob
 
 void mobile_cb_sock_close(struct mobile_adapter *adapter, unsigned conn)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     mobile_impl_sock_close(adapter->user, conn);
 #else
     adapter->callback.sock_close(adapter->user, conn);
@@ -202,7 +202,7 @@ void mobile_cb_sock_close(struct mobile_adapter *adapter, unsigned conn)
 
 int mobile_cb_sock_connect(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_sock_connect(adapter->user, conn, addr);
 #else
     return adapter->callback.sock_connect(adapter->user, conn, addr);
@@ -211,7 +211,7 @@ int mobile_cb_sock_connect(struct mobile_adapter *adapter, unsigned conn, const 
 
 bool mobile_cb_sock_listen(struct mobile_adapter *adapter, unsigned conn)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_sock_listen(adapter->user, conn);
 #else
     return adapter->callback.sock_listen(adapter->user, conn);
@@ -220,7 +220,7 @@ bool mobile_cb_sock_listen(struct mobile_adapter *adapter, unsigned conn)
 
 bool mobile_cb_sock_accept(struct mobile_adapter *adapter, unsigned conn)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_sock_accept(adapter->user, conn);
 #else
     return adapter->callback.sock_accept(adapter->user, conn);
@@ -229,7 +229,7 @@ bool mobile_cb_sock_accept(struct mobile_adapter *adapter, unsigned conn)
 
 int mobile_cb_sock_send(struct mobile_adapter *adapter, unsigned conn, const void *data, unsigned size, const struct mobile_addr *addr)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_sock_send(adapter->user, conn, data, size, addr);
 #else
     return adapter->callback.sock_send(adapter->user, conn, data, size, addr);
@@ -238,7 +238,7 @@ int mobile_cb_sock_send(struct mobile_adapter *adapter, unsigned conn, const voi
 
 int mobile_cb_sock_recv(struct mobile_adapter *adapter, unsigned conn, void *data, unsigned size, struct mobile_addr *addr)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     return mobile_impl_sock_recv(adapter->user, conn, data, size, addr);
 #else
     return adapter->callback.sock_recv(adapter->user, conn, data, size, addr);
@@ -247,14 +247,14 @@ int mobile_cb_sock_recv(struct mobile_adapter *adapter, unsigned conn, void *dat
 
 void mobile_cb_update_number(struct mobile_adapter *adapter, enum mobile_number type, const char *number)
 {
-#ifdef MOBILE_LIBCONF_WEAK_IMPL
+#ifdef MOBILE_LIBCONF_IMPL_WEAK
     mobile_impl_update_number(adapter->user, type, number);
 #else
     adapter->callback.update_number(adapter->user, type, number);
 #endif
 }
 
-#ifndef MOBILE_LIBCONF_WEAK_IMPL
+#ifndef MOBILE_LIBCONF_IMPL_WEAK
 void mobile_def_debug_log(struct mobile_adapter *adapter, mobile_func_debug_log func)
 {
     adapter->callback.debug_log = func;
