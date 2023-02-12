@@ -6,10 +6,13 @@
 #include <stddef.h>
 
 #include "mobile.h"
-#include "mobile_conf.h"
 
-#ifndef MOBILE_LIBCONF_IMPL_WEAK
+#ifdef MOBILE_LIBCONF_USE
+#include <mobile_config.h>
+#endif
+
 struct mobile_adapter_callback {
+#ifndef MOBILE_ENABLE_IMPL_WEAK
     mobile_func_debug_log debug_log;
     mobile_func_serial_disable serial_disable;
     mobile_func_serial_enable serial_enable;
@@ -25,11 +28,11 @@ struct mobile_adapter_callback {
     mobile_func_sock_send sock_send;
     mobile_func_sock_recv sock_recv;
     mobile_func_update_number update_number;
-};
 #endif
+};
 void mobile_callback_init(struct mobile_adapter *adapter);
 
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
+#ifdef MOBILE_ENABLE_IMPL_WEAK
 #define mobile_cb(name, adapter, ...) \
     mobile_impl_ ## name(adapter->user, ##__VA_ARGS__)
 #else

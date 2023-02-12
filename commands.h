@@ -5,7 +5,6 @@
 
 #include "mobile.h"
 #include "atomic.h"
-struct mobile_adapter;
 
 // TODO: Share packet->data with serial.c to save memory?
 

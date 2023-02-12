@@ -573,12 +573,6 @@ struct mobile_adapter *mobile_new(void *user);
 // themselves, here is a sizeof(struct mobile_adapter).
 extern const size_t mobile_sizeof;
 
-// Implementations may require the static size of "struct mobile_adapter"
-// Only usable whenever the library is linked statically.
-#ifdef MOBILE_EXPORT_STRUCT
-#include "data.h"
-#endif
-
 #ifdef __cplusplus
 }
 #endif

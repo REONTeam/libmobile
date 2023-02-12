@@ -6,7 +6,6 @@
 
 #include "mobile.h"
 #include "atomic.h"
-struct mobile_adapter;
 
 #define MOBILE_MAX_DATA_SIZE 0xFF
 

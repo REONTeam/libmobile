@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-#include "mobile.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 
-#include "data.h"
+#include "mobile_data.h"
 #include "compat.h"
 #include "callback.h"
 

@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+#pragma once
+
+// Configuration file defining various settings and toggles that change the
+// behavior of the library at compile time.
+//
+// To change these settings, either use one of the supported build systems, or
+// build the library with `-DMOBILE_LIBCONF_USE`, making sure to use the `-I`
+// option to make sure "mobile_config.h" is found correctly. Any code including
+// the "mobile.h" header must use these same compiler options.
+//
+// The exported ABI will vary depending on these options. As such, it's not
+// recommended to make binary distributions with changes to these options.
+
+// MOBILE_ENABLE_IMPL_WEAK - use weak implementation callbacks
+//
+// Makes the library define mobile_impl_* functions as weak symbols, allowing
+// any library user to implement these directly, instead of passing the
+// callbacks as pointers into the mobile_def_* functions. Also disables the
+// compilation of the mobile_def_* functions.
+//
+// If this option is set, and weak symbols aren't detected as supported by the
+// toolchain (see compat.h), all of the mobile_impl_* functions will need to
+// be defined by the user, and the library will only work as a static library.
+#undef MOBILE_ENABLE_IMPL_WEAK
+
+// MOBILE_ENABLE_NOALLOC - disable functions for memory allocation
+//
+// Removes any function that calls malloc(). This is primarily useful for
+// platforms where including a memory allocator is unwieldy, requiring too much
+// code memory or ram, and as such are better off managing memory themselves.
+//
+// In order to allow the user to allocate the necessary memory themselves at
+// runtime, the global mobile_sizeof variable is provided, indicating the
+// required minimum size of struct mobile_adapter.
+//
+// A static definition of struct mobile_adapter may be provided by including
+// the mobile_data.h header. However, doing so requires the library to always
+// be compiled in tandem with the application using it, in order to ensure the
+// ABI remains compatible. As such, it's recommended to avoid doing this.
+#undef MOBILE_ENABLE_NOALLOC

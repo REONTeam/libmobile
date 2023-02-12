@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "serial.h"
 
-#include "data.h"
+#include "mobile_data.h"
 
 void mobile_serial_init(struct mobile_adapter *adapter)
 {

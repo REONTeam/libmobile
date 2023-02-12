@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "data.h"
+#include "mobile_data.h"
 
 static unsigned mobile_addr_size(const struct mobile_addr *addr)
 {

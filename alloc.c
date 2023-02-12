@@ -2,13 +2,16 @@
 
 #include <stddef.h>
 
-#include "mobile_conf.h"
-#include "data.h"
+#include "mobile_data.h"
 #include "compat.h"
+
+#ifdef MOBILE_LIBCONF_USE
+#include <mobile_config.h>
+#endif
 
 const size_t mobile_sizeof PROGMEM = sizeof(struct mobile_adapter);
 
-#ifndef MOBILE_LIBCONF_NOALLOC
+#ifndef MOBILE_ENABLE_NOALLOC
 #include <stdlib.h>
 
 struct mobile_adapter *mobile_new(void *user)

@@ -2,11 +2,13 @@
 #pragma once
 
 // Internal mobile adapter data structures
-// Exposed to the user of this library for the purpose of allocating memory,
-//   but shouldn't be accessed independently.
+
+// When the library is compiled alongside the code using it, including this
+// header may provide for an easy method to statically reserve memory for the
+// mobile_adapter structure. Every member of the structure is considered
+// private to the library.
 
 #include "mobile.h"
-#include "mobile_conf.h"
 #include "callback.h"
 #include "config.h"
 #include "debug.h"
@@ -31,9 +33,7 @@ struct mobile_adapter_global {
 struct mobile_adapter {
     void *user;
     struct mobile_adapter_global global;
-#ifndef MOBILE_LIBCONF_IMPL_WEAK
     struct mobile_adapter_callback callback;
-#endif
     struct mobile_adapter_config config;
     struct mobile_adapter_debug debug;
     struct mobile_adapter_serial serial;

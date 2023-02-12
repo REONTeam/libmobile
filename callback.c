@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#include "data.h"
+#include "mobile_data.h"
 #include "compat.h"
 
 // Optional implementations of the callback functions.
@@ -11,7 +11,7 @@
 //   dispatched using pointers or similar depending on the Library
 //   configuration.
 
-#ifdef MOBILE_LIBCONF_IMPL_WEAK
+#ifdef MOBILE_ENABLE_IMPL_WEAK
 #ifdef A_WEAK
 #define IMPL A_WEAK
 #endif  // IMPL undefined if weak symbols aren't supported
@@ -101,7 +101,7 @@ IMPL void mobile_impl_update_number(A_UNUSED void *user, A_UNUSED enum mobile_nu
 void mobile_callback_init(struct mobile_adapter *adapter)
 {
     (void)adapter;
-#ifndef MOBILE_LIBCONF_IMPL_WEAK
+#ifndef MOBILE_ENABLE_IMPL_WEAK
     adapter->callback.debug_log = mobile_impl_debug_log;
     adapter->callback.serial_disable = mobile_impl_serial_disable;
     adapter->callback.serial_enable = mobile_impl_serial_enable;
@@ -120,7 +120,7 @@ void mobile_callback_init(struct mobile_adapter *adapter)
 #endif
 }
 
-#ifndef MOBILE_LIBCONF_IMPL_WEAK
+#ifndef MOBILE_ENABLE_IMPL_WEAK
 #define def(name) \
 void mobile_def_ ## name(struct mobile_adapter *adapter, mobile_func_ ## name func) \
 { \
