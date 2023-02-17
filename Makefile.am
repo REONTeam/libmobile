@@ -36,3 +36,8 @@ include_HEADERS = \
 
 pkgconfig_DATA = \
 	libmobile.pc
+
+EXTRA_DIST = \
+	meson.build \
+	meson_options.txt \
+	mobile_config.meson.h.in

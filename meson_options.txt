@@ -1,0 +1,4 @@
+option('enable_impl_weak', type : 'boolean', value : false,
+  description : 'use weak implementation callbacks')
+option('enable_noalloc', type : 'boolean', value : false,
+  description : 'disable functions for memory allocation')
