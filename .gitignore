@@ -1,0 +1,17 @@
+# Autotools artifacts
+/Makefile.in
+/aclocal.m4
+/ar-lib
+/autom4te.cache/
+/compile
+/confdefs.h.in
+/confdefs.h.in~
+/config.guess
+/config.sub
+/configure
+/configure~
+/depcomp
+/install-sh
+/ltmain.sh
+/m4/
+/missing
