@@ -10,9 +10,6 @@ struct mobile_addr;
 
 #define MOBILE_RELAY_PACKET_SIZE 0x20
 
-// Allowed phone number length: 7-16
-#define MOBILE_RELAY_MAX_NUMBER_LEN 16
-
 enum mobile_relay_command {
     MOBILE_RELAY_COMMAND_CALL,
     MOBILE_RELAY_COMMAND_WAIT,

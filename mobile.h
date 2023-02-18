@@ -19,6 +19,7 @@ struct mobile_adapter;  // data.h
 #define MOBILE_MAX_CONNECTIONS 2
 #define MOBILE_MAX_TIMERS 4
 #define MOBILE_MAX_TRANSFER_SIZE 0xFE  // MOBILE_MAX_DATA_SIZE - 1
+#define MOBILE_MAX_NUMBER_SIZE 16  // Allowed phone number length: 7-16
 #define MOBILE_CONFIG_SIZE 0x200
 #define MOBILE_RELAY_TOKEN_SIZE 0x10
 
@@ -371,8 +372,14 @@ void mobile_def_sock_recv(struct mobile_adapter *adapter, mobile_func_sock_recv 
 
 // mobile_func_update_number - Receive number
 //
-// This function is called whenever the library connects to either the relay to
+// This function is called whenever the library either connects to the relay to
 // retrieve its own mobile number, or when a different number is dialed.
+//
+// The buffer passed along with the <number> parameter is a NULL-terminated C
+// string, containing up to MOBILE_MAX_NUMBER_SIZE characters, not including
+// the terminator. The parameter might also be a NULL pointer, in which case
+// the specified number is no longer valid. This may happen when the phone
+// disconnects from the peer.
 //
 // Implementing this callback is purely informational, but highly recommended,
 // as this information should be shown to the user. The information is usually

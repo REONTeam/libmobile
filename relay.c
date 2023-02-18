@@ -23,11 +23,17 @@
 
 #define PROTOCOL_VERSION 0
 
+// Maximum number size
+#define MOBILE_RELAY_MAX_NUMBER_SIZE 16
+#if MOBILE_RELAY_MAX_NUMBER_SIZE > MOBILE_MAX_NUMBER_SIZE
+#error "MOBILE_MAX_NUMBER_SIZE isn't big enough!"
+#endif
+
 // Maximum packet sizes
 //#define MAX_HANDSHAKE_SIZE (7 + 1 + MOBILE_RELAY_TOKEN_SIZE)  // 24
-//#define MAX_COMMAND_CALL_SIZE (3 + MOBILE_RELAY_MAX_NUMBER_LEN)  // 19
-//#define MAX_COMMAND_WAIT_SIZE (4 + MOBILE_RELAY_MAX_NUMBER_LEN)  // 20
-//#define MAX_COMMAND_GET_NUMBER_SIZE (3 + MOBILE_RELAY_MAX_NUMBER_LEN)  // 19
+//#define MAX_COMMAND_CALL_SIZE (3 + MOBILE_RELAY_MAX_NUMBER_SIZE)  // 19
+//#define MAX_COMMAND_WAIT_SIZE (4 + MOBILE_RELAY_MAX_NUMBER_SIZE)  // 20
+//#define MAX_COMMAND_GET_NUMBER_SIZE (3 + MOBILE_RELAY_MAX_NUMBER_SIZE)  // 19
 #if 24 > MOBILE_RELAY_PACKET_SIZE
 #error "MOBILE_RELAY_PACKET_SIZE isn't big enough!"
 #endif
@@ -153,7 +159,7 @@ static bool relay_call_send(struct mobile_adapter *adapter, unsigned char conn, 
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
-    if (number_len > MOBILE_RELAY_MAX_NUMBER_LEN) return false;
+    if (number_len > MOBILE_RELAY_MAX_NUMBER_SIZE) return false;
     unsigned buffer_len = 3 + number_len;
     s->buffer[0] = PROTOCOL_VERSION;
     s->buffer[1] = MOBILE_RELAY_COMMAND_CALL;
@@ -246,7 +252,7 @@ static int relay_wait_recv(struct mobile_adapter *adapter, unsigned char conn, c
     if (result >= MOBILE_RELAY_MAX_WAIT_RESULT) return -1;
 
     unsigned _number_len = s->buffer[3];
-    if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_LEN) {
+    if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_SIZE) {
         return -1;
     }
 
@@ -297,7 +303,7 @@ static int relay_get_number_recv(struct mobile_adapter *adapter, unsigned char c
     if (s->buffer[1] != MOBILE_RELAY_COMMAND_GET_NUMBER) return -1;
 
     unsigned _number_len = s->buffer[2];
-    if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_LEN) {
+    if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_SIZE) {
         return -1;
     }
 
@@ -377,7 +383,7 @@ int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, con
 //
 // Parameters:
 // - number: ASCII string containing the number
-// - number_len: Length of the string (max MOBILE_RELAY_MAX_NUMBER_LEN)
+// - number_len: Length of the string (max MOBILE_RELAY_MAX_NUMBER_SIZE)
 // Returns: enum mobile_relay_call_result value
 int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const char *number, unsigned number_len)
 {
@@ -474,7 +480,7 @@ int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn, char *
 // mobile_relay_get_number - Get current phone number
 //
 // Queries the server to get the current adapter's phone number. The result is
-// an ASCII string containing at most MOBILE_RELAY_MAX_NUMBER_LEN characters.
+// an ASCII string containing at most MOBILE_RELAY_MAX_NUMBER_SIZE characters.
 //
 // The result buffer must be big enough to contain a full-sized number.
 //
@@ -525,7 +531,7 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
-    char _number[MOBILE_RELAY_MAX_NUMBER_LEN + 1];
+    char _number[MOBILE_RELAY_MAX_NUMBER_SIZE + 1];
     unsigned _number_len;
 
     int rc = -1;
@@ -574,7 +580,7 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
-    char _number[MOBILE_RELAY_MAX_NUMBER_LEN + 1];
+    char _number[MOBILE_RELAY_MAX_NUMBER_SIZE + 1];
     unsigned _number_len;
 
     int rc = -1;
