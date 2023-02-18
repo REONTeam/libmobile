@@ -6,7 +6,8 @@
 name="${1:-mobile_adapter}"
 
 ${HOST}cc -fshort-enums -o memsize.o -c -xc - << EOF
-#include "mobile.h"
+#define MOBILE_ENABLE_IMPL_WEAK
+#include "mobile_data.h"
 struct $name adapter;
 EOF
 size="$(${HOST}nm -S memsize.o | grep 'adapter$' | awk '{print strtonum("0x"$2)}')"
