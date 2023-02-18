@@ -975,8 +975,7 @@ static struct mobile_packet *command_dns_query_begin(struct mobile_adapter *adap
 
     // If it's an IP address, parse it right here, right now.
     if (mobile_is_ipaddr((char *)packet->data, packet->length)) {
-        unsigned char ip[MOBILE_HOSTLEN_IPV4];
-        memset(ip, -1, sizeof(ip));
+        unsigned char ip[MOBILE_HOSTLEN_IPV4] = {255, 255, 255, 255};
         mobile_pton_length(MOBILE_PTON_IPV4, (char *)packet->data,
             packet->length, ip);
 
@@ -1009,7 +1008,7 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
     unsigned char conn = s->processing_data[PROCDATA_DNS_QUERY_CONN];
     int addr_id = s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID];
 
-    unsigned char ip[MOBILE_HOSTLEN_IPV4];
+    unsigned char ip[MOBILE_HOSTLEN_IPV4] = {255, 255, 255, 255};
     int rc = mobile_dns_query_recv(adapter, conn, &s->processing_addr,
         (char *)packet->data, packet->length, ip);
     if (rc == 0) return NULL;

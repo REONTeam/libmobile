@@ -4,10 +4,10 @@
 /Makefile.in
 /aclocal.m4
 /ar-lib
+/autoconf.h.in
+/autoconf.h.in~
 /autom4te.cache/
 /compile
-/confdefs.h.in
-/confdefs.h.in~
 /config.guess
 /config.sub
 /configure
