@@ -52,13 +52,6 @@ enum mobile_action {
     MOBILE_ACTION_WRITE_CONFIG
 };
 
-enum mobile_timers {
-    MOBILE_TIMER_SERIAL,
-    MOBILE_TIMER_COMMAND,
-    MOBILE_TIMER_RESERVED3,
-    MOBILE_TIMER_RESERVED4,
-};
-
 enum mobile_socktype {
     MOBILE_SOCKTYPE_TCP,
     MOBILE_SOCKTYPE_UDP,
@@ -183,8 +176,8 @@ void mobile_def_config_write(struct mobile_adapter *adapter, mobile_func_config_
 //
 // Parameters:
 // - timer: timer that should be latched
-typedef void (*mobile_func_time_latch)(void *user, enum mobile_timers timer);
-void mobile_impl_time_latch(void *user, enum mobile_timers timer);
+typedef void (*mobile_func_time_latch)(void *user, unsigned timer);
+void mobile_impl_time_latch(void *user, unsigned timer);
 void mobile_def_time_latch(struct mobile_adapter *adapter, mobile_func_time_latch func);
 
 // mobile_func_time_check_ms - Check if a certain amount of time has passed
@@ -200,8 +193,8 @@ void mobile_def_time_latch(struct mobile_adapter *adapter, mobile_func_time_latc
 // Parameters:
 // - timer: timer that should be compared against
 // - ms: amount of milliseconds that should be compared with
-typedef bool (*mobile_func_time_check_ms)(void *user, enum mobile_timers timer, unsigned ms);
-bool mobile_impl_time_check_ms(void *user, enum mobile_timers timer, unsigned ms);
+typedef bool (*mobile_func_time_check_ms)(void *user, unsigned timer, unsigned ms);
+bool mobile_impl_time_check_ms(void *user, unsigned timer, unsigned ms);
 void mobile_def_time_check_ms(struct mobile_adapter *adapter, mobile_func_time_check_ms func);
 
 // mobile_func_sock_open - Open a socket

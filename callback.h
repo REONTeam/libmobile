@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -10,6 +11,16 @@
 #ifdef MOBILE_LIBCONF_USE
 #include <mobile_config.h>
 #endif
+
+enum mobile_timers {
+    MOBILE_TIMER_SERIAL,
+    MOBILE_TIMER_COMMAND,
+    MOBILE_TIMER_RESERVED3,
+    MOBILE_TIMER_RESERVED4,
+    _MOBILE_MAX_TIMERS
+};
+static_assert(_MOBILE_MAX_TIMERS == MOBILE_MAX_TIMERS,
+    "The MOBILE_MAX_TIMERS definition is out of sync");
 
 struct mobile_adapter_callback {
 #ifndef MOBILE_ENABLE_IMPL_WEAK

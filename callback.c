@@ -47,12 +47,12 @@ IMPL bool mobile_impl_config_write(A_UNUSED void *user, A_UNUSED const void *src
     return true;
 }
 
-IMPL void mobile_impl_time_latch(A_UNUSED void *user, A_UNUSED enum mobile_timers timer)
+IMPL void mobile_impl_time_latch(A_UNUSED void *user, A_UNUSED unsigned timer)
 {
     return;
 }
 
-IMPL bool mobile_impl_time_check_ms(A_UNUSED void *user, A_UNUSED enum mobile_timers timer, A_UNUSED unsigned ms)
+IMPL bool mobile_impl_time_check_ms(A_UNUSED void *user, A_UNUSED unsigned timer, A_UNUSED unsigned ms)
 {
     return false;
 }

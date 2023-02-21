@@ -224,7 +224,6 @@ bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const 
         return false;
     }
 
-    mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
     return true;
 }
 
@@ -232,10 +231,6 @@ bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const 
 int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len, unsigned char *ip)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
-
-    if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 3000)) {
-        return -1;
-    }
 
     struct mobile_addr addr_recv = {0};
     int recv = mobile_cb_sock_recv(adapter, conn, s->buffer,

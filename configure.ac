@@ -2,6 +2,7 @@ AC_PREREQ([2.71])
 LT_PREREQ([2.4.7])
 AC_INIT([libmobile], [0.2.0])
 AM_INIT_AUTOMAKE([1.16.5 -Wall foreign])
+AM_SILENT_RULES([yes])
 
 AC_PROG_CC
 AM_PROG_AR
