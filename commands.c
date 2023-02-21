@@ -99,6 +99,8 @@ static bool do_hang_up_telephone(struct mobile_adapter *adapter)
         return false;
     }
 
+    mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER, NULL);
+
     // Clean up p2p connections if in a call
     if (s->connections[p2p_conn]) {
         mobile_cb_sock_close(adapter, p2p_conn);
@@ -209,11 +211,18 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     s->state = MOBILE_CONNECTION_DISCONNECTED;
 
     // If we're calling an ISP number, simulate being connected
-    for (const char *const *number = isp_numbers;
-            pgm_read_ptr(number); number++) {
-        if (packet->length - 1 != strlen_P(pgm_read_ptr(number))) continue;
-        if (memcmp_P(packet->data + 1, pgm_read_ptr(number),
-                packet->length - 1) == 0) {
+    for (const char *const *ptr = isp_numbers; pgm_read_ptr(ptr); ptr++) {
+        const char *number = pgm_read_ptr(ptr);
+
+        if (packet->length - 1 != strlen_P(number)) continue;
+        if (memcmp_P(packet->data + 1, number, packet->length - 1) == 0) {
+            // Report this number to the implementation
+            if (packet->length - 1 <= MOBILE_MAX_NUMBER_SIZE) {
+                packet->data[packet->length] = '\0';
+                mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER,
+                    packet->data + 1);
+            }
+
             s->state = MOBILE_CONNECTION_CALL_ISP;
             packet->length = 0;
             return packet;
@@ -264,11 +273,17 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
 
     // Check if we're connected until it either errors or succeeds
     int rc = mobile_cb_sock_connect(adapter, p2p_conn, &s->processing_addr);
-    if (rc == 0) return NULL;  // Not connected, no error; try again
+    if (rc == 0) return NULL;
     if (rc < 0) {
         mobile_cb_sock_close(adapter, p2p_conn);
         s->connections[p2p_conn] = false;
         return error_packet(packet, 3);
+    }
+
+    // Report the called number to the implementation
+    if (packet->length - 1 <= MOBILE_MAX_NUMBER_SIZE) {
+        packet->data[packet->length] = '\0';
+        mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER, packet->data + 1);
     }
 
     s->state = MOBILE_CONNECTION_CALL;
