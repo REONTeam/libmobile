@@ -206,6 +206,16 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     }
     s->state = MOBILE_CONNECTION_DISCONNECTED;
 
+    // Filter acceptable characters out of the string
+    static_assert(sizeof(packet->data) >= 0x22, "packet buffer too small");
+    unsigned char *w = packet->data + 1;
+    for (unsigned i = 0; i < packet->length - 1 && i < 0x20; i++) {
+        unsigned char c = packet->data[i + 1];
+        if (('0' <= c && c <= '9') || c == '#' || c == '*') *w++ = c;
+    }
+    *w = '\0';
+    packet->length = w - packet->data;
+
     // If we're calling an ISP number, simulate being connected
     for (const char *const *ptr = isp_numbers; pgm_read_ptr(ptr); ptr++) {
         const char *number = pgm_read_ptr(ptr);
@@ -216,7 +226,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
             if (packet->length - 1 <= MOBILE_MAX_NUMBER_SIZE) {
                 packet->data[packet->length] = '\0';
                 mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER,
-                    packet->data + 1);
+                    (char *)packet->data + 1);
             }
 
             s->state = MOBILE_CONNECTION_CALL_ISP;
@@ -279,7 +289,8 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
     // Report the called number to the implementation
     if (packet->length - 1 <= MOBILE_MAX_NUMBER_SIZE) {
         packet->data[packet->length] = '\0';
-        mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER, packet->data + 1);
+        mobile_cb_update_number(adapter, MOBILE_NUMBER_PEER,
+            (char *)packet->data + 1);
     }
 
     s->state = MOBILE_CONNECTION_CALL;
