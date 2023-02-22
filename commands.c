@@ -11,9 +11,8 @@
 
 // Accessible area of the mobile config by the game boy
 #define MOBILE_CONFIG_SIZE_REAL 0x100
-#if MOBILE_CONFIG_SIZE_REAL > MOBILE_CONFIG_SIZE
-#error "MOBILE_CONFIG_SIZE isn't big enough!"
-#endif
+static_assert(MOBILE_CONFIG_SIZE >= MOBILE_CONFIG_SIZE_REAL,
+    "MOBILE_CONFIG_SIZE isn't big enough!");
 
 // UNKERR is used for errors of which we don't really know if they exist, and
 //   if so what error code they return, but have been implemented just in case.
@@ -185,9 +184,6 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    // TODO: Max length: 0x20 (including invalid characters)
-    // TODO: Acceptable characters: 0-9, # and *. Invalid characters are
-    //         ignored.
     // TODO: First byte must be:
     //       0 for blue adapter
     //       1 for green or red adapter

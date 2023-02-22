@@ -25,18 +25,16 @@
 
 // Maximum number size
 #define MOBILE_RELAY_MAX_NUMBER_SIZE 16
-#if MOBILE_RELAY_MAX_NUMBER_SIZE > MOBILE_MAX_NUMBER_SIZE
-#error "MOBILE_MAX_NUMBER_SIZE isn't big enough!"
-#endif
+static_assert(MOBILE_MAX_NUMBER_SIZE >= MOBILE_RELAY_MAX_NUMBER_SIZE,
+    "MOBILE_MAX_NUMBER_SIZE isn't big enough!");
 
 // Maximum packet sizes
 //#define MAX_HANDSHAKE_SIZE (7 + 1 + MOBILE_RELAY_TOKEN_SIZE)  // 24
 //#define MAX_COMMAND_CALL_SIZE (3 + MOBILE_RELAY_MAX_NUMBER_SIZE)  // 19
 //#define MAX_COMMAND_WAIT_SIZE (4 + MOBILE_RELAY_MAX_NUMBER_SIZE)  // 20
 //#define MAX_COMMAND_GET_NUMBER_SIZE (3 + MOBILE_RELAY_MAX_NUMBER_SIZE)  // 19
-#if 24 > MOBILE_RELAY_PACKET_SIZE
-#error "MOBILE_RELAY_PACKET_SIZE isn't big enough!"
-#endif
+static_assert(MOBILE_RELAY_PACKET_SIZE >= 24,
+    "MOBILE_RELAY_PACKET_SIZE isn't big enough!");
 
 static const unsigned char handshake_magic[] PROGMEM = {
     PROTOCOL_VERSION,

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "config.h"
 
-#include <assert.h>
 #include <string.h>
 
 #include "mobile_data.h"
 #include "util.h"
+#include "compat.h"
 #include "callback.h"
 
 // The area of the config in which data is actually stored by the game boy
@@ -13,10 +13,8 @@
 // Extra data used by the library
 #define MOBILE_CONFIG_OFFSET_LIBRARY 0x100
 #define MOBILE_CONFIG_SIZE_LIBRARY 0x60
-#if (MOBILE_CONFIG_OFFSET_LIBRARY + \
-        MOBILE_CONFIG_SIZE_LIBRARY) > MOBILE_CONFIG_SIZE
-#error "MOBILE_CONFIG_SIZE isn't big enough!"
-#endif
+static_assert(MOBILE_CONFIG_SIZE >= MOBILE_CONFIG_OFFSET_LIBRARY +
+    MOBILE_CONFIG_SIZE_LIBRARY, "MOBILE_CONFIG_SIZE isn't big enough!");
 
 static uint16_t checksum(unsigned char *buf, unsigned len)
 {
@@ -61,13 +59,13 @@ static void config_library_load_host(struct mobile_addr *addr, const void *host,
 {
     if (addr->type == MOBILE_ADDRTYPE_IPV4) {
         struct mobile_addr4 *addr4 = (struct mobile_addr4 *)addr;
-        static_assert(sizeof(addr4->host) == 4);
+        static_assert(sizeof(addr4->host) == 4, "addr size mismatch");
         addr4->port = port[0];
         addr4->port |= port[1] << 8;
         memcpy(addr4->host, host, sizeof(addr4->host));
     } else if (addr->type == MOBILE_ADDRTYPE_IPV6) {
         struct mobile_addr6 *addr6 = (struct mobile_addr6 *)addr;
-        static_assert(sizeof(addr6->host) == 16);
+        static_assert(sizeof(addr6->host) == 16, "addr size mismatch");
         addr6->port = port[0];
         addr6->port |= port[1] << 8;
         memcpy(addr6->host, host, sizeof(addr6->host));
@@ -104,7 +102,8 @@ static bool config_library_load(struct mobile_adapter *adapter)
     config_library_load_host(&config->relay, buffer + 0x40, buffer + 0x1e);
 
     if (config->relay_token_init) {
-        static_assert(sizeof(config->relay_token) == 0x10);
+        static_assert(sizeof(config->relay_token) == 0x10,
+            "token size mismatch");
         memcpy(config->relay_token, buffer + 0x50,
             sizeof(config->relay_token));
     }
@@ -116,13 +115,13 @@ static void config_library_save_host(const struct mobile_addr *addr, void *host,
 {
     if (addr->type == MOBILE_ADDRTYPE_IPV4) {
         const struct mobile_addr4 *addr4 = (struct mobile_addr4 *)addr;
-        static_assert(sizeof(addr4->host) == 4);
+        static_assert(sizeof(addr4->host) == 4, "addr size mismatch");
         port[0] = addr4->port;
         port[1] = addr4->port >> 8;
         memcpy(host, addr4->host, sizeof(addr4->host));
     } else if (addr->type == MOBILE_ADDRTYPE_IPV6) {
         const struct mobile_addr6 *addr6 = (struct mobile_addr6 *)addr;
-        static_assert(sizeof(addr6->host) == 16);
+        static_assert(sizeof(addr6->host) == 16, "addr size mismatch");
         port[0] = addr6->port;
         port[1] = addr6->port >> 8;
         memcpy(host, addr6->host, sizeof(addr6->host));
@@ -153,7 +152,8 @@ static void config_library_save(struct mobile_adapter *adapter)
     config_library_save_host(&config->relay, buffer + 0x40, buffer + 0x1e);
 
     if (config->relay_token_init) {
-        static_assert(sizeof(config->relay_token) == 0x10);
+        static_assert(sizeof(config->relay_token) == 0x10,
+            "token size mismatch");
         memcpy(buffer + 0x50, config->relay_token,
             sizeof(config->relay_token));
     }

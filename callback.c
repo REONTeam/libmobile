@@ -11,6 +11,10 @@
 //   dispatched using pointers or similar depending on the Library
 //   configuration.
 
+static_assert(_MOBILE_MAX_TIMERS == MOBILE_MAX_TIMERS,
+        "The MOBILE_MAX_TIMERS definition is out of sync");
+
+// Use weak implementations if requested
 #ifdef MOBILE_ENABLE_IMPL_WEAK
 #ifdef A_WEAK
 #define IMPL A_WEAK

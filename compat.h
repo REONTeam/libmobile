@@ -16,6 +16,13 @@
 #define A_UNUSED
 #endif
 
+// Static assert
+#if __STDC_VERSION__ >= 201112L
+#include <assert.h>
+#else
+#define static_assert(...)
+#endif
+
 // AVR program space macros
 // Since AVR has separate address spaces for program and data, it needs
 //   different functions to access these spaces. Constant data is better stored
