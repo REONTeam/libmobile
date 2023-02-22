@@ -54,7 +54,9 @@ libmobile = library('mobile',
   install : true,
   version : '0.0.0')
 
-install_headers('mobile.h')
+install_headers(
+    'mobile.h',
+    'mobile_inet.h')
 
 libmobile_dep = declare_dependency(
   link_with : libmobile,

@@ -36,7 +36,6 @@
 // With minor modifications to improve portability, as well as allow ipv4
 //   addresses with 0-prefixed (max 3-digit) octets.
 // This also adds an AF_UNSPEC case which tries both address types.
-#include "inet_pton.h"
 
 #include <string.h>
 
@@ -57,7 +56,7 @@ static int inet_pton4 (const char *src, const char *src_end, unsigned char *dst)
 static int inet_pton6 (const char *src, const char *src_end, unsigned char *dst);
 
 int
-mobile_pton_length (int af, const char *src, size_t srclen, void *dst)
+mobile_inet_pton_length (int af, const char *src, size_t srclen, void *dst)
 {
   switch (af)
     {
@@ -79,9 +78,9 @@ mobile_pton_length (int af, const char *src, size_t srclen, void *dst)
 /* Like inet_pton_length, but use strlen (SRC) as the length of
    SRC.  */
 int
-mobile_pton (int af, const char *src, void *dst)
+mobile_inet_pton (int af, const char *src, void *dst)
 {
-  return mobile_pton_length (af, src, strlen (src), dst);
+  return mobile_inet_pton_length (af, src, strlen (src), dst);
 }
 
 /* Like inet_aton but without all the hexadecimal, octal and shorthand

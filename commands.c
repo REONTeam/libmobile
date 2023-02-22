@@ -4,10 +4,10 @@
 #include <string.h>
 
 #include "mobile_data.h"
+#include "mobile_inet.h"
 #include "util.h"
 #include "compat.h"
 #include "callback.h"
-#include "inet_pton.h"
 
 // Accessible area of the mobile config by the game boy
 #define MOBILE_CONFIG_SIZE_REAL 0x100
@@ -1060,7 +1060,7 @@ static struct mobile_packet *command_dns_query_begin(struct mobile_adapter *adap
     // If it's an IP address, parse it right here, right now.
     if (mobile_is_ipaddr((char *)packet->data, packet->length)) {
         unsigned char ip[MOBILE_HOSTLEN_IPV4] = {255, 255, 255, 255};
-        mobile_pton_length(MOBILE_PTON_IPV4, (char *)packet->data,
+        mobile_inet_pton_length(MOBILE_INET_PTON_IPV4, (char *)packet->data,
             packet->length, ip);
 
         // The adapter weirdly enough only returns an error if the address is

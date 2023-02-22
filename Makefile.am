@@ -21,7 +21,6 @@ libmobile_la_SOURCES = \
 	dns.c \
 	dns.h \
 	inet_pton.c \
-	inet_pton.h \
 	mobile.c \
 	mobile_data.h \
 	relay.c \
@@ -32,7 +31,8 @@ libmobile_la_SOURCES = \
 	util.h
 
 include_HEADERS = \
-	mobile.h
+	mobile.h \
+	mobile_inet.h
 
 pkgconfig_DATA = \
 	libmobile.pc
