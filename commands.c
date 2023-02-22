@@ -184,13 +184,6 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    // TODO: First byte must be:
-    //       0 for blue adapter
-    //       1 for green or red adapter
-    //       2 for yellow adapter
-    //       red adapter also accepts 9 for some reason, yellow adapter doesn't
-    //         parse this.
-
     if (s->state != MOBILE_CONNECTION_DISCONNECTED &&
             s->state != MOBILE_CONNECTION_WAIT &&
             s->state != MOBILE_CONNECTION_WAIT_RELAY &&
@@ -205,6 +198,26 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         s->connections[p2p_conn] = false;
     }
     s->state = MOBILE_CONNECTION_DISCONNECTED;
+
+    // Validate the first byte (unknown purpose...)
+    switch (adapter->serial.device) {
+    case MOBILE_ADAPTER_BLUE:
+        if (packet->data[0] != 0) return error_packet(packet, 2);
+        break;
+
+    case MOBILE_ADAPTER_GREEN:
+        // Never released (games send value 1)
+    case MOBILE_ADAPTER_RED:
+        if (packet->data[0] != 1 && packet->data[0] != 9) {
+            return error_packet(packet, 2);
+        }
+        break;
+
+    default:
+    case MOBILE_ADAPTER_YELLOW:
+        // Not parsed (games send value 2)
+        break;
+    }
 
     // Filter acceptable characters out of the string
     static_assert(sizeof(packet->data) >= 0x22, "packet buffer too small");
