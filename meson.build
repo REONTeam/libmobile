@@ -38,7 +38,6 @@ configure_file(
   install_dir : get_option('libdir') / 'pkgconfig')
 
 sources = [
-  'alloc.c',
   'atomic.h',
   'callback.c',
   'callback.h',

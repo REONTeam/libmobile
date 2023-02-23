@@ -1,4 +1,6 @@
 /build/
+/libmobile.pc
+/mobile_config.h
 
 # Autotools artifacts
 /Makefile.in
@@ -17,3 +19,16 @@
 /ltmain.sh
 /m4/
 /missing
+
+# In-source build artifacts
+*.la
+*.lo
+*.o
+.deps/
+.libs/
+/Makefile
+/autoconf.h
+/config.log
+/config.status
+/libtool
+stamp-*
