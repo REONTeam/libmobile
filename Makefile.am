@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = -DNDEBUG -DMOBILE_LIBCONF_USE
-AM_CFLAGS = -std=c11 -Wall -Wextra
+AM_CFLAGS = $(EXTRA_CFLAGS)
 
 lib_LTLIBRARIES = libmobile.la
 libmobile_la_LDFLAGS = -no-undefined -version-info 0:0:0

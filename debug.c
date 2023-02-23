@@ -18,14 +18,14 @@ void mobile_debug_init(struct mobile_adapter *adapter)
 #define debug_print(fmt, ...) mobile_debug_print(adapter, PSTR(fmt), ##__VA_ARGS__)
 #define debug_endl() mobile_debug_endl(adapter)
 
-void mobile_debug_write(struct mobile_adapter *adapter, const char *data, unsigned size)
+void mobile_debug_write(struct mobile_adapter *adapter, const char *data, size_t size)
 {
     struct mobile_adapter_debug *s = &adapter->debug;
 
     int remaining = MOBILE_DEBUG_BUFFER_SIZE - s->current;
     if (remaining <= 1) return;
-    unsigned written = size;
-    if (written > (unsigned)remaining - 1) written = remaining - 1;
+    int written = (int)size;
+    if (written > remaining - 1) written = remaining - 1;
     memcpy(s->buffer + s->current, data, written);
     s->buffer[s->current + written] = 0;
     s->current += written;
@@ -50,7 +50,7 @@ void mobile_debug_print(struct mobile_adapter *adapter, const char *fmt, ...)
     }
 }
 
-void mobile_debug_print_hex(struct mobile_adapter *adapter, const void *data, unsigned size)
+void mobile_debug_print_hex(struct mobile_adapter *adapter, const void *data, size_t size)
 {
     const unsigned char *d = data;
     while (size--) debug_print("%02X ", *d++);
@@ -84,18 +84,18 @@ void mobile_debug_endl(struct mobile_adapter *adapter)
     s->current = 0;
 }
 
-static void dump_hex(struct mobile_adapter *adapter, const unsigned char *buf, const unsigned len)
+static void dump_hex(struct mobile_adapter *adapter, const unsigned char *buf, size_t len)
 {
     debug_endl();
     for (unsigned i = 0; i < len; i += 0x10) {
         debug_print("    ");
-        unsigned x = i + 0x10 > len ? len - i : 0x10;
+        size_t x = i + 0x10 > len ? len - i : 0x10;
         mobile_debug_print_hex(adapter, buf + i, x);
         debug_endl();
     }
 }
 
-static void dump(struct mobile_adapter *adapter, const unsigned char *buf, const unsigned len)
+static void dump(struct mobile_adapter *adapter, const unsigned char *buf, size_t len)
 {
     if (!len) {
         debug_endl();
@@ -122,7 +122,7 @@ static void dump(struct mobile_adapter *adapter, const unsigned char *buf, const
     debug_endl();
 }
 
-static void packet_end(struct mobile_adapter *adapter, const struct mobile_packet *packet, unsigned length)
+static void packet_end(struct mobile_adapter *adapter, const struct mobile_packet *packet, size_t length)
 {
     if (packet->length > length) {
         debug_print(" !!parsing failed!!");
@@ -181,7 +181,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         debug_print("Transfer data");
         if (packet->length < 1) break;
 
-        if (packet->data[0] == 0xFF) {
+        if (packet->data[0] == 0xff) {
             debug_print(" (p2p)");
         } else {
             debug_print(" (conn %u)", packet->data[0]);

@@ -46,7 +46,7 @@ static bool dns_make_name(struct mobile_adapter_dns *state, unsigned *offset, co
     if (pdat - state->buffer + 1 > MOBILE_DNS_PACKET_SIZE) return false;
     *plen = count;
     *pdat++ = 0;
-    *offset = pdat - state->buffer;
+    *offset = (unsigned)(pdat - state->buffer);
     return true;
 }
 
@@ -58,7 +58,7 @@ static bool dns_name_compare(struct mobile_adapter_dns *state, unsigned *offset,
     const char *pname = name;
     const unsigned char *pcmp = state->buffer + *offset;
 
-    int end = -1;
+    const unsigned char* end = NULL;
 
     for (;;) {
         if (!*pcmp) {
@@ -66,7 +66,7 @@ static bool dns_name_compare(struct mobile_adapter_dns *state, unsigned *offset,
         } else if ((*pcmp & 0xC0) == 0xC0) {
             // RFC1035 Section 4.1.4. Message compression
             if (pcmp - state->buffer + 2U > state->buffer_len) return false;
-            if (end < 0) end = pcmp - state->buffer + 2;
+            if (!end) end = pcmp + 1;
 
             unsigned off = (pcmp[0] & 0x3F) << 8 | pcmp[1];
             if (off + 1 > state->buffer_len) return false;
@@ -85,8 +85,8 @@ static bool dns_name_compare(struct mobile_adapter_dns *state, unsigned *offset,
     }
     if ((unsigned)(pname - name) != name_len) return false;
 
-    if (end < 0) end = pcmp - state->buffer + 1;
-    *offset = end;
+    if (!end) end = pcmp;
+    *offset = (unsigned)(end - state->buffer) + 1;
     return true;
 }
 
@@ -100,8 +100,9 @@ static int dns_name_len(struct mobile_adapter_dns *state, unsigned offset)
             break;
         } else if ((*pcmp & 0xC0) == 0xC0) {
             // RFC1035 Section 4.1.4. Message compression
-            if (pcmp - state->buffer + 2U > state->buffer_len) return -1;
-            return pcmp - state->buffer - offset + 2U;
+            unsigned pos = (unsigned)(pcmp - state->buffer);
+            if (pos + 2 > state->buffer_len) return -1;
+            return pos + 2 - offset;
         } else if ((*pcmp & 0xC0) == 0x00) {
             unsigned len = *pcmp++;
             if (pcmp - state->buffer + len + 1 > state->buffer_len) return -1;
@@ -111,7 +112,7 @@ static int dns_name_len(struct mobile_adapter_dns *state, unsigned offset)
         }
     }
 
-    return pcmp - state->buffer - offset + 1;
+    return (unsigned)(pcmp - state->buffer) + 1 - offset;
 }
 
 static bool dns_make_query(struct mobile_adapter_dns *state, enum dns_qtype type, const char *name, unsigned name_len)

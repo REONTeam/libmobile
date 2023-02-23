@@ -227,7 +227,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         if (('0' <= c && c <= '9') || c == '#' || c == '*') *w++ = c;
     }
     *w = '\0';
-    packet->length = w - packet->data;
+    packet->length = (unsigned)(w - packet->data);
 
     // If we're calling an ISP number, simulate being connected
     for (const char *const *ptr = isp_numbers; pgm_read_ptr(ptr); ptr++) {
@@ -318,7 +318,7 @@ static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter 
     struct mobile_adapter_commands *s = &adapter->commands;
 
     int rc = mobile_relay_proc_call(adapter, p2p_conn, &s->processing_addr,
-            (char *)packet->data + 1, packet->length - 1);
+        (char *)packet->data + 1, packet->length - 1);
     if (rc == 0) return NULL;
     if (rc < 0) {
         mobile_cb_sock_close(adapter, p2p_conn);
@@ -568,7 +568,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
 
     unsigned char conn = packet->data[0];
 
-    // P2P connections use ID 0xFF, but the adapter ignores this
+    // P2P connections use ID 0xff, but the adapter ignores this
     if (!internet) conn = p2p_conn;
 
     if (conn >= MOBILE_MAX_CONNECTIONS || !s->connections[conn]) {
@@ -669,7 +669,7 @@ static struct mobile_packet *command_telephone_status(struct mobile_adapter *ada
     struct mobile_adapter_commands *s = &adapter->commands;
 
     switch (s->state) {
-    // 0xFF if phone is disconnected
+    // 0xff if phone is disconnected
     default:
         packet->data[0] = 0;
         break;

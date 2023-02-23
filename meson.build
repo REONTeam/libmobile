@@ -37,26 +37,44 @@ configure_file(
   install : true,
   install_dir : get_option('libdir') / 'pkgconfig')
 
-libmobile = library('mobile',
+sources = [
   'alloc.c',
+  'atomic.h',
   'callback.c',
+  'callback.h',
   'commands.c',
+  'commands.h',
+  'compat.h',
   'config.c',
+  'config.h',
   'debug.c',
+  'debug.h',
   'dns.c',
+  'dns.h',
   'inet_pton.c',
   'mobile.c',
+  'mobile_data.h',
   'relay.c',
+  'relay.h',
   'serial.c',
+  'serial.h',
   'util.c',
+  'util.h'
+]
+
+headers = [
+  'mobile.h',
+  'mobile_inet.h'
+]
+
+libmobile = library('mobile',
+  sources,
+  headers,
   c_args : c_args,
   pic : false,
   install : true,
   version : '0.0.0')
-
-install_headers(
-    'mobile.h',
-    'mobile_inet.h')
+install_headers(headers)
 
 libmobile_dep = declare_dependency(
   link_with : libmobile,

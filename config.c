@@ -159,7 +159,7 @@ static void config_library_save(struct mobile_adapter *adapter)
     }
 
     uint16_t sum = checksum(buffer + 5, sizeof(buffer) - 5);
-    buffer[0x03] = sum;
+    buffer[0x03] = sum & 0xff;
     buffer[0x04] = sum >> 8;
 
     mobile_cb_config_write(adapter, buffer, MOBILE_CONFIG_OFFSET_LIBRARY,
