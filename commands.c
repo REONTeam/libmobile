@@ -723,7 +723,7 @@ static struct mobile_packet *command_sio32_mode(struct mobile_adapter *adapter, 
 // 2 - Read outside of config area/too big a chunk
 static struct mobile_packet *command_read_configuration_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    if (packet->length != 2) return error_packet(packet, 2);
+    if (packet->length < 2) return error_packet(packet, 2);
 
     unsigned offset = packet->data[0];
     unsigned size = packet->data[1];
@@ -866,7 +866,7 @@ static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_ada
     if (s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
     }
-    if (packet->length != 6) {
+    if (packet->length < 6) {
         return error_packet(packet, 3);
     }
 
@@ -950,7 +950,7 @@ static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter 
     if (s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
     }
-    if (packet->length != 1) {
+    if (packet->length < 1) {
         return error_packet(packet, 0);
     }
 
