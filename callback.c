@@ -35,7 +35,7 @@ IMPL void mobile_impl_serial_disable(A_UNUSED void *user)
     return;
 }
 
-IMPL void mobile_impl_serial_enable(A_UNUSED void *user)
+IMPL void mobile_impl_serial_enable(A_UNUSED void *user, A_UNUSED bool mode_32bit)
 {
     return;
 }

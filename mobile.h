@@ -124,8 +124,13 @@ void mobile_def_serial_disable(struct mobile_adapter *adapter, mobile_func_seria
 //
 // Exact opposite of mobile_func_serial_disable(). This function indicates
 // mobile_transfer() may be called again, resuming communications.
-typedef void (*mobile_func_serial_enable)(void *user);
-void mobile_impl_serial_enable(void *user);
+//
+// The <mode_32bit> parameter indicates in which mode the serial peripheral
+// should be initialized. It indicates whether each serial transmission by the
+// console will contain 8 or 32 bits. This information is relevant for hardware
+// implementations, which must account for this.
+typedef void (*mobile_func_serial_enable)(void *user, bool mode_32bit);
+void mobile_impl_serial_enable(void *user, bool mode_32bit);
 void mobile_def_serial_enable(struct mobile_adapter *adapter, mobile_func_serial_enable func);
 
 // mobile_func_config_read - Read from the configuration data

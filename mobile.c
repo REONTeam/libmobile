@@ -79,7 +79,6 @@ static bool command_handle(struct mobile_adapter *adapter)
 static void mode_32bit_change(struct mobile_adapter *adapter)
 {
     adapter->serial.mode_32bit = adapter->commands.mode_32bit;
-    // TODO: Signal hardware to change?
 }
 
 static void mobile_reset(struct mobile_adapter *adapter)
@@ -171,7 +170,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
         mobile_reset(adapter);
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
-        mobile_cb_serial_enable(adapter);
+        mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
         break;
 
     // Resets everything when the session has ended
@@ -186,14 +185,14 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mode_32bit_change(adapter);
 
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
-        mobile_cb_serial_enable(adapter);
+        mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
         break;
 
     // Reset the serial's current bit state in an attempt to synchronize
     case MOBILE_ACTION_RESET_SERIAL:
         mobile_cb_serial_disable(adapter);
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
-        mobile_cb_serial_enable(adapter);
+        mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
         break;
 
     // Once the exchange has finished, switch the 32bit mode flag
@@ -202,7 +201,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
         mobile_cb_serial_disable(adapter);
         mode_32bit_change(adapter);
-        mobile_cb_serial_enable(adapter);
+        mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
         break;
 
     // If the config is dirty, update it in one go
@@ -239,7 +238,7 @@ void mobile_start(struct mobile_adapter *adapter)
 
     mobile_config_load(adapter);
     mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
-    mobile_cb_serial_enable(adapter);
+    mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
 }
 
 void mobile_stop(struct mobile_adapter *adapter)
