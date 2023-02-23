@@ -26,6 +26,11 @@ enum dns_qtype {
     DNS_QTYPE_AAAA = 28
 };
 
+static void debug_prefix(struct mobile_adapter *adapter)
+{
+    mobile_debug_print(adapter, PSTR("<DNS> "));
+}
+
 static bool dns_make_name(struct mobile_adapter_dns *state, unsigned *offset, const char *name, unsigned name_len)
 {
     unsigned char *plen = state->buffer + *offset;
@@ -245,7 +250,8 @@ int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const s
     unsigned offset;
     int ancount = dns_verify_response(s, &offset, host, host_len);
     if (ancount < 0) {
-        mobile_debug_print(adapter, "<DNS> Query result error: %d", ancount);
+        debug_prefix(adapter);
+        mobile_debug_print(adapter, PSTR("Query result error: %d"), ancount);
         mobile_debug_endl(adapter);
         return -1;
     }
@@ -257,7 +263,8 @@ int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const s
         memcpy(ip, s->buffer + anoffset, MOBILE_HOSTLEN_IPV4);
         return 1;
     }
-    mobile_debug_print(adapter, "<DNS> No valid answer received");
+    debug_prefix(adapter);
+    mobile_debug_print(adapter, PSTR("No valid answer received"));
     mobile_debug_endl(adapter);
     return -1;
 }

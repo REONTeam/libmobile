@@ -70,9 +70,15 @@ static int relay_recv(struct mobile_adapter *adapter, unsigned conn, unsigned si
     return (int)size;
 }
 
+static void debug_prefix(struct mobile_adapter *adapter)
+{
+    mobile_debug_print(adapter, PSTR("<RELAY> "));
+}
+
 static void relay_handshake_send_debug(struct mobile_adapter *adapter)
 {
-    mobile_debug_print(adapter, PSTR("<RELAY> Authenticating"));
+    debug_prefix(adapter);
+    mobile_debug_print(adapter, PSTR("Authenticating"));
     if (adapter->config.relay_token_init) {
 #ifdef NDEBUG
         mobile_debug_print(adapter, PSTR(" (with token)"));
@@ -105,7 +111,8 @@ static void relay_handshake_recv_debug(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
-    mobile_debug_print(adapter, PSTR("<RELAY> Logged in"));
+    debug_prefix(adapter);
+    mobile_debug_print(adapter, PSTR("Logged in"));
     unsigned char *auth = s->buffer + sizeof(handshake_magic);
     if (auth[0] == 1) {
 #ifdef NDEBUG
@@ -148,7 +155,8 @@ static int relay_handshake_recv(struct mobile_adapter *adapter, unsigned char co
 
 static void relay_call_send_debug(struct mobile_adapter *adapter, const char *number, unsigned number_len)
 {
-    mobile_debug_print(adapter, PSTR("<RELAY> Command: CALL "));
+    debug_prefix(adapter);
+    mobile_debug_print(adapter, PSTR("Command: CALL "));
     mobile_debug_write(adapter, number, number_len);
     mobile_debug_endl(adapter);
 }
@@ -171,18 +179,19 @@ static void relay_call_recv_debug(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
+    debug_prefix(adapter);
     switch (s->buffer[2] + 1) {
     case MOBILE_RELAY_CALL_RESULT_ACCEPTED:
-        mobile_debug_print(adapter, PSTR("<RELAY> ACCEPTED"));
+        mobile_debug_print(adapter, PSTR("ACCEPTED"));
         break;
     case MOBILE_RELAY_CALL_RESULT_INTERNAL:
-        mobile_debug_print(adapter, PSTR("<RELAY> Error: INTERNAL"));
+        mobile_debug_print(adapter, PSTR("Error: INTERNAL"));
         break;
     case MOBILE_RELAY_CALL_RESULT_BUSY:
-        mobile_debug_print(adapter, PSTR("<RELAY> Error: BUSY"));
+        mobile_debug_print(adapter, PSTR("Error: BUSY"));
         break;
     case MOBILE_RELAY_CALL_RESULT_UNAVAILABLE:
-        mobile_debug_print(adapter, PSTR("<RELAY> Error: UNAVAILABLE"));
+        mobile_debug_print(adapter, PSTR("Error: UNAVAILABLE"));
         break;
     }
     mobile_debug_endl(adapter);
@@ -205,7 +214,8 @@ static int relay_call_recv(struct mobile_adapter *adapter, unsigned char conn)
 
 static void relay_wait_send_debug(struct mobile_adapter *adapter)
 {
-    mobile_debug_print(adapter, PSTR("<RELAY> Command: WAIT"));
+    debug_prefix(adapter);
+    mobile_debug_print(adapter, PSTR("Command: WAIT"));
     mobile_debug_endl(adapter);
 }
 
@@ -224,13 +234,14 @@ static void relay_wait_recv_debug(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
+    debug_prefix(adapter);
     switch (s->buffer[2] + 1) {
     case MOBILE_RELAY_WAIT_RESULT_ACCEPTED:
-        mobile_debug_print(adapter, PSTR("<RELAY> ACCEPTED "));
+        mobile_debug_print(adapter, PSTR("ACCEPTED "));
         mobile_debug_write(adapter, (char *)s->buffer + 4, s->buffer[3]);
         break;
     case MOBILE_RELAY_WAIT_RESULT_INTERNAL:
-        mobile_debug_print(adapter, PSTR("<RELAY> Error: INTERNAL"));
+        mobile_debug_print(adapter, PSTR("Error: INTERNAL"));
         break;
     }
     mobile_debug_endl(adapter);
@@ -265,7 +276,8 @@ static int relay_wait_recv(struct mobile_adapter *adapter, unsigned char conn, c
 
 static void relay_get_number_send_debug(struct mobile_adapter *adapter)
 {
-    mobile_debug_print(adapter, PSTR("<RELAY> Command: GET_NUMBER"));
+    debug_prefix(adapter);
+    mobile_debug_print(adapter, PSTR("Command: GET_NUMBER"));
     mobile_debug_endl(adapter);
 }
 
@@ -284,7 +296,8 @@ static void relay_get_number_recv_debug(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_relay *s = &adapter->relay;
 
-    mobile_debug_print(adapter, PSTR("<RELAY> Number: "));
+    debug_prefix(adapter);
+    mobile_debug_print(adapter, PSTR("Number: "));
     mobile_debug_write(adapter, (char *)s->buffer + 3, s->buffer[2]);
     mobile_debug_endl(adapter);
 }
@@ -331,7 +344,8 @@ int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, con
 
     switch (s->state) {
     case MOBILE_RELAY_DISCONNECTED:
-        mobile_debug_print(adapter, PSTR("<RELAY> Connecting to "));
+        debug_prefix(adapter);
+        mobile_debug_print(adapter, PSTR("Connecting to "));
         mobile_debug_print_addr(adapter, server);
         mobile_debug_endl(adapter);
         s->state = MOBILE_RELAY_RECV_CONNECT;
@@ -341,7 +355,8 @@ int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, con
         rc = mobile_cb_sock_connect(adapter, conn, server);
         if (rc == 0) return 0;
         if (rc < 0) {
-            mobile_debug_print(adapter, PSTR("<RELAY> Connection failed"));
+            debug_prefix(adapter);
+            mobile_debug_print(adapter, PSTR("Connection failed"));
             mobile_debug_endl(adapter);
             s->state = MOBILE_RELAY_DISCONNECTED;
             return -1;
@@ -357,12 +372,12 @@ int mobile_relay_connect(struct mobile_adapter *adapter, unsigned char conn, con
         rc = relay_handshake_recv(adapter, conn);
         if (rc == 0) return 0;
         if (rc < 0) {
-            mobile_debug_print(adapter, PSTR("<RELAY> Authentication failed"));
+            debug_prefix(adapter);
+            mobile_debug_print(adapter, PSTR("Authentication failed"));
             mobile_debug_endl(adapter);
             s->state = MOBILE_RELAY_DISCONNECTED;
             return -1;
         }
-        // TODO: Callback to signal updated token
         relay_handshake_recv_debug(adapter);
         s->state = MOBILE_RELAY_CONNECTED;
         return 1;
@@ -401,7 +416,8 @@ int mobile_relay_call(struct mobile_adapter *adapter, unsigned char conn, const 
         rc = relay_call_recv(adapter, conn);
         if (rc == 0) return 0;
         if (rc < 0) {
-            mobile_debug_print(adapter, PSTR("<RELAY> Call failed"));
+            debug_prefix(adapter);
+            mobile_debug_print(adapter, PSTR("Call failed"));
             mobile_debug_endl(adapter);
             s->state = MOBILE_RELAY_CONNECTED;
             return -1;
@@ -453,7 +469,8 @@ int mobile_relay_wait(struct mobile_adapter *adapter, unsigned char conn, char *
         rc = relay_wait_recv(adapter, conn, number, number_len);
         if (rc == 0) return 0;
         if (rc < 0) {
-            mobile_debug_print(adapter, PSTR("<RELAY> Wait failed"));
+            debug_prefix(adapter);
+            mobile_debug_print(adapter, PSTR("Wait failed"));
             mobile_debug_endl(adapter);
             s->state = MOBILE_RELAY_CONNECTED;
             return -1;
@@ -504,7 +521,8 @@ int mobile_relay_get_number(struct mobile_adapter *adapter, unsigned char conn, 
         rc = relay_get_number_recv(adapter, conn, number, number_len);
         if (rc == 0) return 0;
         if (rc < 0) {
-            mobile_debug_print(adapter, PSTR("<RELAY> Get number failed"));
+            debug_prefix(adapter);
+            mobile_debug_print(adapter, PSTR("Get number failed"));
             mobile_debug_endl(adapter);
             s->state = MOBILE_RELAY_CONNECTED;
             return -1;
