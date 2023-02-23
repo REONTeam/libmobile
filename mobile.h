@@ -19,7 +19,7 @@ struct mobile_adapter;  // data.h
 #define MOBILE_MAX_CONNECTIONS 2
 #define MOBILE_MAX_TIMERS 4
 #define MOBILE_MAX_TRANSFER_SIZE 0xFE  // MOBILE_MAX_DATA_SIZE - 1
-#define MOBILE_MAX_NUMBER_SIZE 16  // Allowed phone number length: 7-16
+#define MOBILE_MAX_NUMBER_SIZE 0x20  // Allowed phone number length: 7-16
 #define MOBILE_CONFIG_SIZE 0x200
 #define MOBILE_RELAY_TOKEN_SIZE 0x10
 

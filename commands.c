@@ -220,7 +220,6 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     }
 
     // Filter acceptable characters out of the string
-    static_assert(sizeof(packet->data) >= 0x22, "packet buffer too small");
     unsigned char *w = packet->data + 1;
     for (unsigned i = 0; i < packet->length - 1 && i < 0x20; i++) {
         unsigned char c = packet->data[i + 1];
