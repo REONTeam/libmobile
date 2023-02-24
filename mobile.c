@@ -248,6 +248,7 @@ void mobile_stop(struct mobile_adapter *adapter)
 
     mobile_cb_serial_disable(adapter);
     mobile_reset(adapter);
+    mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, NULL);
     mobile_config_save(adapter);
 }
 

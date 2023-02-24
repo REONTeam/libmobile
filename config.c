@@ -250,6 +250,9 @@ void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile
     // Latched whenever a number a dialed or the wait command is executed
     mobile_addr_copy(&adapter->config.relay, relay);
 
+    if (adapter->global.start) {
+        mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, NULL);
+    }
     mobile_config_apply(adapter);
 }
 
@@ -265,6 +268,9 @@ void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigne
         memcpy(adapter->config.relay_token, token, MOBILE_RELAY_TOKEN_SIZE);
     }
 
+    if (adapter->global.start) {
+        mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, NULL);
+    }
     mobile_config_apply(adapter);
 }
 
