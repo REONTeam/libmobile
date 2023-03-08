@@ -37,5 +37,6 @@ struct mobile_adapter_config {
 };
 
 void mobile_config_init(struct mobile_adapter *adapter);
+void mobile_config_set_relay_token_internal(struct mobile_adapter *adapter, const unsigned char *token);
 
 #undef _Atomic  // "atomic.h"

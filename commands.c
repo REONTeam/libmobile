@@ -130,6 +130,8 @@ static void do_begin_session(struct mobile_adapter *adapter)
     s->session_begun = true;
     s->state = MOBILE_CONNECTION_DISCONNECTED;
     memset(s->connections, false, sizeof(s->connections));
+
+    mobile_number_fetch_cancel(adapter);
 }
 
 void mobile_commands_reset(struct mobile_adapter *adapter)

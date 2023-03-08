@@ -49,7 +49,8 @@ enum mobile_action {
     MOBILE_ACTION_RESET,
     MOBILE_ACTION_RESET_SERIAL,
     MOBILE_ACTION_CHANGE_32BIT_MODE,
-    MOBILE_ACTION_WRITE_CONFIG
+    MOBILE_ACTION_WRITE_CONFIG,
+    MOBILE_ACTION_INIT_NUMBER
 };
 
 enum mobile_socktype {
@@ -517,7 +518,8 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
 //
 // This function must be called before mobile_transfer(), mobile_loop() or its
 // component functions are executed, but after the relevant callbacks have been
-// set up and configured.
+// set up and configured. Make sure *every* callback works correctly at this
+// point, including making sure the timer functions have latched the time.
 //
 // Parameters:
 // - adapter: Library state

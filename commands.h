@@ -8,8 +8,6 @@
 
 // TODO: Share packet->data with serial.c to save memory?
 
-#define MOBILE_MAX_DATA_SIZE 0xFF
-
 enum mobile_command {
     MOBILE_COMMAND_EMPTY = 0xF,
     MOBILE_COMMAND_BEGIN_SESSION,
@@ -44,12 +42,6 @@ enum mobile_connection_state {
     MOBILE_CONNECTION_CALL_RECV,
     MOBILE_CONNECTION_CALL_ISP,
     MOBILE_CONNECTION_INTERNET,
-};
-
-struct mobile_packet {
-    enum mobile_command command;
-    unsigned length;
-    unsigned char data[MOBILE_MAX_DATA_SIZE];
 };
 
 struct mobile_adapter_commands {

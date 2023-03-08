@@ -47,6 +47,11 @@ void mobile_relay_init(struct mobile_adapter *adapter)
     adapter->relay.processing = 0;
 }
 
+static void debug_prefix(struct mobile_adapter *adapter)
+{
+    mobile_debug_print(adapter, PSTR("<RELAY> "));
+}
+
 static void relay_recv_reset(struct mobile_adapter *adapter) {
     adapter->relay.buffer_len = 0;
 }
@@ -68,11 +73,6 @@ static int relay_recv(struct mobile_adapter *adapter, unsigned conn, unsigned si
     if (s->buffer_len < size) return 0;
 
     return (int)size;
-}
-
-static void debug_prefix(struct mobile_adapter *adapter)
-{
-    mobile_debug_print(adapter, PSTR("<RELAY> "));
 }
 
 static void relay_handshake_send_debug(struct mobile_adapter *adapter)
@@ -146,7 +146,7 @@ static int relay_handshake_recv(struct mobile_adapter *adapter, unsigned char co
         int recv = relay_recv(adapter, conn, recv_size);
         if (recv <= 0) return recv;
 
-        mobile_config_set_relay_token(adapter, auth + 1);
+        mobile_config_set_relay_token_internal(adapter, auth + 1);
         return 2;
     } else {
         return -1;
@@ -566,6 +566,7 @@ int mobile_relay_proc_call(struct mobile_adapter *adapter, unsigned char conn, c
 
         _number[_number_len] = '\0';
         mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, _number);
+        adapter->global.number_fetch_retries = 0;
 
         s->processing = PROCESS_CALL_CALL;
         // fallthrough
@@ -615,6 +616,7 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
 
         _number[_number_len] = '\0';
         mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, _number);
+        adapter->global.number_fetch_retries = 0;
 
         s->processing = PROCESS_WAIT_WAIT;
         // fallthrough
@@ -628,4 +630,24 @@ int mobile_relay_proc_wait(struct mobile_adapter *adapter, unsigned char conn, c
     }
 
     return rc;
+}
+
+int mobile_relay_proc_init_number(struct mobile_adapter *adapter, unsigned char conn, const struct mobile_addr *server)
+{
+    char _number[MOBILE_RELAY_MAX_NUMBER_SIZE + 1];
+    unsigned _number_len;
+
+    int rc;
+
+    rc = mobile_relay_connect(adapter, conn, server);
+    if (rc <= 0) return rc;
+
+    rc = mobile_relay_get_number(adapter, conn, _number, &_number_len);
+    if (rc <= 0) return rc;
+
+    _number[_number_len] = '\0';
+    mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, _number);
+    adapter->global.number_fetch_retries = 0;
+
+    return 1;
 }

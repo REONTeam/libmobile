@@ -19,6 +19,7 @@ libmobile_la_SOURCES = \
 	debug.h \
 	dns.c \
 	dns.h \
+	global.h \
 	inet_pton.c \
 	mobile.c \
 	mobile_data.h \

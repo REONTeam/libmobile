@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+#include "global.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -12,9 +13,33 @@
 #include <mobile_config.h>
 #endif
 
+static const int number_fetch_conn = 0;
+
 static void mobile_global_init(struct mobile_adapter *adapter)
 {
     adapter->global.start = false;
+    adapter->global.active = false;
+    adapter->global.packet_parsed = false;
+    adapter->global.number_fetch_active = false;
+    adapter->global.number_fetch_retries = 3;
+}
+
+static void debug_prefix(struct mobile_adapter *adapter)
+{
+    mobile_debug_print(adapter, PSTR("<GLOBAL> "));
+}
+
+static void mode_32bit_change(struct mobile_adapter *adapter)
+{
+    adapter->serial.mode_32bit = adapter->commands.mode_32bit;
+}
+
+static void mobile_reset(struct mobile_adapter *adapter)
+{
+    // End the session and reset
+    mobile_commands_reset(adapter);
+    mode_32bit_change(adapter);
+    mobile_serial_init(adapter);
     adapter->global.active = false;
     adapter->global.packet_parsed = false;
 }
@@ -76,19 +101,55 @@ static bool command_handle(struct mobile_adapter *adapter)
     return false;
 }
 
-static void mode_32bit_change(struct mobile_adapter *adapter)
+void mobile_number_fetch_cancel(struct mobile_adapter *adapter)
 {
-    adapter->serial.mode_32bit = adapter->commands.mode_32bit;
+    if (adapter->global.number_fetch_active) {
+        mobile_cb_sock_close(adapter, number_fetch_conn);
+        adapter->global.number_fetch_active = false;
+    }
 }
 
-static void mobile_reset(struct mobile_adapter *adapter)
+void mobile_number_fetch_reset(struct mobile_adapter *adapter)
 {
-    // End the session and reset
-    mobile_commands_reset(adapter);
-    mode_32bit_change(adapter);
-    mobile_serial_init(adapter);
-    adapter->global.active = false;
-    adapter->global.packet_parsed = false;
+    mobile_number_fetch_cancel(adapter);
+
+    if (!adapter->global.number_fetch_retries) {
+        mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, NULL);
+    }
+
+    adapter->global.number_fetch_retries = 3;
+}
+
+static void number_fetch_handle(struct mobile_adapter *adapter)
+{
+    if (!adapter->global.number_fetch_active) {
+        debug_prefix(adapter);
+        mobile_debug_print(adapter, "Checking mobile number...");
+        mobile_debug_endl(adapter);
+
+        if (adapter->global.number_fetch_retries) {
+            adapter->global.number_fetch_retries--;
+        }
+        mobile_relay_init(adapter);
+        mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
+        mobile_cb_sock_open(adapter, number_fetch_conn, MOBILE_SOCKTYPE_TCP,
+            adapter->config.relay.type, 0);
+        adapter->global.number_fetch_active = true;
+    } else if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 3000)) {
+        debug_prefix(adapter);
+        mobile_debug_print(adapter, PSTR("Timeout"));
+        mobile_debug_endl(adapter);
+
+        mobile_cb_sock_close(adapter, number_fetch_conn);
+        adapter->global.number_fetch_active = false;
+        return;
+    }
+
+    if (mobile_relay_proc_init_number(adapter, number_fetch_conn,
+            &adapter->config.relay) != 0) {
+        mobile_cb_sock_close(adapter, number_fetch_conn);
+        adapter->global.number_fetch_active = false;
+    }
 }
 
 enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
@@ -133,6 +194,14 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
     // If the config is in need of updating, do that.
     if (adapter->config.dirty) {
         return MOBILE_ACTION_WRITE_CONFIG;
+    }
+
+    // When we have time for it, attempt to fetch the user's number
+    if (adapter->global.number_fetch_active || (
+            !adapter->global.active &&
+            adapter->global.number_fetch_retries &&
+            adapter->config.relay.type != MOBILE_ADDRTYPE_NONE)) {
+        return MOBILE_ACTION_INIT_NUMBER;
     }
 
     // If nothing else is being triggered, reset the serial periodically,
@@ -209,6 +278,11 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mobile_config_save(adapter);
         break;
 
+    // Use free time to initialize the phone number
+    case MOBILE_ACTION_INIT_NUMBER:
+        number_fetch_handle(adapter);
+        break;
+
     default:
         break;
     }
@@ -248,7 +322,6 @@ void mobile_stop(struct mobile_adapter *adapter)
 
     mobile_cb_serial_disable(adapter);
     mobile_reset(adapter);
-    mobile_cb_update_number(adapter, MOBILE_NUMBER_USER, NULL);
     mobile_config_save(adapter);
 }
 
