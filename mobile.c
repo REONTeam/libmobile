@@ -152,9 +152,11 @@ static void number_fetch_handle(struct mobile_adapter *adapter)
     }
 }
 
-enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
+enum mobile_action mobile_actions_get(struct mobile_adapter *adapter)
 {
     if (!adapter->global.start) return MOBILE_ACTION_NONE;
+
+    enum mobile_action actions = MOBILE_ACTION_NONE;
 
     // If the serial has been active at all, latch the timer
     if (adapter->serial.active) {
@@ -169,7 +171,7 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
     // Timeout has been verified on hardware.
     if (adapter->commands.session_begun &&
             mobile_cb_time_check_ms(adapter, MOBILE_TIMER_SERIAL, 3000)) {
-        return MOBILE_ACTION_DROP_CONNECTION;
+        actions |= MOBILE_ACTION_DROP_CONNECTION;
     }
 
     // If the serial stops receiving data after a while since the session was
@@ -177,31 +179,12 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
     if (adapter->global.active &&
             !adapter->commands.session_begun &&
             mobile_cb_time_check_ms(adapter, MOBILE_TIMER_SERIAL, 3000)) {
-        return MOBILE_ACTION_RESET;
+        actions |= MOBILE_ACTION_RESET;
     }
 
     // Process a packet if one is waiting
     if (adapter->serial.state == MOBILE_SERIAL_RESPONSE_WAITING) {
-        return MOBILE_ACTION_PROCESS_COMMAND;
-    }
-
-    // If the mode_32bit should be changed, change it.
-    if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
-            adapter->commands.mode_32bit != adapter->serial.mode_32bit) {
-        return MOBILE_ACTION_CHANGE_32BIT_MODE;
-    }
-
-    // If the config is in need of updating, do that.
-    if (adapter->config.dirty) {
-        return MOBILE_ACTION_WRITE_CONFIG;
-    }
-
-    // When we have time for it, attempt to fetch the user's number
-    if (adapter->global.number_fetch_active || (
-            !adapter->global.active &&
-            adapter->global.number_fetch_retries &&
-            adapter->config.relay.type != MOBILE_ADDRTYPE_NONE)) {
-        return MOBILE_ACTION_INIT_NUMBER;
+        actions |= MOBILE_ACTION_PROCESS_COMMAND;
     }
 
     // If nothing else is being triggered, reset the serial periodically,
@@ -209,28 +192,36 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter)
     if (!adapter->global.active &&
             !adapter->commands.session_begun &&
             mobile_cb_time_check_ms(adapter, MOBILE_TIMER_SERIAL, 500)) {
-        return MOBILE_ACTION_RESET_SERIAL;
+        actions |= MOBILE_ACTION_RESET_SERIAL;
     }
 
-    return MOBILE_ACTION_NONE;
+    // If the mode_32bit should be changed, change it.
+    if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
+            adapter->commands.mode_32bit != adapter->serial.mode_32bit) {
+        actions |= MOBILE_ACTION_CHANGE_32BIT_MODE;
+    }
+
+    // If the config is in need of updating, do that.
+    if (adapter->config.dirty) {
+        actions |= MOBILE_ACTION_WRITE_CONFIG;
+    }
+
+    // When we have time for it, attempt to fetch the user's number
+    if (adapter->global.number_fetch_active || (
+                !adapter->global.active &&
+                adapter->global.number_fetch_retries &&
+                adapter->config.relay.type != MOBILE_ADDRTYPE_NONE)) {
+        actions |= MOBILE_ACTION_INIT_NUMBER;
+    }
+
+    return actions;
 }
 
-void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action)
+void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action actions)
 {
-    switch (action) {
-    // After the client has finished sending data, process a command
-    case MOBILE_ACTION_PROCESS_COMMAND:
-        if (adapter->serial.state != MOBILE_SERIAL_RESPONSE_WAITING) break;
-
-        if (command_handle(adapter)) {
-            adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
-        }
-        break;
-
     // End the session and reset everything
-    case MOBILE_ACTION_DROP_CONNECTION:
-        if (!adapter->commands.session_begun) break;
-
+    if (actions & MOBILE_ACTION_DROP_CONNECTION &&
+            adapter->commands.session_begun) {
         mobile_cb_serial_disable(adapter);
 
         mobile_debug_print(adapter, PSTR("<<< 11 End session (timeout)"));
@@ -240,12 +231,12 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
         mobile_reset(adapter);
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
         mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
-        break;
+        return;
+    }
 
     // Resets everything when the session has ended
-    case MOBILE_ACTION_RESET:
-        if (adapter->commands.session_begun) break;
-
+    if (actions & MOBILE_ACTION_RESET &&
+            !adapter->commands.session_begun) {
         mobile_cb_serial_disable(adapter);
 
         // Avoid resetting the serial subsystem, and retain the parsed packet
@@ -255,48 +246,59 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
         mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
-        break;
+        return;
+    }
+
+    // After the client has finished sending data, process a command
+    if (actions & MOBILE_ACTION_PROCESS_COMMAND) {
+        if (adapter->serial.state != MOBILE_SERIAL_RESPONSE_WAITING) return;
+
+        if (command_handle(adapter)) {
+            adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
+        }
+        return;
+    }
 
     // Reset the serial's current bit state in an attempt to synchronize
-    case MOBILE_ACTION_RESET_SERIAL:
+    if (actions & MOBILE_ACTION_RESET_SERIAL) {
         mobile_cb_serial_disable(adapter);
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
         mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
-        break;
+        return;
+    }
 
     // Once the exchange has finished, switch the 32bit mode flag
-    case MOBILE_ACTION_CHANGE_32BIT_MODE:
-        if (adapter->serial.state != MOBILE_SERIAL_WAITING) break;
+    if (actions & MOBILE_ACTION_CHANGE_32BIT_MODE) {
+        if (adapter->serial.state != MOBILE_SERIAL_WAITING) return;
 
         mobile_cb_serial_disable(adapter);
         mode_32bit_change(adapter);
         mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
-        break;
+        return;
+    }
 
     // If the config is dirty, update it in one go
-    case MOBILE_ACTION_WRITE_CONFIG:
+    if (actions & MOBILE_ACTION_WRITE_CONFIG) {
         mobile_config_save(adapter);
-        break;
+        return;
+    }
 
     // Use free time to initialize the phone number
-    case MOBILE_ACTION_INIT_NUMBER:
+    if (actions & MOBILE_ACTION_INIT_NUMBER) {
         number_fetch_handle(adapter);
-        break;
-
-    default:
-        break;
+        return;
     }
 }
 
 void mobile_loop(struct mobile_adapter *adapter) {
-    mobile_action_process(adapter, mobile_action_get(adapter));
+    mobile_actions_process(adapter, mobile_actions_get(adapter));
 }
 
 unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
     adapter->serial.active = true;
 
     // Nothing should be done while switching the mode_32bit
-    // This should be picked up by mobile_action_get/mobile_action_process
+    // This should be picked up by mobile_actions_get/mobile_actions_process
     if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
             adapter->commands.mode_32bit != adapter->serial.mode_32bit) {
         return 0xD2;

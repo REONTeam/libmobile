@@ -43,14 +43,14 @@ enum mobile_adapter_device {
 };
 
 enum mobile_action {
-    MOBILE_ACTION_NONE,
-    MOBILE_ACTION_PROCESS_COMMAND,
-    MOBILE_ACTION_DROP_CONNECTION,
-    MOBILE_ACTION_RESET,
-    MOBILE_ACTION_RESET_SERIAL,
-    MOBILE_ACTION_CHANGE_32BIT_MODE,
-    MOBILE_ACTION_WRITE_CONFIG,
-    MOBILE_ACTION_INIT_NUMBER
+    MOBILE_ACTION_NONE = 0,
+    MOBILE_ACTION_PROCESS_COMMAND = 1 << 0,
+    MOBILE_ACTION_DROP_CONNECTION = 1 << 1,
+    MOBILE_ACTION_RESET = 1 << 2,
+    MOBILE_ACTION_RESET_SERIAL = 1 << 3,
+    MOBILE_ACTION_CHANGE_32BIT_MODE = 1 << 4,
+    MOBILE_ACTION_WRITE_CONFIG = 1 << 5,
+    MOBILE_ACTION_INIT_NUMBER = 1 << 6
 };
 
 enum mobile_socktype {
@@ -429,8 +429,8 @@ void mobile_config_save(struct mobile_adapter *adapter);
 
 // mobile_action_get - Advanced library main loop, get next action
 //
-// This function may be used in place of mobile_loop(), to see which action is
-// about to be executed. The user may use this knowledge to influence user
+// This function may be used in place of mobile_loop(), to see which actions
+// are about to be executed. The user may use this knowledge to influence user
 // code, such as putting the main loop thread to sleep if no action has been
 // received for a bit. They may also prevent certain actions from being
 // executed, but never trigger actions that weren't received through this
@@ -440,10 +440,10 @@ void mobile_config_save(struct mobile_adapter *adapter);
 //
 // Parameters:
 // - adapter: Library state
-// Returns: Action to execute
-enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
+// Returns: Actions to execute
+enum mobile_action mobile_actions_get(struct mobile_adapter *adapter);
 
-// mobile_action_process - Advanced library main loop, process next action
+// mobile_actions_process - Advanced library main loop, process next action
 //
 // Execute the action received through mobile_action_get(), see its
 // documentation for more details.
@@ -453,8 +453,8 @@ enum mobile_action mobile_action_get(struct mobile_adapter *adapter);
 //
 // Parameters:
 // - adapter: Library state
-// - action: Action to execute
-void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action action);
+// - actions: Actions to execute
+void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action actions);
 
 // mobile_loop - Library main loop
 //
@@ -464,7 +464,7 @@ void mobile_action_process(struct mobile_adapter *adapter, enum mobile_action ac
 // is performed by the user in one of the mobile_func_* callbacks. So, unless
 // absolutely sure, let it do its thing.
 //
-// Shorthand for mobile_action_process(adapter, mobile_action_get(adapter))
+// Shorthand for mobile_actions_process(adapter, mobile_action_get(adapter))
 // See the documentation for either of these functions for advanced useage.
 //
 // Parameters:
