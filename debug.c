@@ -140,20 +140,20 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
     debug_print("%02X ", packet->command);
 
     switch(packet->command) {
-    case MOBILE_COMMAND_BEGIN_SESSION:
-        debug_print("Begin session: ");
+    case MOBILE_COMMAND_START:
+        debug_print("Start session: ");
         debug_write(packet->data, packet->length);
         debug_endl();
         break;
 
-    case MOBILE_COMMAND_END_SESSION:
+    case MOBILE_COMMAND_END:
         debug_print("End session");
         packet_end(adapter, packet, 0);
         if (send) debug_endl();
         break;
 
-    case MOBILE_COMMAND_DIAL_TELEPHONE:
-        debug_print("Dial telephone");
+    case MOBILE_COMMAND_TEL:
+        debug_print("Call");
         if (!send) {
             if (packet->length < 2) {
                 packet_end(adapter, packet, 0);
@@ -167,17 +167,17 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         break;
 
-    case MOBILE_COMMAND_HANG_UP_TELEPHONE:
-        debug_print("Hang up telephone");
+    case MOBILE_COMMAND_OFFLINE:
+        debug_print("Disconnect");
         packet_end(adapter, packet, 0);
         break;
 
-    case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
-        debug_print("Wait for telephone call");
+    case MOBILE_COMMAND_WAIT_CALL:
+        debug_print("Wait for call");
         packet_end(adapter, packet, 0);
         break;
 
-    case MOBILE_COMMAND_TRANSFER_DATA:
+    case MOBILE_COMMAND_DATA:
         debug_print("Transfer data");
         if (packet->length < 1) break;
 
@@ -189,13 +189,13 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         dump(adapter, packet->data + 1, packet->length - 1);
         break;
 
-    case MOBILE_COMMAND_RESET:
-        debug_print("Reset");
+    case MOBILE_COMMAND_REINIT:
+        debug_print("Reinitialize");
         packet_end(adapter, packet, 0);
         break;
 
-    case MOBILE_COMMAND_TELEPHONE_STATUS:
-        debug_print("Telephone status");
+    case MOBILE_COMMAND_CHECK_STATUS:
+        debug_print("Status");
         if (!send) {
             packet_end(adapter, packet, 0);
         } else {
@@ -209,14 +209,14 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         break;
 
-    case MOBILE_COMMAND_SIO32_MODE:
-        debug_print("Serial 32-bit mode");
+    case MOBILE_COMMAND_CHANGE_CLOCK:
+        debug_print("Change serial clock");
         if (!send) {
             if (packet->length < 1) break;
             if (packet->data[0] != 0) {
-                debug_print(": On");
+                debug_print(": 32 bit");
             } else {
-                debug_print(": Off");
+                debug_print(": 8 bit");
             }
             packet_end(adapter, packet, 1);
         } else {
@@ -224,8 +224,8 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         break;
 
-    case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
-        debug_print("Read configuration data");
+    case MOBILE_COMMAND_EEPROM_READ:
+        debug_print("Read EEPROM");
         if (!send) {
             if (packet->length < 2) {
                 packet_end(adapter, packet, 0);
@@ -241,8 +241,8 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         break;
 
-    case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
-        debug_print("Write configuration data");
+    case MOBILE_COMMAND_EEPROM_WRITE:
+        debug_print("Write EEPROM");
         if (!send) {
             if (packet->length < 1) break;
             debug_print(" (offset: %02X)", packet->data[0]);
@@ -255,15 +255,15 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         break;
 
-    case MOBILE_COMMAND_TRANSFER_DATA_END:
+    case MOBILE_COMMAND_DATA_END:
         debug_print("Transfer data end");
         if (packet->length < 1) break;
         debug_print(" (conn %u)", packet->data[0]);
         packet_end(adapter, packet, 1);
         break;
 
-    case MOBILE_COMMAND_ISP_LOGIN:
-        debug_print("ISP login");
+    case MOBILE_COMMAND_PPP_CONNECT:
+        debug_print("PPP connect");
         if (!send) {
             if (packet->length < 1) break;
 
@@ -304,18 +304,18 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         break;
 
-    case MOBILE_COMMAND_ISP_LOGOUT:
-        debug_print("ISP logout");
+    case MOBILE_COMMAND_PPP_DISCONNECT:
+        debug_print("PPP disconnect");
         packet_end(adapter, packet, 0);
         break;
 
-    case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
-    case MOBILE_COMMAND_OPEN_UDP_CONNECTION:
-        if (packet->command == MOBILE_COMMAND_OPEN_TCP_CONNECTION) {
-            debug_print("Open TCP connection");
+    case MOBILE_COMMAND_TCP_CONNECT:
+    case MOBILE_COMMAND_UDP_CONNECT:
+        if (packet->command == MOBILE_COMMAND_TCP_CONNECT) {
+            debug_print("TCP connect");
         }
-        if (packet->command == MOBILE_COMMAND_OPEN_UDP_CONNECTION) {
-            debug_print("Open UDP connection");
+        if (packet->command == MOBILE_COMMAND_UDP_CONNECT) {
+            debug_print("UDP connect");
         }
         if (!send) {
             if (packet->length < 6) {
@@ -334,21 +334,21 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         break;
 
-    case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
-    case MOBILE_COMMAND_CLOSE_UDP_CONNECTION:
-        if (packet->command == MOBILE_COMMAND_CLOSE_TCP_CONNECTION) {
-            debug_print("Close TCP connection");
+    case MOBILE_COMMAND_TCP_DISCONNECT:
+    case MOBILE_COMMAND_UDP_DISCONNECT:
+        if (packet->command == MOBILE_COMMAND_TCP_DISCONNECT) {
+            debug_print("TCP disconnect");
         }
-        if (packet->command == MOBILE_COMMAND_CLOSE_UDP_CONNECTION) {
-            debug_print("Close UDP connection");
+        if (packet->command == MOBILE_COMMAND_UDP_DISCONNECT) {
+            debug_print("UDP disconnect");
         }
         if (packet->length < 1) break;
         debug_print(" (conn %u)", packet->data[0]);
         packet_end(adapter, packet, 1);
         break;
 
-    case MOBILE_COMMAND_DNS_QUERY:
-        debug_print("DNS query");
+    case MOBILE_COMMAND_DNS_REQUEST:
+        debug_print("DNS request");
         if (!send) {
             debug_print(": ");
             debug_write(packet->data, packet->length);

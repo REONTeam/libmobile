@@ -219,7 +219,7 @@ void mobile_dns_init(struct mobile_adapter *adapter)
     adapter->dns.id = 0;
 }
 
-bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len)
+bool mobile_dns_request_send(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
 
@@ -234,7 +234,7 @@ bool mobile_dns_query_send(struct mobile_adapter *adapter, unsigned conn, const 
 }
 
 // Returns: -1 on error, 0 if processing, 1 on success
-int mobile_dns_query_recv(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len, unsigned char *ip)
+int mobile_dns_request_recv(struct mobile_adapter *adapter, unsigned conn, const struct mobile_addr *addr_send, const char *host, unsigned host_len, unsigned char *ip)
 {
     struct mobile_adapter_dns *s = &adapter->dns;
 

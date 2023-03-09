@@ -51,11 +51,11 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
                 s->state = MOBILE_SERIAL_WAITING;
             }
 
-            if (!adapter->commands.session_begun) {
+            if (!adapter->commands.session_started) {
                 // If we haven't begun a session, this is as good as any place to
                 //   stop parsing, as we shouldn't react to this.
                 // TODO: Re-verify this behavior on hardware.
-                if (s->buffer[0] != MOBILE_COMMAND_BEGIN_SESSION) {
+                if (s->buffer[0] != MOBILE_COMMAND_START) {
                     s->current = 0;
                     s->state = MOBILE_SERIAL_WAITING;
                 }
@@ -131,7 +131,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         s->current = 0;
 
         // If an error was raised or the empty command was sent, reset here.
-        if (s->buffer[0] == MOBILE_COMMAND_EMPTY || s->error) {
+        if (s->buffer[0] == MOBILE_COMMAND_NULL || s->error) {
             s->state = MOBILE_SERIAL_WAITING;
             if (c == 0x99) s->current = 1;
             break;

@@ -169,7 +169,7 @@ enum mobile_action mobile_actions_get(struct mobile_adapter *adapter)
     // If the adapter is stuck waiting, with no signal from the game,
     //   put it out of its misery.
     // Timeout has been verified on hardware.
-    if (adapter->commands.session_begun &&
+    if (adapter->commands.session_started &&
             mobile_cb_time_check_ms(adapter, MOBILE_TIMER_SERIAL, 3000)) {
         actions |= MOBILE_ACTION_DROP_CONNECTION;
     }
@@ -177,7 +177,7 @@ enum mobile_action mobile_actions_get(struct mobile_adapter *adapter)
     // If the serial stops receiving data after a while since the session was
     //   ended, perform a reset.
     if (adapter->global.active &&
-            !adapter->commands.session_begun &&
+            !adapter->commands.session_started &&
             mobile_cb_time_check_ms(adapter, MOBILE_TIMER_SERIAL, 3000)) {
         actions |= MOBILE_ACTION_RESET;
     }
@@ -190,7 +190,7 @@ enum mobile_action mobile_actions_get(struct mobile_adapter *adapter)
     // If nothing else is being triggered, reset the serial periodically,
     //   in an attempt to synchronize.
     if (!adapter->global.active &&
-            !adapter->commands.session_begun &&
+            !adapter->commands.session_started &&
             mobile_cb_time_check_ms(adapter, MOBILE_TIMER_SERIAL, 500)) {
         actions |= MOBILE_ACTION_RESET_SERIAL;
     }
@@ -221,7 +221,7 @@ void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action a
 {
     // End the session and reset everything
     if (actions & MOBILE_ACTION_DROP_CONNECTION &&
-            adapter->commands.session_begun) {
+            adapter->commands.session_started) {
         mobile_cb_serial_disable(adapter);
 
         mobile_debug_print(adapter, PSTR("<<< 11 End session (timeout)"));
@@ -236,7 +236,7 @@ void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action a
 
     // Resets everything when the session has ended
     if (actions & MOBILE_ACTION_RESET &&
-            !adapter->commands.session_begun) {
+            !adapter->commands.session_started) {
         mobile_cb_serial_disable(adapter);
 
         // Avoid resetting the serial subsystem, and retain the parsed packet

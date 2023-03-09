@@ -42,7 +42,7 @@ static const char *const isp_numbers[] PROGMEM = {
 
 void mobile_commands_init(struct mobile_adapter *adapter)
 {
-    adapter->commands.session_begun = false;
+    adapter->commands.session_started = false;
     adapter->commands.mode_32bit = false;
 }
 
@@ -69,7 +69,7 @@ static int connection_new(struct mobile_adapter *adapter)
     return conn;
 }
 
-static bool do_isp_logout(struct mobile_adapter *adapter)
+static bool do_ppp_disconnect(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -85,9 +85,9 @@ static bool do_isp_logout(struct mobile_adapter *adapter)
     return true;
 }
 
-static bool do_hang_up_telephone(struct mobile_adapter *adapter)
+static bool do_offline(struct mobile_adapter *adapter)
 {
-    do_isp_logout(adapter);
+    do_ppp_disconnect(adapter);
 
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -112,22 +112,22 @@ static bool do_hang_up_telephone(struct mobile_adapter *adapter)
 
 static void do_end_session(struct mobile_adapter *adapter)
 {
-    do_hang_up_telephone(adapter);
+    do_offline(adapter);
 
     struct mobile_adapter_commands *s = &adapter->commands;
 
     // Clean up a possibly residual connection that wasn't established by
-    //   the command_wait_for_telephone_call function
+    //   the command_wait_call function
     if (s->connections[p2p_conn]) mobile_cb_sock_close(adapter, p2p_conn);
 
-    s->session_begun = false;
+    s->session_started = false;
 }
 
-static void do_begin_session(struct mobile_adapter *adapter)
+static void do_start_session(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    s->session_begun = true;
+    s->session_started = true;
     s->state = MOBILE_CONNECTION_DISCONNECTED;
     memset(s->connections, false, sizeof(s->connections));
 
@@ -138,18 +138,18 @@ void mobile_commands_reset(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    if (s->session_begun) do_end_session(adapter);
+    if (s->session_started) do_end_session(adapter);
     s->mode_32bit = false;
 }
 
 // Errors:
 // 1 - Invalid use (Already begun a session)
 // 2 - Invalid contents
-static struct mobile_packet *command_begin_session(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_start(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    if (s->session_begun) return error_packet(packet, 1);
+    if (s->session_started) return error_packet(packet, 1);
     if (adapter->serial.device != MOBILE_ADAPTER_RED) {
         if (packet->length != sizeof(nintendo)) return error_packet(packet, 2);
     } else {
@@ -160,13 +160,13 @@ static struct mobile_packet *command_begin_session(struct mobile_adapter *adapte
         return error_packet(packet, 2);
     }
 
-    do_begin_session(adapter);
+    do_start_session(adapter);
     return packet;
 }
 
 // Errors:
 // 2 - Still connected/failed to disconnect(?)
-static struct mobile_packet *command_end_session(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_end(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     // TODO: Reset mode_32bit here? Verify on hardware.
     //       Currently reset in MOBILE_ACTION_RESET_SERIAL
@@ -176,13 +176,13 @@ static struct mobile_packet *command_end_session(struct mobile_adapter *adapter,
     return packet;
 }
 
-enum process_dial_telephone {
-    PROCESS_DIAL_TELEPHONE_BEGIN,
-    PROCESS_DIAL_TELEPHONE_IP,
-    PROCESS_DIAL_TELEPHONE_RELAY
+enum process_tel {
+    PROCESS_TEL_BEGIN,
+    PROCESS_TEL_IP,
+    PROCESS_TEL_RELAY
 };
 
-static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tel_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -194,7 +194,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
     }
     if (packet->length < 1) return error_packet(packet, 2);
 
-    // Close any connection created by command_wait_for_telephone_call
+    // Close any connection created by command_wait_call
     if (s->connections[p2p_conn]) {
         mobile_cb_sock_close(adapter, p2p_conn);
         s->connections[p2p_conn] = false;
@@ -260,7 +260,7 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         }
         s->connections[p2p_conn] = true;
 
-        s->processing = PROCESS_DIAL_TELEPHONE_RELAY;
+        s->processing = PROCESS_TEL_RELAY;
         return NULL;
     }
 
@@ -280,14 +280,14 @@ static struct mobile_packet *command_dial_telephone_begin(struct mobile_adapter 
         }
         s->connections[p2p_conn] = true;
 
-        s->processing = PROCESS_DIAL_TELEPHONE_IP;
+        s->processing = PROCESS_TEL_IP;
         return NULL;
     }
 
     return error_packet(packet, 3);
 }
 
-static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tel_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -314,7 +314,7 @@ static struct mobile_packet *command_dial_telephone_ip(struct mobile_adapter *ad
     return packet;
 }
 
-static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tel_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -355,30 +355,30 @@ static struct mobile_packet *command_dial_telephone_relay(struct mobile_adapter 
 // 2 - Invalid contents (first byte isn't correct)
 // 3 - "NO CARRIER"/"ERROR"/timeout (internal phone/communication error)
 // 4 - "REDIAL ERROR"
-static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tel(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
     switch (s->processing) {
-    case PROCESS_DIAL_TELEPHONE_BEGIN:
+    case PROCESS_TEL_BEGIN:
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
-        return command_dial_telephone_begin(adapter, packet);
+        return command_tel_begin(adapter, packet);
 
-    case PROCESS_DIAL_TELEPHONE_IP:
+    case PROCESS_TEL_IP:
         if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 60000)) {
             mobile_cb_sock_close(adapter, p2p_conn);
             s->connections[p2p_conn] = false;
             return error_packet(packet, 3);
         }
-        return command_dial_telephone_ip(adapter, packet);
+        return command_tel_ip(adapter, packet);
 
-    case PROCESS_DIAL_TELEPHONE_RELAY:
+    case PROCESS_TEL_RELAY:
         if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 60000)) {
             mobile_cb_sock_close(adapter, p2p_conn);
             s->connections[p2p_conn] = false;
             return error_packet(packet, 3);
         }
-        return command_dial_telephone_relay(adapter, packet);
+        return command_tel_relay(adapter, packet);
 
     default:
         return error_packet(packet, 3);
@@ -387,19 +387,19 @@ static struct mobile_packet *command_dial_telephone(struct mobile_adapter *adapt
 
 // Errors:
 // 1 - Invalid use (already hung up/phone not connected)
-static struct mobile_packet *command_hang_up_telephone(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_offline(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    if (!do_hang_up_telephone(adapter)) return error_packet(packet, 1);
+    if (!do_offline(adapter)) return error_packet(packet, 1);
     packet->length = 0;
     return packet;
 }
 
-enum process_wait_for_telephone_call {
-    PROCESS_WAIT_FOR_TELEPHONE_CALL_INIT,
-    PROCESS_WAIT_FOR_TELEPHONE_CALL_INIT_DONE
+enum process_wait_call {
+    PROCESS_WAIT_CALL_INIT,
+    PROCESS_WAIT_CALL_INIT_DONE
 };
 
-static struct mobile_packet *command_wait_for_telephone_call_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_wait_call_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -436,7 +436,7 @@ static struct mobile_packet *command_wait_for_telephone_call_begin(struct mobile
     return NULL;
 }
 
-static struct mobile_packet *command_wait_for_telephone_call_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_wait_call_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -450,7 +450,7 @@ static struct mobile_packet *command_wait_for_telephone_call_ip(struct mobile_ad
     return packet;
 }
 
-static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_wait_call_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -489,7 +489,7 @@ static struct mobile_packet *command_wait_for_telephone_call_relay(struct mobile
 // 0 - No call received/phone not connected
 // 1 - Invalid use (already calling)
 // 3 - Internal error (ringing but picking up fails)
-static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_wait_call(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -500,7 +500,7 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
         return error_packet(packet, 1);
     }
 
-    if (s->processing == PROCESS_WAIT_FOR_TELEPHONE_CALL_INIT) {
+    if (s->processing == PROCESS_WAIT_CALL_INIT) {
         // If a previous timeout is in effect, wait it out
         if (s->state == MOBILE_CONNECTION_WAIT_TIMEOUT) {
             if (!mobile_cb_time_check_ms(adapter,
@@ -511,7 +511,7 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
         }
 
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
-        s->processing = PROCESS_WAIT_FOR_TELEPHONE_CALL_INIT_DONE;
+        s->processing = PROCESS_WAIT_CALL_INIT_DONE;
     }
 
     // The s->state variable is preserved across multiple commands,
@@ -519,13 +519,13 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
     switch (s->state) {
     default:
     case MOBILE_CONNECTION_DISCONNECTED:
-        return command_wait_for_telephone_call_begin(adapter, packet);
+        return command_wait_call_begin(adapter, packet);
 
     case MOBILE_CONNECTION_WAIT:
         if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 1000)) {
             return error_packet(packet, 0);
         }
-        return command_wait_for_telephone_call_ip(adapter, packet);
+        return command_wait_call_ip(adapter, packet);
 
     case MOBILE_CONNECTION_WAIT_RELAY:
         if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 1000)) {
@@ -539,23 +539,23 @@ static struct mobile_packet *command_wait_for_telephone_call(struct mobile_adapt
             }
             return error_packet(packet, 0);
         }
-        return command_wait_for_telephone_call_relay(adapter, packet);
+        return command_wait_call_relay(adapter, packet);
     }
 }
 
-enum process_transfer_data {
-    PROCESS_TRANSFER_DATA_INIT,
-    PROCESS_TRANSFER_DATA_INIT_DONE
+enum process_data {
+    PROCESS_DATA_INIT,
+    PROCESS_DATA_INIT_DONE
 };
 
-enum procdata_transfer_data {
-    PROCDATA_TRANSFER_DATA_SENT_SIZE
+enum procdata_data {
+    PROCDATA_DATA_SENT_SIZE
 };
 
 // Errors:
 // 0 - Invalid connection/communication failed
 // 1 - Invalid use (Call was ended/never made)
-static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -576,13 +576,13 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
         return error_packet(packet, 0);
     }
 
-    if (s->processing == PROCESS_TRANSFER_DATA_INIT) {
-        s->processing_data[PROCDATA_TRANSFER_DATA_SENT_SIZE] = 0;
+    if (s->processing == PROCESS_DATA_INIT) {
+        s->processing_data[PROCDATA_DATA_SENT_SIZE] = 0;
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
-        s->processing = PROCESS_TRANSFER_DATA_INIT_DONE;
+        s->processing = PROCESS_DATA_INIT_DONE;
     }
 
-    unsigned sent_size = s->processing_data[PROCDATA_TRANSFER_DATA_SENT_SIZE];
+    unsigned sent_size = s->processing_data[PROCDATA_DATA_SENT_SIZE];
     unsigned char *data = packet->data + 1;
     unsigned send_size = packet->length - 1;
 
@@ -591,7 +591,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
             send_size - sent_size, NULL);
         if (rc < 0) return error_packet(packet, 0);
         sent_size += rc;
-        s->processing_data[PROCDATA_TRANSFER_DATA_SENT_SIZE] = sent_size;
+        s->processing_data[PROCDATA_DATA_SENT_SIZE] = sent_size;
 
         // Attempt to send again while not everything has been sent
         if (send_size > sent_size) {
@@ -628,7 +628,7 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
     if (internet && recv_size == -2) {
         mobile_cb_sock_close(adapter, conn);
         s->connections[conn] = false;
-        packet->command = MOBILE_COMMAND_TRANSFER_DATA_END;
+        packet->command = MOBILE_COMMAND_DATA_END;
         packet->length = 1;
         return packet;
     }
@@ -652,20 +652,20 @@ static struct mobile_packet *command_transfer_data(struct mobile_adapter *adapte
 
 // Errors:
 // 2 - Still connected/failed to disconnect(?)
-static struct mobile_packet *command_reset(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_reinit(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
     // Reset everything without ending the session
     do_end_session(adapter);
-    do_begin_session(adapter);
+    do_start_session(adapter);
     s->mode_32bit = false;
 
     packet->length = 0;
     return packet;
 }
 
-static struct mobile_packet *command_telephone_status(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_check_status(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -703,7 +703,7 @@ static struct mobile_packet *command_telephone_status(struct mobile_adapter *ada
 
 // Errors:
 // 2 - Invalid contents (first byte not either 1 or 0)
-static struct mobile_packet *command_sio32_mode(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_change_clock(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -723,7 +723,7 @@ static struct mobile_packet *command_sio32_mode(struct mobile_adapter *adapter, 
 // Errors:
 // 0 - Internal error (Failed to read config)
 // 2 - Read outside of config area/too big a chunk
-static struct mobile_packet *command_read_configuration_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_eeprom_read(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     if (packet->length < 2) return error_packet(packet, 2);
 
@@ -744,7 +744,7 @@ static struct mobile_packet *command_read_configuration_data(struct mobile_adapt
 // Errors:
 // 0 - Internal error (Failed to write config)
 // 2 - Invalid use (Tried to write outside of configuration area)
-static struct mobile_packet *command_write_configuration_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_eeprom_write(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     if (packet->length < 1) return error_packet(packet, 2);
 
@@ -768,7 +768,7 @@ static struct mobile_packet *command_write_configuration_data(struct mobile_adap
 // 1 - Invalid use (Not in a call)
 // 2 - Invalid contents
 // 3 - Unknown error (internal error)
-static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_ppp_connect(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -845,23 +845,23 @@ static struct mobile_packet *command_isp_login(struct mobile_adapter *adapter, s
 // 0 - Invalid use (Not logged in)
 // 1 - Invalid use (Not in a call)
 // 2 - Unknown error (some kind of timeout?)
-static struct mobile_packet *command_isp_logout(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_ppp_disconnect(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    if (!do_isp_logout(adapter)) return error_packet(packet, 1);
+    if (!do_ppp_disconnect(adapter)) return error_packet(packet, 1);
     packet->length = 0;
     return packet;
 }
 
-enum process_open_tcp_connection {
-    PROCESS_OPEN_TCP_CONNECTION_BEGIN,
-    PROCESS_OPEN_TCP_CONNECTION_CONNECTING
+enum process_tcp_connect {
+    PROCESS_TCP_CONNECT_BEGIN,
+    PROCESS_TCP_CONNECT_CONNECTING
 };
 
-enum procdata_open_tcp_connection {
-    PROCDATA_OPEN_TCP_CONNECTION_CONN
+enum procdata_tcp_connect {
+    PROCDATA_TCP_CONNECT_CONN
 };
 
-static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -881,16 +881,16 @@ static struct mobile_packet *command_open_tcp_connection_begin(struct mobile_ada
     }
     s->connections[conn] = true;
 
-    s->processing_data[PROCDATA_OPEN_TCP_CONNECTION_CONN] = conn;
-    s->processing = PROCESS_OPEN_TCP_CONNECTION_CONNECTING;
+    s->processing_data[PROCDATA_TCP_CONNECT_CONN] = conn;
+    s->processing = PROCESS_TCP_CONNECT_CONNECTING;
     return NULL;
 }
 
-static struct mobile_packet *command_open_tcp_connection_connecting(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    unsigned char conn = s->processing_data[PROCDATA_OPEN_TCP_CONNECTION_CONN];
+    unsigned char conn = s->processing_data[PROCDATA_TCP_CONNECT_CONN];
 
     struct mobile_addr4 addr = {
         .type = MOBILE_ADDRTYPE_IPV4,
@@ -916,25 +916,25 @@ static struct mobile_packet *command_open_tcp_connection_connecting(struct mobil
 // 0 - Too many connections
 // 1 - Invalid use (Not logged in)
 // 3 - Connection failed
-static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tcp_connect(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
     switch (s->processing) {
-    case PROCESS_OPEN_TCP_CONNECTION_BEGIN:
+    case PROCESS_TCP_CONNECT_BEGIN:
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
-        return command_open_tcp_connection_begin(adapter, packet);
+        return command_tcp_connect_begin(adapter, packet);
 
-    case PROCESS_OPEN_TCP_CONNECTION_CONNECTING:
+    case PROCESS_TCP_CONNECT_CONNECTING:
         // TODO: Verify this timeout with a game
         if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 60000)) {
             unsigned char conn =
-                s->processing_data[PROCDATA_OPEN_TCP_CONNECTION_CONN];
+                s->processing_data[PROCDATA_TCP_CONNECT_CONN];
             mobile_cb_sock_close(adapter, conn);
             s->connections[conn] = false;
             return error_packet(packet, 3);
         }
-        return command_open_tcp_connection_connecting(adapter, packet);
+        return command_tcp_connect_connecting(adapter, packet);
 
     default:
         return error_packet(packet, 3);
@@ -945,7 +945,7 @@ static struct mobile_packet *command_open_tcp_connection(struct mobile_adapter *
 // 0 - Invalid connection (Not connected)
 // 1 - Invalid use (Not logged in)
 // 2 - Unknown error (???)
-static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_tcp_disconnect(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -971,7 +971,7 @@ static struct mobile_packet *command_close_tcp_connection(struct mobile_adapter 
 // 0 - Too many connections
 // 1 - Invalid use (Not logged in)
 // 2 - Connection failed (though this can't happen)
-static struct mobile_packet *command_open_udp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_udp_connect(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     // TODO: Implement
     (void)adapter;
@@ -982,21 +982,21 @@ static struct mobile_packet *command_open_udp_connection(struct mobile_adapter *
 // 0 - Invalid connection (Not connected)
 // 1 - Invalid use (Not logged in)
 // 2 - Unknown error (???)
-static struct mobile_packet *command_close_udp_connection(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_udp_disconnect(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     // TODO: Implement
     (void)adapter;
     return error_packet(packet, 1);
 }
 
-enum process_dns_query {
-    PROCESS_DNS_QUERY_BEGIN,
-    PROCESS_DNS_QUERY_CHECK
+enum process_dns_request {
+    PROCESS_DNS_REQUEST_BEGIN,
+    PROCESS_DNS_REQUEST_CHECK
 };
 
-enum procdata_dns_query {
-    PROCDATA_DNS_QUERY_CONN,
-    PROCDATA_DNS_QUERY_ADDR_ID
+enum procdata_dns_request {
+    PROCDATA_DNS_REQUEST_CONN,
+    PROCDATA_DNS_REQUEST_ADDR_ID
 };
 
 static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned char id)
@@ -1018,7 +1018,7 @@ static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned
     }
 }
 
-static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet *packet, unsigned conn, unsigned addr_id)
+static int dns_request_start(struct mobile_adapter *adapter, struct mobile_packet *packet, unsigned conn, unsigned addr_id)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -1037,7 +1037,7 @@ static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet 
             s->processing_addr.type, 0)) {
         return -1;
     }
-    if (!mobile_dns_query_send(adapter, conn, &s->processing_addr,
+    if (!mobile_dns_request_send(adapter, conn, &s->processing_addr,
             (char *)packet->data, packet->length)) {
         mobile_cb_sock_close(adapter, conn);
         return -1;
@@ -1050,7 +1050,7 @@ static int dns_query_start(struct mobile_adapter *adapter, struct mobile_packet 
     return (int)addr_id;
 }
 
-static struct mobile_packet *command_dns_query_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_dns_request_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
@@ -1077,24 +1077,24 @@ static struct mobile_packet *command_dns_query_begin(struct mobile_adapter *adap
     int conn = connection_new(adapter);
     if (conn < 0) return error_packet(packet, 2);
 
-    int addr_id = dns_query_start(adapter, packet, conn, 0);
+    int addr_id = dns_request_start(adapter, packet, conn, 0);
     if (addr_id < 0) return error_packet(packet, 2);
 
-    s->processing_data[PROCDATA_DNS_QUERY_CONN] = conn;
-    s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID] = addr_id;
-    s->processing = PROCESS_DNS_QUERY_CHECK;
+    s->processing_data[PROCDATA_DNS_REQUEST_CONN] = conn;
+    s->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID] = addr_id;
+    s->processing = PROCESS_DNS_REQUEST_CHECK;
     return NULL;
 }
 
-static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_dns_request_check(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    unsigned char conn = s->processing_data[PROCDATA_DNS_QUERY_CONN];
-    int addr_id = s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID];
+    unsigned char conn = s->processing_data[PROCDATA_DNS_REQUEST_CONN];
+    int addr_id = s->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID];
 
     unsigned char ip[MOBILE_HOSTLEN_IPV4] = {255, 255, 255, 255};
-    int rc = mobile_dns_query_recv(adapter, conn, &s->processing_addr,
+    int rc = mobile_dns_request_recv(adapter, conn, &s->processing_addr,
         (char *)packet->data, packet->length, ip);
     if (rc == 0 &&
             !mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 3000)) {
@@ -1107,9 +1107,9 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
     if (rc <= 0) {
         // If we've checked DNS1 but not yet DNS2, check DNS2
         if (addr_id < 2) {
-            addr_id = dns_query_start(adapter, packet, conn, 2);
+            addr_id = dns_request_start(adapter, packet, conn, 2);
             if (addr_id < 0) return error_packet(packet, 2);
-            s->processing_data[PROCDATA_DNS_QUERY_ADDR_ID] = addr_id;
+            s->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID] = addr_id;
             return NULL;
         }
 
@@ -1128,23 +1128,23 @@ static struct mobile_packet *command_dns_query_check(struct mobile_adapter *adap
 // Errors:
 // 1 - Invalid use (not logged in)
 // 2 - Invalid contents/lookup failed
-static struct mobile_packet *command_dns_query(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_dns_request(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
     switch (s->processing) {
-    case PROCESS_DNS_QUERY_BEGIN:
-        return command_dns_query_begin(adapter, packet);
+    case PROCESS_DNS_REQUEST_BEGIN:
+        return command_dns_request_begin(adapter, packet);
 
-    case PROCESS_DNS_QUERY_CHECK:
-        return command_dns_query_check(adapter, packet);
+    case PROCESS_DNS_REQUEST_CHECK:
+        return command_dns_request_check(adapter, packet);
 
     default:
         return error_packet(packet, 2);
     }
 }
 
-static struct mobile_packet *command_firmware_version(struct mobile_adapter *adapter, struct mobile_packet *packet)
+static struct mobile_packet *command_test_mode(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     // TODO: Command 0x3F FIRMWARE_VERSION never returns anything and locks
     //         you out of all commands,
@@ -1157,44 +1157,44 @@ static struct mobile_packet *command_firmware_version(struct mobile_adapter *ada
 struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     switch (packet->command) {
-    case MOBILE_COMMAND_BEGIN_SESSION:
-        return command_begin_session(adapter, packet);
-    case MOBILE_COMMAND_END_SESSION:
-        return command_end_session(adapter, packet);
-    case MOBILE_COMMAND_DIAL_TELEPHONE:
-        return command_dial_telephone(adapter, packet);
-    case MOBILE_COMMAND_HANG_UP_TELEPHONE:
-        return command_hang_up_telephone(adapter, packet);
-    case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
-        return command_wait_for_telephone_call(adapter, packet);
-    case MOBILE_COMMAND_TRANSFER_DATA:
-        return command_transfer_data(adapter, packet);
-    case MOBILE_COMMAND_RESET:
-        return command_reset(adapter, packet);
-    case MOBILE_COMMAND_TELEPHONE_STATUS:
-        return command_telephone_status(adapter, packet);
-    case MOBILE_COMMAND_SIO32_MODE:
-        return command_sio32_mode(adapter, packet);
-    case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
-        return command_read_configuration_data(adapter, packet);
-    case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
-        return command_write_configuration_data(adapter, packet);
-    case MOBILE_COMMAND_ISP_LOGIN:
-        return command_isp_login(adapter, packet);
-    case MOBILE_COMMAND_ISP_LOGOUT:
-        return command_isp_logout(adapter, packet);
-    case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
-        return command_open_tcp_connection(adapter, packet);
-    case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
-        return command_close_tcp_connection(adapter, packet);
-    case MOBILE_COMMAND_OPEN_UDP_CONNECTION:
-        return command_open_udp_connection(adapter, packet);
-    case MOBILE_COMMAND_CLOSE_UDP_CONNECTION:
-        return command_close_udp_connection(adapter, packet);
-    case MOBILE_COMMAND_DNS_QUERY:
-        return command_dns_query(adapter, packet);
-    case MOBILE_COMMAND_FIRMWARE_VERSION:
-        return command_firmware_version(adapter, packet);
+    case MOBILE_COMMAND_START:
+        return command_start(adapter, packet);
+    case MOBILE_COMMAND_END:
+        return command_end(adapter, packet);
+    case MOBILE_COMMAND_TEL:
+        return command_tel(adapter, packet);
+    case MOBILE_COMMAND_OFFLINE:
+        return command_offline(adapter, packet);
+    case MOBILE_COMMAND_WAIT_CALL:
+        return command_wait_call(adapter, packet);
+    case MOBILE_COMMAND_DATA:
+        return command_data(adapter, packet);
+    case MOBILE_COMMAND_REINIT:
+        return command_reinit(adapter, packet);
+    case MOBILE_COMMAND_CHECK_STATUS:
+        return command_check_status(adapter, packet);
+    case MOBILE_COMMAND_CHANGE_CLOCK:
+        return command_change_clock(adapter, packet);
+    case MOBILE_COMMAND_EEPROM_READ:
+        return command_eeprom_read(adapter, packet);
+    case MOBILE_COMMAND_EEPROM_WRITE:
+        return command_eeprom_write(adapter, packet);
+    case MOBILE_COMMAND_PPP_CONNECT:
+        return command_ppp_connect(adapter, packet);
+    case MOBILE_COMMAND_PPP_DISCONNECT:
+        return command_ppp_disconnect(adapter, packet);
+    case MOBILE_COMMAND_TCP_CONNECT:
+        return command_tcp_connect(adapter, packet);
+    case MOBILE_COMMAND_TCP_DISCONNECT:
+        return command_tcp_disconnect(adapter, packet);
+    case MOBILE_COMMAND_UDP_CONNECT:
+        return command_udp_connect(adapter, packet);
+    case MOBILE_COMMAND_UDP_DISCONNECT:
+        return command_udp_disconnect(adapter, packet);
+    case MOBILE_COMMAND_DNS_REQUEST:
+        return command_dns_request(adapter, packet);
+    case MOBILE_COMMAND_TEST_MODE:
+        return command_test_mode(adapter, packet);
     default:
         // Nonexisting commands can't be used at any time
         return error_packet(packet, 1);
@@ -1206,26 +1206,26 @@ bool mobile_commands_exists(enum mobile_command command)
     // Used by serial.c:mobile_serial_transfer() to check if a command may be used
 
     switch (command) {
-    case MOBILE_COMMAND_EMPTY:
-    case MOBILE_COMMAND_BEGIN_SESSION:
-    case MOBILE_COMMAND_END_SESSION:
-    case MOBILE_COMMAND_DIAL_TELEPHONE:
-    case MOBILE_COMMAND_HANG_UP_TELEPHONE:
-    case MOBILE_COMMAND_WAIT_FOR_TELEPHONE_CALL:
-    case MOBILE_COMMAND_TRANSFER_DATA:
-    case MOBILE_COMMAND_RESET:
-    case MOBILE_COMMAND_TELEPHONE_STATUS:
-    case MOBILE_COMMAND_SIO32_MODE:
-    case MOBILE_COMMAND_READ_CONFIGURATION_DATA:
-    case MOBILE_COMMAND_WRITE_CONFIGURATION_DATA:
-    case MOBILE_COMMAND_ISP_LOGIN:
-    case MOBILE_COMMAND_ISP_LOGOUT:
-    case MOBILE_COMMAND_OPEN_TCP_CONNECTION:
-    case MOBILE_COMMAND_CLOSE_TCP_CONNECTION:
-    case MOBILE_COMMAND_OPEN_UDP_CONNECTION:
-    case MOBILE_COMMAND_CLOSE_UDP_CONNECTION:
-    case MOBILE_COMMAND_DNS_QUERY:
-    case MOBILE_COMMAND_FIRMWARE_VERSION:
+    case MOBILE_COMMAND_NULL:
+    case MOBILE_COMMAND_START:
+    case MOBILE_COMMAND_END:
+    case MOBILE_COMMAND_TEL:
+    case MOBILE_COMMAND_OFFLINE:
+    case MOBILE_COMMAND_WAIT_CALL:
+    case MOBILE_COMMAND_DATA:
+    case MOBILE_COMMAND_REINIT:
+    case MOBILE_COMMAND_CHECK_STATUS:
+    case MOBILE_COMMAND_CHANGE_CLOCK:
+    case MOBILE_COMMAND_EEPROM_READ:
+    case MOBILE_COMMAND_EEPROM_WRITE:
+    case MOBILE_COMMAND_PPP_CONNECT:
+    case MOBILE_COMMAND_PPP_DISCONNECT:
+    case MOBILE_COMMAND_TCP_CONNECT:
+    case MOBILE_COMMAND_TCP_DISCONNECT:
+    case MOBILE_COMMAND_UDP_CONNECT:
+    case MOBILE_COMMAND_UDP_DISCONNECT:
+    case MOBILE_COMMAND_DNS_REQUEST:
+    case MOBILE_COMMAND_TEST_MODE:
         return true;
     default:
         return false;
