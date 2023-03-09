@@ -13,7 +13,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-struct mobile_adapter;  // data.h
+struct mobile_adapter;
 
 // Limits any user of this library should abide by
 #define MOBILE_MAX_CONNECTIONS 2

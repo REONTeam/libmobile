@@ -7,7 +7,6 @@
 
 #include "mobile_data.h"
 #include "compat.h"
-#include "callback.h"
 
 void mobile_debug_init(struct mobile_adapter *adapter)
 {

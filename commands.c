@@ -7,7 +7,6 @@
 #include "mobile_inet.h"
 #include "util.h"
 #include "compat.h"
-#include "callback.h"
 
 // Accessible area of the mobile config by the game boy
 #define MOBILE_CONFIG_SIZE_REAL 0x100

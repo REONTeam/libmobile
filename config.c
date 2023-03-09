@@ -6,7 +6,6 @@
 #include "mobile_data.h"
 #include "util.h"
 #include "compat.h"
-#include "callback.h"
 
 // The area of the config in which data is actually stored by the game boy
 #define MOBILE_CONFIG_SIZE_INTERNAL 0xC0

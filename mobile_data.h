@@ -13,8 +13,8 @@
 #include "callback.h"
 #include "config.h"
 #include "debug.h"
-#include "commands.h"
 #include "serial.h"
+#include "commands.h"
 #include "dns.h"
 #include "relay.h"
 

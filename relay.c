@@ -5,7 +5,6 @@
 
 #include "mobile_data.h"
 #include "compat.h"
-#include "callback.h"
 
 // Protocol description:
 //

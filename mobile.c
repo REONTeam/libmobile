@@ -7,7 +7,6 @@
 
 #include "mobile_data.h"
 #include "compat.h"
-#include "callback.h"
 
 #ifdef MOBILE_LIBCONF_USE
 #include <mobile_config.h>

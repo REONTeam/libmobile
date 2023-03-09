@@ -6,7 +6,6 @@
 #include "mobile_data.h"
 #include "util.h"
 #include "compat.h"
-#include "callback.h"
 
 // Implemented RFCs:
 // RFC1035 - DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
