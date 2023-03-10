@@ -11,7 +11,7 @@
 
 struct mobile_packet {
     enum mobile_command command;
-    unsigned length;
+    unsigned char length;
     unsigned char data[MOBILE_MAX_DATA_SIZE];
 };
 

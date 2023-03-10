@@ -50,7 +50,7 @@ struct mobile_adapter_relay {
     enum mobile_relay_state state;
     unsigned char processing;
 
-    unsigned buffer_len;
+    unsigned char buffer_len;
     unsigned char buffer[MOBILE_RELAY_PACKET_SIZE];
 };
 

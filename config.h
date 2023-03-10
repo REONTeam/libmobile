@@ -16,6 +16,9 @@ struct mobile_adapter_config {
     // Whether the config has been updated recently
     bool dirty: 1;
 
+    // Whether relay_token has been set
+    bool relay_token_init: 1;
+
     // What device to emulate
     _Atomic volatile unsigned char device;  // Read by serial thread
 
@@ -32,7 +35,6 @@ struct mobile_adapter_config {
     struct mobile_addr relay;
 
     // Authentication token used for relay connections
-    bool relay_token_init;
     unsigned char relay_token[MOBILE_RELAY_TOKEN_SIZE];
 };
 

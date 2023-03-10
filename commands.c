@@ -222,7 +222,7 @@ static struct mobile_packet *command_tel_begin(struct mobile_adapter *adapter, s
 
     // Filter acceptable characters out of the string
     unsigned char *w = packet->data + 1;
-    for (unsigned i = 0; i < packet->length - 1 && i < 0x20; i++) {
+    for (int i = 0; i < packet->length - 1 && i < 0x20; i++) {
         unsigned char c = packet->data[i + 1];
         if (('0' <= c && c <= '9') || c == '#' || c == '*') *w++ = c;
     }
@@ -233,7 +233,7 @@ static struct mobile_packet *command_tel_begin(struct mobile_adapter *adapter, s
     for (const char *const *ptr = isp_numbers; pgm_read_ptr(ptr); ptr++) {
         const char *number = pgm_read_ptr(ptr);
 
-        if (packet->length - 1 != strlen_P(number)) continue;
+        if ((unsigned)packet->length - 1 != strlen_P(number)) continue;
         if (memcmp_P(packet->data + 1, number, packet->length - 1) == 0) {
             // Report this number to the implementation
             if (packet->length - 1 <= MOBILE_MAX_NUMBER_SIZE) {
@@ -605,7 +605,9 @@ static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct
         // Pokémon Crystal expects communications to be "synchronized".
         // For this, we only try to receive packets when we've sent one.
         // TODO: Check other games with peer to peer functionality.
-        if (!internet) s->call_packets_sent++;
+        if (!internet) {
+            if (s->call_packets_sent < 0xFF) s->call_packets_sent++;
+        }
     }
 
     int recv_size;
@@ -619,7 +621,7 @@ static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct
     }
 
     if (!internet && recv_size > 0) {
-        if (s->call_packets_sent) s->call_packets_sent--;
+        if (s->call_packets_sent > 0) s->call_packets_sent--;
     }
 
     // If connected to the internet, and a disconnect is received, we should

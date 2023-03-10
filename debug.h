@@ -10,7 +10,7 @@ struct mobile_addr;
 #define MOBILE_DEBUG_BUFFER_SIZE 80
 
 struct mobile_adapter_debug {
-    unsigned current;
+    unsigned char current;
     char buffer[MOBILE_DEBUG_BUFFER_SIZE];
 };
 

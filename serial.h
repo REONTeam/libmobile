@@ -43,9 +43,9 @@ struct mobile_adapter_serial {
     _Atomic volatile bool active;
     enum mobile_serial_error error;
 
-    bool mode_32bit;
+    bool mode_32bit : 1;
+    bool device_unmetered : 1;
     enum mobile_adapter_device device;
-    bool device_unmetered;
 
     uint16_t checksum;
     unsigned current;

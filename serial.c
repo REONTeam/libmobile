@@ -15,7 +15,9 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 {
     struct mobile_adapter_serial *s = &adapter->serial;
 
-    enum mobile_serial_state state = s->state;  // Workaround for atomic load in clang...
+    // Workaround for atomic load in clang...
+    enum mobile_serial_state state = s->state;
+
     switch (state) {
     case MOBILE_SERIAL_WAITING:
         // Wait for the bytes that indicate a packet will be sent.
@@ -52,8 +54,8 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             }
 
             if (!adapter->commands.session_started) {
-                // If we haven't begun a session, this is as good as any place to
-                //   stop parsing, as we shouldn't react to this.
+                // If we haven't begun a session, this is as good as any place
+                //   to stop parsing, as we shouldn't react to this.
                 // TODO: Re-verify this behavior on hardware.
                 if (s->buffer[0] != MOBILE_COMMAND_START) {
                     s->current = 0;
