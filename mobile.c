@@ -223,7 +223,7 @@ void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action a
             adapter->commands.session_started) {
         mobile_cb_serial_disable(adapter);
 
-        mobile_debug_print(adapter, PSTR("<<< 11 End session (timeout)"));
+        mobile_debug_print(adapter, PSTR("!!! 11 End session (timeout)"));
         mobile_debug_endl(adapter);
         mobile_debug_endl(adapter);
 
@@ -322,6 +322,13 @@ void mobile_stop(struct mobile_adapter *adapter)
     adapter->global.start = false;
 
     mobile_cb_serial_disable(adapter);
+
+    if (adapter->commands.session_started) {
+        mobile_debug_print(adapter, PSTR("!!! 11 End session (forced)"));
+        mobile_debug_endl(adapter);
+        mobile_debug_endl(adapter);
+    }
+
     mobile_reset(adapter);
     mobile_config_save(adapter);
 }
