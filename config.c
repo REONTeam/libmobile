@@ -55,6 +55,18 @@ static bool config_internal_verify(struct mobile_adapter *adapter)
     return sum == config_sum;
 }
 
+static bool config_check_addrtype(enum mobile_addrtype val)
+{
+    switch (val) {
+    case MOBILE_ADDRTYPE_NONE:
+    case MOBILE_ADDRTYPE_IPV4:
+    case MOBILE_ADDRTYPE_IPV6:
+        return true;
+    // No default case so the compiler raises a warning with unhandled values
+    }
+    return false;
+}
+
 static void config_library_load_host(struct mobile_addr *addr, const void *host, const unsigned char *port)
 {
     if (addr->type == MOBILE_ADDRTYPE_IPV4) {
@@ -96,6 +108,10 @@ static bool config_library_load(struct mobile_adapter *adapter)
     config->p2p_port |= buffer[0x09] << 8;
     config->relay.type = buffer[0x0a];
     config->relay_token_init = buffer[0x0b];
+
+    if (!config_check_addrtype(config->dns1.type)) return false;
+    if (!config_check_addrtype(config->dns2.type)) return false;
+    if (!config_check_addrtype(config->relay.type)) return false;
 
     config_library_load_host(&config->dns1, buffer + 0x20, buffer + 0x1a);
     config_library_load_host(&config->dns2, buffer + 0x30, buffer + 0x1c);
