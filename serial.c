@@ -35,49 +35,60 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             s->error = 0;
 
             b->current = 0;
-            s->state = MOBILE_SERIAL_DATA;
+            s->state = MOBILE_SERIAL_HEADER;
         } else {
             b->current = 0;
         }
         break;
 
-    case MOBILE_SERIAL_DATA:
-        // Receive the header and data. Calculate the checksum while at it.
-        b->buffer[b->current++] = c;
+    case MOBILE_SERIAL_HEADER:
+        // Receive the header.
+        b->header[b->current++] = c;
         b->checksum += c;
-        if (b->current == 4) {
-            // Done receiving the header, read content size.
-            b->data_size = b->buffer[3];
-            if (s->mode_32bit && b->data_size % 4 != 0) {
-                b->data_size += 4 - (b->data_size % 4);
-            }
 
-            // Data size is a u16be, but it may not be bigger than 0xff...
-            if (b->buffer[2] != 0) {
+        if (b->current < 4) break;
+
+        // Done receiving the header, read content size.
+        b->data_size = b->header[3];
+        if (s->mode_32bit && b->data_size % 4 != 0) {
+            b->data_size += 4 - (b->data_size % 4);
+        }
+
+        // Data size is a u16be, but it may not be bigger than 0xff...
+        if (b->header[2] != 0) {
+            b->current = 0;
+            s->state = MOBILE_SERIAL_WAITING;
+        }
+
+        if (!adapter->commands.session_started) {
+            // If we haven't begun a session, this is as good as any place
+            //   to stop parsing, as we shouldn't react to this.
+            // TODO: Re-verify this behavior on hardware.
+            if (b->header[0] != MOBILE_COMMAND_START) {
                 b->current = 0;
                 s->state = MOBILE_SERIAL_WAITING;
             }
 
-            if (!adapter->commands.session_started) {
-                // If we haven't begun a session, this is as good as any place
-                //   to stop parsing, as we shouldn't react to this.
-                // TODO: Re-verify this behavior on hardware.
-                if (b->buffer[0] != MOBILE_COMMAND_START) {
-                    b->current = 0;
-                    s->state = MOBILE_SERIAL_WAITING;
-                }
+            // Update device type
+            unsigned char d = adapter->config.device;
+            s->device = d & ~MOBILE_CONFIG_DEVICE_UNMETERED;
+            s->device_unmetered = d & MOBILE_CONFIG_DEVICE_UNMETERED;
+        }
 
-                // Update device type
-                unsigned char d = adapter->config.device;
-                s->device = d & ~MOBILE_CONFIG_DEVICE_UNMETERED;
-                s->device_unmetered = d & MOBILE_CONFIG_DEVICE_UNMETERED;
-            }
+        // If the command doesn't exist, set the error...
+        if (!mobile_commands_exists(b->header[0])) {
+            s->error = MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND;
+        }
 
-            // If the command doesn't exist, set the error...
-            if (!mobile_commands_exists(b->buffer[0])) {
-                s->error = MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND;
-            }
-        } else if (b->current >= b->data_size + 4) {
+        b->current = 0;
+        s->state = MOBILE_SERIAL_DATA;
+        break;
+
+    case MOBILE_SERIAL_DATA:
+        // Receive the header and data.
+        b->buffer[b->current++] = c;
+        b->checksum += c;
+        if (b->current >= b->data_size) {
             s->state = MOBILE_SERIAL_CHECKSUM;
         }
         break;
@@ -85,7 +96,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
     case MOBILE_SERIAL_CHECKSUM:
         // Receive the checksum, verify it when done.
         b->buffer[b->current++] = c;
-        if (b->current >= b->data_size + 6) {
+        if (b->current >= b->data_size + 2) {
             uint16_t in_checksum = b->buffer[b->current - 2] << 8 |
                                    b->buffer[b->current - 1];
             if (b->checksum != in_checksum) {
@@ -128,7 +139,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             s->state = MOBILE_SERIAL_IDLE_CHECK;
         }
         if (s->error) return s->error;
-        return b->buffer[0] ^ 0x80;
+        return b->header[0] ^ 0x80;
 
     case MOBILE_SERIAL_IDLE_CHECK:
         // Delay one byte
@@ -169,21 +180,29 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         if (b->current++ == 0) {
             return 0x99;
         } else {
-            b->data_size = b->buffer[3];
+            b->data_size = b->header[3];
             if (s->mode_32bit && b->data_size % 4 != 0) {
                 b->data_size += 4 - (b->data_size % 4);
             }
 
             b->current = 0;
-            s->state = MOBILE_SERIAL_RESPONSE_DATA;
+            s->state = MOBILE_SERIAL_RESPONSE_HEADER;
             return 0x66;
         }
+
+    case MOBILE_SERIAL_RESPONSE_HEADER:
+        c = b->header[b->current++];
+        if (b->current >= 4) {
+            b->current = 0;
+            s->state = MOBILE_SERIAL_RESPONSE_DATA;
+        }
+        return c;
 
     case MOBILE_SERIAL_RESPONSE_DATA:
         // Send all that's in the response buffer.
         // This includes the header, content and the checksum.
         c = b->buffer[b->current++];
-        if (b->current >= b->data_size + 6) {
+        if (b->current >= b->data_size + 2) {
             b->current = 0;
             s->state = MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE;
         }
