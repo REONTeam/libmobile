@@ -184,6 +184,7 @@ enum process_tel {
 static struct mobile_packet *command_tel_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     if (s->state != MOBILE_CONNECTION_DISCONNECTED &&
             s->state != MOBILE_CONNECTION_WAIT &&
@@ -250,23 +251,23 @@ static struct mobile_packet *command_tel_begin(struct mobile_adapter *adapter, s
 
     // If the relay is enabled, start the connection
     if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
-        mobile_addr_copy(&s->processing_addr, &adapter->config.relay);
+        mobile_addr_copy(&b->processing_addr, &adapter->config.relay);
         mobile_relay_init(adapter);
 
         if (!mobile_cb_sock_open(adapter, p2p_conn, MOBILE_SOCKTYPE_TCP,
-                s->processing_addr.type, 0)) {
+                b->processing_addr.type, 0)) {
             return error_packet(packet, 3);
         }
         s->connections[p2p_conn] = true;
 
-        s->processing = PROCESS_TEL_RELAY;
+        b->processing = PROCESS_TEL_RELAY;
         return NULL;
     }
 
     // Interpret the number as an IP and connect to someone
     if (packet->length == 1 + 3 * 4) {
         // Convert the numerical phone "ip address" into a real ipv4 address
-        struct mobile_addr4 *addr = (struct mobile_addr4 *)&s->processing_addr;
+        struct mobile_addr4 *addr = (struct mobile_addr4 *)&b->processing_addr;
         if (!mobile_parse_phoneaddr(addr->host, (char *)packet->data + 1)) {
             return error_packet(packet, 3);
         }
@@ -274,12 +275,12 @@ static struct mobile_packet *command_tel_begin(struct mobile_adapter *adapter, s
         addr->port = adapter->config.p2p_port;
 
         if (!mobile_cb_sock_open(adapter, p2p_conn, MOBILE_SOCKTYPE_TCP,
-                s->processing_addr.type, 0)) {
+                b->processing_addr.type, 0)) {
             return error_packet(packet, 3);
         }
         s->connections[p2p_conn] = true;
 
-        s->processing = PROCESS_TEL_IP;
+        b->processing = PROCESS_TEL_IP;
         return NULL;
     }
 
@@ -289,9 +290,10 @@ static struct mobile_packet *command_tel_begin(struct mobile_adapter *adapter, s
 static struct mobile_packet *command_tel_ip(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     // Check if we're connected until it either errors or succeeds
-    int rc = mobile_cb_sock_connect(adapter, p2p_conn, &s->processing_addr);
+    int rc = mobile_cb_sock_connect(adapter, p2p_conn, &b->processing_addr);
     if (rc == 0) return NULL;
     if (rc < 0) {
         mobile_cb_sock_close(adapter, p2p_conn);
@@ -316,8 +318,9 @@ static struct mobile_packet *command_tel_ip(struct mobile_adapter *adapter, stru
 static struct mobile_packet *command_tel_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
-    int rc = mobile_relay_proc_call(adapter, p2p_conn, &s->processing_addr,
+    int rc = mobile_relay_proc_call(adapter, p2p_conn, &b->processing_addr,
         (char *)packet->data + 1, packet->length - 1);
     if (rc == 0) return NULL;
     if (rc < 0) {
@@ -357,8 +360,9 @@ static struct mobile_packet *command_tel_relay(struct mobile_adapter *adapter, s
 static struct mobile_packet *command_tel(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
-    switch (s->processing) {
+    switch (b->processing) {
     case PROCESS_TEL_BEGIN:
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
         return command_tel_begin(adapter, packet);
@@ -401,17 +405,18 @@ enum process_wait_call {
 static struct mobile_packet *command_wait_call_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     // Time out if anything fails
     s->state = MOBILE_CONNECTION_WAIT_TIMEOUT;
 
     if (adapter->config.relay.type != MOBILE_ADDRTYPE_NONE) {
-        mobile_addr_copy(&s->processing_addr, &adapter->config.relay);
+        mobile_addr_copy(&b->processing_addr, &adapter->config.relay);
         mobile_relay_init(adapter);
 
         // Open the relay connection
         if (!mobile_cb_sock_open(adapter, p2p_conn, MOBILE_SOCKTYPE_TCP,
-                s->processing_addr.type, 0)) {
+                b->processing_addr.type, 0)) {
             return error_packet(packet, 0);
         }
         s->connections[p2p_conn] = true;
@@ -452,9 +457,10 @@ static struct mobile_packet *command_wait_call_ip(struct mobile_adapter *adapter
 static struct mobile_packet *command_wait_call_relay(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     // Connect to the server and wait for a call
-    int rc = mobile_relay_proc_wait(adapter, p2p_conn, &s->processing_addr);
+    int rc = mobile_relay_proc_wait(adapter, p2p_conn, &b->processing_addr);
     if (rc == 0) return NULL;
     if (rc < 0) {
         mobile_cb_sock_close(adapter, p2p_conn);
@@ -491,6 +497,7 @@ static struct mobile_packet *command_wait_call_relay(struct mobile_adapter *adap
 static struct mobile_packet *command_wait_call(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     if (s->state != MOBILE_CONNECTION_DISCONNECTED &&
             s->state != MOBILE_CONNECTION_WAIT &&
@@ -499,7 +506,7 @@ static struct mobile_packet *command_wait_call(struct mobile_adapter *adapter, s
         return error_packet(packet, 1);
     }
 
-    if (s->processing == PROCESS_WAIT_CALL_INIT) {
+    if (b->processing == PROCESS_WAIT_CALL_INIT) {
         // If a previous timeout is in effect, wait it out
         if (s->state == MOBILE_CONNECTION_WAIT_TIMEOUT) {
             if (!mobile_cb_time_check_ms(adapter,
@@ -510,7 +517,7 @@ static struct mobile_packet *command_wait_call(struct mobile_adapter *adapter, s
         }
 
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
-        s->processing = PROCESS_WAIT_CALL_INIT_DONE;
+        b->processing = PROCESS_WAIT_CALL_INIT_DONE;
     }
 
     // The s->state variable is preserved across multiple commands,
@@ -557,6 +564,7 @@ enum procdata_data {
 static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     if (s->state != MOBILE_CONNECTION_CALL &&
             s->state != MOBILE_CONNECTION_CALL_RECV &&
@@ -575,13 +583,13 @@ static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct
         return error_packet(packet, 0);
     }
 
-    if (s->processing == PROCESS_DATA_INIT) {
-        s->processing_data[PROCDATA_DATA_SENT_SIZE] = 0;
+    if (b->processing == PROCESS_DATA_INIT) {
+        b->processing_data[PROCDATA_DATA_SENT_SIZE] = 0;
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
-        s->processing = PROCESS_DATA_INIT_DONE;
+        b->processing = PROCESS_DATA_INIT_DONE;
     }
 
-    unsigned sent_size = s->processing_data[PROCDATA_DATA_SENT_SIZE];
+    unsigned sent_size = b->processing_data[PROCDATA_DATA_SENT_SIZE];
     unsigned char *data = packet->data + 1;
     unsigned send_size = packet->length - 1;
 
@@ -590,7 +598,7 @@ static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct
             send_size - sent_size, NULL);
         if (rc < 0) return error_packet(packet, 0);
         sent_size += rc;
-        s->processing_data[PROCDATA_DATA_SENT_SIZE] = sent_size;
+        b->processing_data[PROCDATA_DATA_SENT_SIZE] = sent_size;
 
         // Attempt to send again while not everything has been sent
         if (send_size > sent_size) {
@@ -865,6 +873,7 @@ enum procdata_tcp_connect {
 static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     if (s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
@@ -882,16 +891,17 @@ static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *ad
     }
     s->connections[conn] = true;
 
-    s->processing_data[PROCDATA_TCP_CONNECT_CONN] = conn;
-    s->processing = PROCESS_TCP_CONNECT_CONNECTING;
+    b->processing_data[PROCDATA_TCP_CONNECT_CONN] = conn;
+    b->processing = PROCESS_TCP_CONNECT_CONNECTING;
     return NULL;
 }
 
 static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
-    unsigned char conn = s->processing_data[PROCDATA_TCP_CONNECT_CONN];
+    unsigned char conn = b->processing_data[PROCDATA_TCP_CONNECT_CONN];
 
     struct mobile_addr4 addr = {
         .type = MOBILE_ADDRTYPE_IPV4,
@@ -920,8 +930,9 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
 static struct mobile_packet *command_tcp_connect(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
-    switch (s->processing) {
+    switch (b->processing) {
     case PROCESS_TCP_CONNECT_BEGIN:
         mobile_cb_time_latch(adapter, MOBILE_TIMER_COMMAND);
         return command_tcp_connect_begin(adapter, packet);
@@ -930,7 +941,7 @@ static struct mobile_packet *command_tcp_connect(struct mobile_adapter *adapter,
         // TODO: Verify this timeout with a game
         if (mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 60000)) {
             unsigned char conn =
-                s->processing_data[PROCDATA_TCP_CONNECT_CONN];
+                b->processing_data[PROCDATA_TCP_CONNECT_CONN];
             mobile_cb_sock_close(adapter, conn);
             s->connections[conn] = false;
             return error_packet(packet, 3);
@@ -1022,6 +1033,7 @@ static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned
 static int dns_request_start(struct mobile_adapter *adapter, struct mobile_packet *packet, unsigned conn, unsigned addr_id)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     // Check any of the DNS addresses to see if they can be used
     // Fall through from DNS1 into DNS2 if DNS1 can't be used
@@ -1031,14 +1043,14 @@ static int dns_request_start(struct mobile_adapter *adapter, struct mobile_packe
         if (addr_send->type != MOBILE_ADDRTYPE_NONE) break;
     }
     if (addr_id >= 4) return -1;
-    mobile_addr_copy(&s->processing_addr, addr_send);
+    mobile_addr_copy(&b->processing_addr, addr_send);
 
     // Open connection and send query
     if (!mobile_cb_sock_open(adapter, conn, MOBILE_SOCKTYPE_UDP,
-            s->processing_addr.type, 0)) {
+            b->processing_addr.type, 0)) {
         return -1;
     }
-    if (!mobile_dns_request_send(adapter, conn, &s->processing_addr,
+    if (!mobile_dns_request_send(adapter, conn, &b->processing_addr,
             (char *)packet->data, packet->length)) {
         mobile_cb_sock_close(adapter, conn);
         return -1;
@@ -1054,6 +1066,7 @@ static int dns_request_start(struct mobile_adapter *adapter, struct mobile_packe
 static struct mobile_packet *command_dns_request_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
     if (s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
@@ -1081,21 +1094,22 @@ static struct mobile_packet *command_dns_request_begin(struct mobile_adapter *ad
     int addr_id = dns_request_start(adapter, packet, conn, 0);
     if (addr_id < 0) return error_packet(packet, 2);
 
-    s->processing_data[PROCDATA_DNS_REQUEST_CONN] = conn;
-    s->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID] = addr_id;
-    s->processing = PROCESS_DNS_REQUEST_CHECK;
+    b->processing_data[PROCDATA_DNS_REQUEST_CONN] = conn;
+    b->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID] = addr_id;
+    b->processing = PROCESS_DNS_REQUEST_CHECK;
     return NULL;
 }
 
 static struct mobile_packet *command_dns_request_check(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
-    unsigned char conn = s->processing_data[PROCDATA_DNS_REQUEST_CONN];
-    int addr_id = s->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID];
+    unsigned char conn = b->processing_data[PROCDATA_DNS_REQUEST_CONN];
+    int addr_id = b->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID];
 
     unsigned char ip[MOBILE_HOSTLEN_IPV4] = {255, 255, 255, 255};
-    int rc = mobile_dns_request_recv(adapter, conn, &s->processing_addr,
+    int rc = mobile_dns_request_recv(adapter, conn, &b->processing_addr,
         (char *)packet->data, packet->length, ip);
     if (rc == 0 &&
             !mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND, 3000)) {
@@ -1110,7 +1124,7 @@ static struct mobile_packet *command_dns_request_check(struct mobile_adapter *ad
         if (addr_id < 2) {
             addr_id = dns_request_start(adapter, packet, conn, 2);
             if (addr_id < 0) return error_packet(packet, 2);
-            s->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID] = addr_id;
+            b->processing_data[PROCDATA_DNS_REQUEST_ADDR_ID] = addr_id;
             return NULL;
         }
 
@@ -1131,9 +1145,9 @@ static struct mobile_packet *command_dns_request_check(struct mobile_adapter *ad
 // 2 - Invalid contents/lookup failed
 static struct mobile_packet *command_dns_request(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    struct mobile_adapter_commands *s = &adapter->commands;
+    struct mobile_buffer_commands *b = &adapter->buffer.commands;
 
-    switch (s->processing) {
+    switch (b->processing) {
     case PROCESS_DNS_REQUEST_BEGIN:
         return command_dns_request_begin(adapter, packet);
 

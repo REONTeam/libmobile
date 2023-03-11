@@ -82,7 +82,7 @@ static bool command_handle(struct mobile_adapter *adapter)
     if (!s->packet_parsed) {
         packet_parse(&s->packet, adapter->buffer.serial.buffer);
         mobile_debug_command(adapter, &s->packet, false);
-        adapter->commands.processing = 0;
+        adapter->buffer.commands.processing = 0;
         s->packet_parsed = true;
     }
 

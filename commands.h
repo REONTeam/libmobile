@@ -42,14 +42,16 @@ enum mobile_connection_state {
     MOBILE_CONNECTION_INTERNET,
 };
 
-struct mobile_adapter_commands {
-    _Atomic volatile bool session_started;
-    _Atomic volatile bool mode_32bit;
-
+struct mobile_buffer_commands {
     // Asynchronous state for command processing
     unsigned char processing;  // Set to 0 every time a command is parsed
     unsigned char processing_data[4];
     struct mobile_addr processing_addr;
+};
+
+struct mobile_adapter_commands {
+    _Atomic volatile bool session_started;
+    _Atomic volatile bool mode_32bit;
 
     enum mobile_connection_state state;
     bool connections[MOBILE_MAX_CONNECTIONS];
