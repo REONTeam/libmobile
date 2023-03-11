@@ -80,7 +80,7 @@ static bool command_handle(struct mobile_adapter *adapter)
 
     // If the packet hasn't been parsed yet, parse and store it
     if (!s->packet_parsed) {
-        packet_parse(&s->packet, adapter->serial.buffer);
+        packet_parse(&s->packet, adapter->buffer.serial.buffer);
         mobile_debug_command(adapter, &s->packet, false);
         adapter->commands.processing = 0;
         s->packet_parsed = true;
@@ -91,7 +91,7 @@ static bool command_handle(struct mobile_adapter *adapter)
     // If there's a packet to be sent, write it out and return true
     if (send) {
         mobile_debug_command(adapter, send, true);
-        packet_create(adapter->serial.buffer, send,
+        packet_create(adapter->buffer.serial.buffer, send,
             adapter->serial.mode_32bit);
         s->packet_parsed = false;
         return true;
@@ -253,7 +253,7 @@ void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action a
         if (adapter->serial.state != MOBILE_SERIAL_RESPONSE_WAITING) return;
 
         if (command_handle(adapter)) {
-            adapter->serial.state = MOBILE_SERIAL_RESPONSE_START;
+            adapter->serial.state = MOBILE_SERIAL_RESPONSE_INIT;
         }
         return;
     }

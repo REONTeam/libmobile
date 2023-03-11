@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-3.0-or-later
+set -e
 
 # This program outputs the size of "struct mobile_adapter" for the given HOST
 

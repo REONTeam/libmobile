@@ -10,11 +10,13 @@
 #define MOBILE_MAX_DATA_SIZE 0xFF
 
 enum mobile_serial_state {
+    MOBILE_SERIAL_INIT,
     MOBILE_SERIAL_WAITING,
     MOBILE_SERIAL_DATA,
     MOBILE_SERIAL_CHECKSUM,
     MOBILE_SERIAL_ACKNOWLEDGE,
     MOBILE_SERIAL_IDLE_CHECK,
+    MOBILE_SERIAL_RESPONSE_INIT,
     MOBILE_SERIAL_RESPONSE_WAITING,
     MOBILE_SERIAL_RESPONSE_START,
     MOBILE_SERIAL_RESPONSE_DATA,
@@ -38,6 +40,13 @@ enum mobile_serial_error {
     MOBILE_SERIAL_ERROR_INTERNAL
 };
 
+struct mobile_buffer_serial {
+    uint16_t checksum;
+    unsigned current;
+    unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2 + 3];  // header, content, checksum + alignment to 4 bytes
+    unsigned data_size;
+};
+
 struct mobile_adapter_serial {
     _Atomic volatile enum mobile_serial_state state;
     _Atomic volatile bool active;
@@ -46,11 +55,6 @@ struct mobile_adapter_serial {
     bool mode_32bit : 1;
     bool device_unmetered : 1;
     enum mobile_adapter_device device;
-
-    uint16_t checksum;
-    unsigned current;
-    unsigned char buffer[4 + MOBILE_MAX_DATA_SIZE + 2 + 3];  // header, content, checksum + alignment to 4 bytes
-    unsigned data_size;
 };
 
 void mobile_serial_init(struct mobile_adapter *adapter);

@@ -6,8 +6,6 @@
 #include "mobile.h"
 #include "atomic.h"
 
-// TODO: Share packet->data with serial.c to save memory?
-
 enum mobile_command {
     MOBILE_COMMAND_NULL = 0xF,
     MOBILE_COMMAND_START,
@@ -54,7 +52,6 @@ struct mobile_adapter_commands {
     struct mobile_addr processing_addr;
 
     enum mobile_connection_state state;
-
     bool connections[MOBILE_MAX_CONNECTIONS];
     bool dns2_use;
     unsigned char call_packets_sent;
