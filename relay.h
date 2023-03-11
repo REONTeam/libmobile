@@ -4,8 +4,6 @@
 struct mobile_adapter;
 struct mobile_addr;
 
-// TODO: Share buffer with dns.c to save memory?
-
 #define MOBILE_RELAY_PACKET_SIZE 0x20
 
 enum mobile_relay_command {
@@ -46,12 +44,14 @@ enum mobile_relay_wait_result {
     MOBILE_RELAY_MAX_WAIT_RESULT
 };
 
+struct mobile_buffer_relay {
+    unsigned char size;
+    unsigned char data[MOBILE_RELAY_PACKET_SIZE];
+};
+
 struct mobile_adapter_relay {
     enum mobile_relay_state state;
     unsigned char processing;
-
-    unsigned char buffer_len;
-    unsigned char buffer[MOBILE_RELAY_PACKET_SIZE];
 };
 
 void mobile_relay_init(struct mobile_adapter *adapter);

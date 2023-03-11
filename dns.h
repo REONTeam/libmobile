@@ -8,11 +8,15 @@ struct mobile_addr;
 
 #define MOBILE_DNS_PACKET_SIZE 512
 
-struct mobile_adapter_dns {
+struct mobile_buffer_dns {
     unsigned id;
     unsigned type;
-    unsigned buffer_len;
-    unsigned char buffer[MOBILE_DNS_PACKET_SIZE];
+    unsigned size;
+    unsigned char data[MOBILE_DNS_PACKET_SIZE];
+};
+
+struct mobile_adapter_dns {
+    unsigned id;
 };
 
 void mobile_dns_init(struct mobile_adapter *adapter);

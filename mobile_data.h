@@ -28,4 +28,10 @@ struct mobile_adapter {
     struct mobile_adapter_commands commands;
     struct mobile_adapter_dns dns;
     struct mobile_adapter_relay relay;
+
+    // Buffer shared across subsystems
+    union {
+        struct mobile_buffer_dns dns;
+        struct mobile_buffer_relay relay;
+    } buffer;
 };

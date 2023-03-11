@@ -52,7 +52,7 @@ static void debug_prefix(struct mobile_adapter *adapter)
 }
 
 static void relay_recv_reset(struct mobile_adapter *adapter) {
-    adapter->relay.buffer_len = 0;
+    adapter->buffer.relay.size = 0;
 }
 
 // Makes sure at least size bytes have been received, tries to read more if not.
@@ -60,16 +60,16 @@ static void relay_recv_reset(struct mobile_adapter *adapter) {
 //   been received, and -1 if an error occurred.
 static int relay_recv(struct mobile_adapter *adapter, unsigned conn, unsigned size)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     if (size > MOBILE_RELAY_PACKET_SIZE) return -1;
-    if (s->buffer_len >= size) return (int)size;
+    if (b->size >= size) return (int)size;
 
-    int recv = mobile_cb_sock_recv(adapter, conn, s->buffer + s->buffer_len,
-        size - s->buffer_len, NULL);
+    int recv = mobile_cb_sock_recv(adapter, conn, b->data + b->size,
+        size - b->size, NULL);
     if (recv < 0) return -1;
-    s->buffer_len += recv;
-    if (s->buffer_len < size) return 0;
+    b->size += recv;
+    if (b->size < size) return 0;
 
     return (int)size;
 }
@@ -94,25 +94,25 @@ static void relay_handshake_send_debug(struct mobile_adapter *adapter)
 
 static bool relay_handshake_send(struct mobile_adapter *adapter, unsigned char conn)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
-    unsigned buffer_len = sizeof(handshake_magic) + 1;
-    memcpy_P(s->buffer, handshake_magic, sizeof(handshake_magic));
+    unsigned size = sizeof(handshake_magic) + 1;
+    memcpy_P(b->data, handshake_magic, sizeof(handshake_magic));
 
-    unsigned char *auth = s->buffer + sizeof(handshake_magic);
+    unsigned char *auth = b->data + sizeof(handshake_magic);
     auth[0] = mobile_config_get_relay_token(adapter, auth + 1);
-    if (auth[0]) buffer_len += MOBILE_RELAY_TOKEN_SIZE;
+    if (auth[0]) size += MOBILE_RELAY_TOKEN_SIZE;
 
-    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, b->data, size, NULL);
 }
 
 static void relay_handshake_recv_debug(struct mobile_adapter *adapter)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     debug_prefix(adapter);
     mobile_debug_print(adapter, PSTR("Logged in"));
-    unsigned char *auth = s->buffer + sizeof(handshake_magic);
+    unsigned char *auth = b->data + sizeof(handshake_magic);
     if (auth[0] == 1) {
 #ifdef NDEBUG
         mobile_debug_print(adapter, PSTR(" (new token)"));
@@ -127,17 +127,17 @@ static void relay_handshake_recv_debug(struct mobile_adapter *adapter)
 
 static int relay_handshake_recv(struct mobile_adapter *adapter, unsigned char conn)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     unsigned recv_size = sizeof(handshake_magic) + 1;
     int recv = relay_recv(adapter, conn, recv_size);
     if (recv <= 0) return recv;
 
-    if (memcmp_P(s->buffer, handshake_magic, sizeof(handshake_magic)) != 0) {
+    if (memcmp_P(b->data, handshake_magic, sizeof(handshake_magic)) != 0) {
         return -1;
     }
 
-    unsigned char *auth = s->buffer + sizeof(handshake_magic);
+    unsigned char *auth = b->data + sizeof(handshake_magic);
     if (auth[0] == 0) {
         return 1;
     } else if (auth[0] == 1) {
@@ -162,24 +162,24 @@ static void relay_call_send_debug(struct mobile_adapter *adapter, const char *nu
 
 static bool relay_call_send(struct mobile_adapter *adapter, unsigned char conn, const char *number, unsigned number_len)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     if (number_len > MOBILE_RELAY_MAX_NUMBER_SIZE) return false;
-    unsigned buffer_len = 3 + number_len;
-    s->buffer[0] = PROTOCOL_VERSION;
-    s->buffer[1] = MOBILE_RELAY_COMMAND_CALL;
-    s->buffer[2] = number_len;
-    memcpy(s->buffer + 3, number, number_len);
+    unsigned size = 3 + number_len;
+    b->data[0] = PROTOCOL_VERSION;
+    b->data[1] = MOBILE_RELAY_COMMAND_CALL;
+    b->data[2] = number_len;
+    memcpy(b->data + 3, number, number_len);
 
-    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, b->data, size, NULL);
 }
 
 static void relay_call_recv_debug(struct mobile_adapter *adapter)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     debug_prefix(adapter);
-    switch (s->buffer[2] + 1) {
+    switch (b->data[2] + 1) {
     case MOBILE_RELAY_CALL_RESULT_ACCEPTED:
         mobile_debug_print(adapter, PSTR("ACCEPTED"));
         break;
@@ -198,14 +198,14 @@ static void relay_call_recv_debug(struct mobile_adapter *adapter)
 
 static int relay_call_recv(struct mobile_adapter *adapter, unsigned char conn)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     int recv = relay_recv(adapter, conn, 3);
     if (recv <= 0) return recv;
 
-    if (s->buffer[0] != PROTOCOL_VERSION) return -1;
-    if (s->buffer[1] != MOBILE_RELAY_COMMAND_CALL) return -1;
-    int result = s->buffer[2] + 1;
+    if (b->data[0] != PROTOCOL_VERSION) return -1;
+    if (b->data[1] != MOBILE_RELAY_COMMAND_CALL) return -1;
+    int result = b->data[2] + 1;
     if (result >= MOBILE_RELAY_MAX_CALL_RESULT) return -1;
 
     return result;
@@ -220,24 +220,24 @@ static void relay_wait_send_debug(struct mobile_adapter *adapter)
 
 static bool relay_wait_send(struct mobile_adapter *adapter, unsigned char conn)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
-    unsigned buffer_len = 2;
-    s->buffer[0] = PROTOCOL_VERSION;
-    s->buffer[1] = MOBILE_RELAY_COMMAND_WAIT;
+    unsigned size = 2;
+    b->data[0] = PROTOCOL_VERSION;
+    b->data[1] = MOBILE_RELAY_COMMAND_WAIT;
 
-    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, b->data, size, NULL);
 }
 
 static void relay_wait_recv_debug(struct mobile_adapter *adapter)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     debug_prefix(adapter);
-    switch (s->buffer[2] + 1) {
+    switch (b->data[2] + 1) {
     case MOBILE_RELAY_WAIT_RESULT_ACCEPTED:
         mobile_debug_print(adapter, PSTR("ACCEPTED "));
-        mobile_debug_write(adapter, (char *)s->buffer + 4, s->buffer[3]);
+        mobile_debug_write(adapter, (char *)b->data + 4, b->data[3]);
         break;
     case MOBILE_RELAY_WAIT_RESULT_INTERNAL:
         mobile_debug_print(adapter, PSTR("Error: INTERNAL"));
@@ -248,18 +248,18 @@ static void relay_wait_recv_debug(struct mobile_adapter *adapter)
 
 static int relay_wait_recv(struct mobile_adapter *adapter, unsigned char conn, char *number, unsigned *number_len)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     unsigned recv_size = 4;
     int recv = relay_recv(adapter, conn, recv_size);
     if (recv <= 0) return recv;
 
-    if (s->buffer[0] != PROTOCOL_VERSION) return -1;
-    if (s->buffer[1] != MOBILE_RELAY_COMMAND_WAIT) return -1;
-    int result = s->buffer[2] + 1;
+    if (b->data[0] != PROTOCOL_VERSION) return -1;
+    if (b->data[1] != MOBILE_RELAY_COMMAND_WAIT) return -1;
+    int result = b->data[2] + 1;
     if (result >= MOBILE_RELAY_MAX_WAIT_RESULT) return -1;
 
-    unsigned _number_len = s->buffer[3];
+    unsigned _number_len = b->data[3];
     if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_SIZE) {
         return -1;
     }
@@ -267,7 +267,7 @@ static int relay_wait_recv(struct mobile_adapter *adapter, unsigned char conn, c
     recv_size += _number_len;
     recv = relay_recv(adapter, conn, recv_size);
     if (recv <= 0) return recv;
-    memcpy(number, s->buffer + 4, _number_len);
+    memcpy(number, b->data + 4, _number_len);
     *number_len = _number_len;
 
     return result;
@@ -282,37 +282,37 @@ static void relay_get_number_send_debug(struct mobile_adapter *adapter)
 
 static bool relay_get_number_send(struct mobile_adapter *adapter, unsigned char conn)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
-    unsigned buffer_len = 2;
-    s->buffer[0] = PROTOCOL_VERSION;
-    s->buffer[1] = MOBILE_RELAY_COMMAND_GET_NUMBER;
+    unsigned size = 2;
+    b->data[0] = PROTOCOL_VERSION;
+    b->data[1] = MOBILE_RELAY_COMMAND_GET_NUMBER;
 
-    return mobile_cb_sock_send(adapter, conn, s->buffer, buffer_len, NULL);
+    return mobile_cb_sock_send(adapter, conn, b->data, size, NULL);
 }
 
 static void relay_get_number_recv_debug(struct mobile_adapter *adapter)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     debug_prefix(adapter);
     mobile_debug_print(adapter, PSTR("Number: "));
-    mobile_debug_write(adapter, (char *)s->buffer + 3, s->buffer[2]);
+    mobile_debug_write(adapter, (char *)b->data + 3, b->data[2]);
     mobile_debug_endl(adapter);
 }
 
 static int relay_get_number_recv(struct mobile_adapter *adapter, unsigned char conn, char *number, unsigned *number_len)
 {
-    struct mobile_adapter_relay *s = &adapter->relay;
+    struct mobile_buffer_relay *b = &adapter->buffer.relay;
 
     unsigned recv_size = 3;
     int recv = relay_recv(adapter, conn, recv_size);
     if (recv <= 0) return recv;
 
-    if (s->buffer[0] != PROTOCOL_VERSION) return -1;
-    if (s->buffer[1] != MOBILE_RELAY_COMMAND_GET_NUMBER) return -1;
+    if (b->data[0] != PROTOCOL_VERSION) return -1;
+    if (b->data[1] != MOBILE_RELAY_COMMAND_GET_NUMBER) return -1;
 
-    unsigned _number_len = s->buffer[2];
+    unsigned _number_len = b->data[2];
     if (_number_len == 0 || _number_len > MOBILE_RELAY_MAX_NUMBER_SIZE) {
         return -1;
     }
@@ -320,7 +320,7 @@ static int relay_get_number_recv(struct mobile_adapter *adapter, unsigned char c
     recv_size += _number_len;
     recv = relay_recv(adapter, conn, recv_size);
     if (recv <= 0) return recv;
-    memcpy(number, s->buffer + 3, _number_len);
+    memcpy(number, b->data + 3, _number_len);
     *number_len = _number_len;
 
     return 1;
