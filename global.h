@@ -7,14 +7,6 @@
 
 #include "commands.h"
 
-#define MOBILE_MAX_DATA_SIZE 0xFF
-
-struct mobile_packet {
-    enum mobile_command command;
-    unsigned char length;
-    unsigned char data[MOBILE_MAX_DATA_SIZE];
-};
-
 struct mobile_adapter_global {
     // Whether the adapter is turned on or not
     bool start: 1;
@@ -31,9 +23,6 @@ struct mobile_adapter_global {
 
     // Remaining retries for initializing the relay number
     unsigned char number_fetch_retries;
-
-    // Packet data to pass between "serial" and "commands"
-    struct mobile_packet packet;
 };
 
 void mobile_number_fetch_cancel(struct mobile_adapter *adapter);

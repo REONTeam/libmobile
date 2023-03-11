@@ -78,15 +78,17 @@ static bool command_handle(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_global *s = &adapter->global;
 
+    struct mobile_packet *packet = &adapter->buffer.commands.packet;
+
     // If the packet hasn't been parsed yet, parse and store it
     if (!s->packet_parsed) {
-        packet_parse(&s->packet, adapter->buffer.serial.buffer);
-        mobile_debug_command(adapter, &s->packet, false);
+        packet_parse(packet, adapter->buffer.serial.buffer);
+        mobile_debug_command(adapter, packet, false);
         adapter->buffer.commands.processing = 0;
         s->packet_parsed = true;
     }
 
-    struct mobile_packet *send = mobile_commands_process(adapter, &s->packet);
+    struct mobile_packet *send = mobile_commands_process(adapter, packet);
 
     // If there's a packet to be sent, write it out and return true
     if (send) {
