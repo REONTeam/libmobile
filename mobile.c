@@ -43,11 +43,11 @@ static void mobile_reset(struct mobile_adapter *adapter)
     adapter->global.packet_parsed = false;
 }
 
-static void packet_parse(struct mobile_packet *packet, const unsigned char *buffer)
+static void packet_parse(struct mobile_packet *packet, unsigned char *buffer)
 {
     packet->command = buffer[0];
     packet->length = buffer[3];
-    memcpy(packet->data, buffer + 4, packet->length);
+    packet->data = buffer + 4;
 }
 
 static void packet_create(unsigned char *buffer, const struct mobile_packet *packet, bool mode_32bit)
@@ -56,7 +56,7 @@ static void packet_create(unsigned char *buffer, const struct mobile_packet *pac
     buffer[1] = 0;
     buffer[2] = 0;
     buffer[3] = packet->length;
-    memcpy(buffer + 4, packet->data, packet->length);
+    memmove(buffer + 4, packet->data, packet->length);
 
     unsigned offset = packet->length + 4;
 

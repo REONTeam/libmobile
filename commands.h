@@ -6,8 +6,6 @@
 #include "mobile.h"
 #include "atomic.h"
 
-#define MOBILE_MAX_DATA_SIZE 0xFF
-
 enum mobile_command {
     MOBILE_COMMAND_NULL = 0xF,
     MOBILE_COMMAND_START,
@@ -47,7 +45,7 @@ enum mobile_connection_state {
 struct mobile_packet {
     enum mobile_command command;
     unsigned char length;
-    unsigned char data[MOBILE_MAX_DATA_SIZE];
+    unsigned char *data;
 };
 
 struct mobile_buffer_commands {
