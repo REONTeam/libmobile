@@ -22,6 +22,7 @@ enum mobile_serial_state {
     MOBILE_SERIAL_RESPONSE_START,
     MOBILE_SERIAL_RESPONSE_HEADER,
     MOBILE_SERIAL_RESPONSE_DATA,
+    MOBILE_SERIAL_RESPONSE_CHECKSUM,
     MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE
 }
 #if __GNUC__ && __AVR__
@@ -47,7 +48,8 @@ struct mobile_buffer_serial {
     unsigned data_size;
     uint16_t checksum;
     unsigned char header[4];
-    unsigned char buffer[MOBILE_MAX_DATA_SIZE + 2 + 3];  // content, checksum + alignment to 4 bytes
+    unsigned char footer[2];
+    unsigned char buffer[MOBILE_MAX_DATA_SIZE + 3];  // content + alignment to 4 bytes
 };
 
 struct mobile_adapter_serial {

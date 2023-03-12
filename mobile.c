@@ -63,19 +63,16 @@ static void packet_create(struct mobile_adapter *adapter, const struct mobile_pa
     b->header[3] = packet->length;
     memmove(b->buffer, packet->data, packet->length);
 
-    unsigned offset = packet->length;
-
-    // Align the offset in 32bit mode
-    if (s->mode_32bit && offset % 4 != 0) {
-        memset(b->buffer + offset, 0, 4 - (offset % 4));
-        offset += 4 - (offset % 4);
+    // Align the packet in 32bit mode
+    if (s->mode_32bit && packet->length % 4 != 0) {
+        memset(b->buffer + packet->length, 0, 4 - (packet->length % 4));
     }
 
     uint16_t checksum = 0;
-    for (unsigned i = 0; i < 4; i++) checksum += b->header[i];
-    for (unsigned i = 0; i < offset; i++) checksum += b->buffer[i];
-    b->buffer[offset + 0] = (checksum >> 8) & 0xFF;
-    b->buffer[offset + 1] = checksum & 0xFF;
+    for (unsigned i = 0; i < sizeof(b->header); i++) checksum += b->header[i];
+    for (unsigned i = 0; i < packet->length; i++) checksum += b->buffer[i];
+    b->footer[0] = checksum >> 8;
+    b->footer[1] = checksum;
 }
 
 static bool command_handle(struct mobile_adapter *adapter)

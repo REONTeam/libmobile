@@ -46,7 +46,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         b->header[b->current++] = c;
         b->checksum += c;
 
-        if (b->current < 4) break;
+        if (b->current < sizeof(b->header)) break;
 
         // Done receiving the header, read content size.
         b->data_size = b->header[3];
@@ -81,24 +81,28 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         }
 
         b->current = 0;
-        s->state = MOBILE_SERIAL_DATA;
+        if (b->data_size) {
+            s->state = MOBILE_SERIAL_DATA;
+        } else {
+            s->state = MOBILE_SERIAL_CHECKSUM;
+        }
         break;
 
     case MOBILE_SERIAL_DATA:
-        // Receive the header and data.
+        // Receive the data
         b->buffer[b->current++] = c;
         b->checksum += c;
         if (b->current >= b->data_size) {
+            b->current = 0;
             s->state = MOBILE_SERIAL_CHECKSUM;
         }
         break;
 
     case MOBILE_SERIAL_CHECKSUM:
         // Receive the checksum, verify it when done.
-        b->buffer[b->current++] = c;
-        if (b->current >= b->data_size + 2) {
-            uint16_t in_checksum = b->buffer[b->current - 2] << 8 |
-                                   b->buffer[b->current - 1];
+        b->footer[b->current++] = c;
+        if (b->current >= sizeof(b->footer)) {
+            uint16_t in_checksum = b->footer[0] << 8 | b->footer[1];
             if (b->checksum != in_checksum) {
                 s->error = MOBILE_SERIAL_ERROR_CHECKSUM;
             }
@@ -113,7 +117,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
         // Perform requested alignment when in 32bit mode
         if (b->current > 0) {
-            if (b->current++ == 2) {
+            if (b->current++ >= 2) {
                 b->current = 0;
                 s->state = MOBILE_SERIAL_IDLE_CHECK;
             }
@@ -192,9 +196,13 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
     case MOBILE_SERIAL_RESPONSE_HEADER:
         c = b->header[b->current++];
-        if (b->current >= 4) {
+        if (b->current >= sizeof(b->header)) {
             b->current = 0;
-            s->state = MOBILE_SERIAL_RESPONSE_DATA;
+            if (b->data_size) {
+                s->state = MOBILE_SERIAL_RESPONSE_DATA;
+            } else {
+                s->state = MOBILE_SERIAL_RESPONSE_CHECKSUM;
+            }
         }
         return c;
 
@@ -202,7 +210,15 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         // Send all that's in the response buffer.
         // This includes the header, content and the checksum.
         c = b->buffer[b->current++];
-        if (b->current >= b->data_size + 2) {
+        if (b->current >= b->data_size) {
+            b->current = 0;
+            s->state = MOBILE_SERIAL_RESPONSE_CHECKSUM;
+        }
+        return c;
+
+    case MOBILE_SERIAL_RESPONSE_CHECKSUM:
+        c = b->footer[b->current++];
+        if (b->current >= sizeof(b->footer)) {
             b->current = 0;
             s->state = MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE;
         }
