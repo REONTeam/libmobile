@@ -32,7 +32,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             // Initialize transfer state
             b->data_size = 0;
             b->checksum = 0;
-            s->error = 0;
+            b->error = 0;
 
             b->current = 0;
             s->state = MOBILE_SERIAL_HEADER;
@@ -50,9 +50,6 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
         // Done receiving the header, read content size.
         b->data_size = b->header[3];
-        if (s->mode_32bit && b->data_size % 4 != 0) {
-            b->data_size += 4 - (b->data_size % 4);
-        }
 
         // Data size is a u16be, but it may not be bigger than 0xff...
         if (b->header[2] != 0) {
@@ -77,7 +74,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
         // If the command doesn't exist, set the error...
         if (!mobile_commands_exists(b->header[0])) {
-            s->error = MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND;
+            b->error = MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND;
         }
 
         b->current = 0;
@@ -93,9 +90,18 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         b->buffer[b->current++] = c;
         b->checksum += c;
         if (b->current >= b->data_size) {
-            b->current = 0;
-            s->state = MOBILE_SERIAL_CHECKSUM;
+            if (s->mode_32bit && b->current % 4) {
+                b->current = 4 - (b->current % 4);
+                s->state = MOBILE_SERIAL_DATA_PAD;
+            } else {
+                b->current = 0;
+                s->state = MOBILE_SERIAL_CHECKSUM;
+            }
         }
+        break;
+
+    case MOBILE_SERIAL_DATA_PAD:
+        if (!--b->current) s->state = MOBILE_SERIAL_CHECKSUM;
         break;
 
     case MOBILE_SERIAL_CHECKSUM:
@@ -104,7 +110,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         if (b->current >= sizeof(b->footer)) {
             uint16_t in_checksum = b->footer[0] << 8 | b->footer[1];
             if (b->checksum != in_checksum) {
-                s->error = MOBILE_SERIAL_ERROR_CHECKSUM;
+                b->error = MOBILE_SERIAL_ERROR_CHECKSUM;
             }
             b->current = 0;
             s->state = MOBILE_SERIAL_ACKNOWLEDGE;
@@ -114,15 +120,6 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
     case MOBILE_SERIAL_ACKNOWLEDGE:
         // Receive the acknowledgement byte, send error if applicable.
-
-        // Perform requested alignment when in 32bit mode
-        if (b->current > 0) {
-            if (b->current++ >= 2) {
-                b->current = 0;
-                s->state = MOBILE_SERIAL_IDLE_CHECK;
-            }
-            return 0;
-        }
 
         // The blue adapter doesn't check the device ID apparently,
         //   the other adapters don't check it in 32bit mode.
@@ -136,24 +133,21 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             break;
         }
 
-        if (s->mode_32bit) {
-            // We need to add two extra 0 bytes to the transmission
-            b->current++;
-        } else {
-            s->state = MOBILE_SERIAL_IDLE_CHECK;
-        }
-        if (s->error) return s->error;
+        b->current = 1;
+        s->state = MOBILE_SERIAL_IDLE_CHECK;
+
+        // We need to add two extra 0 bytes to the transmission
+        if (s->mode_32bit) b->current += 2;
+
+        if (b->error) return b->error;
         return b->header[0] ^ 0x80;
 
     case MOBILE_SERIAL_IDLE_CHECK:
-        // Delay one byte
-        if (b->current++ < 1) {
-            break;
-        }
-        b->current = 0;
+        // Skip at least one byte
+        if (b->current--) break;
 
         // If an error was raised or the empty command was sent, reset here.
-        if (b->buffer[0] == MOBILE_COMMAND_NULL || s->error) {
+        if (b->header[0] == MOBILE_COMMAND_NULL || b->error) {
             s->state = MOBILE_SERIAL_WAITING;
             if (c == 0x99) b->current = 1;
             break;
@@ -185,10 +179,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             return 0x99;
         } else {
             b->data_size = b->header[3];
-            if (s->mode_32bit && b->data_size % 4 != 0) {
-                b->data_size += 4 - (b->data_size % 4);
-            }
-
+            b->error = 0;
             b->current = 0;
             s->state = MOBILE_SERIAL_RESPONSE_HEADER;
             return 0x66;
@@ -211,10 +202,19 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         // This includes the header, content and the checksum.
         c = b->buffer[b->current++];
         if (b->current >= b->data_size) {
-            b->current = 0;
-            s->state = MOBILE_SERIAL_RESPONSE_CHECKSUM;
+            if (s->mode_32bit && b->current % 4) {
+                b->current = 4 - (b->current % 4);
+                s->state = MOBILE_SERIAL_RESPONSE_DATA_PAD;
+            } else {
+                b->current = 0;
+                s->state = MOBILE_SERIAL_RESPONSE_CHECKSUM;
+            }
         }
         return c;
+
+    case MOBILE_SERIAL_RESPONSE_DATA_PAD:
+        if (!--b->current) s->state = MOBILE_SERIAL_RESPONSE_CHECKSUM;
+        return 0;
 
     case MOBILE_SERIAL_RESPONSE_CHECKSUM:
         c = b->footer[b->current++];
@@ -235,7 +235,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
             return 0;
         } else if (b->current == 2) {
             // Catch the error
-            s->error = c;
+            b->error = c;
         }
 
         if (s->mode_32bit && b->current < 4) {
@@ -245,9 +245,9 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
         b->current = 0;
         // If an error happened, retry.
-        if (s->error == MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND ||
-                s->error == MOBILE_SERIAL_ERROR_CHECKSUM ||
-                s->error == MOBILE_SERIAL_ERROR_INTERNAL) {
+        if (b->error == MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND ||
+                b->error == MOBILE_SERIAL_ERROR_CHECKSUM ||
+                b->error == MOBILE_SERIAL_ERROR_INTERNAL) {
             s->state = MOBILE_SERIAL_RESPONSE_START;
             break;
         }

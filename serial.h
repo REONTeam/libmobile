@@ -14,6 +14,7 @@ enum mobile_serial_state {
     MOBILE_SERIAL_WAITING,
     MOBILE_SERIAL_HEADER,
     MOBILE_SERIAL_DATA,
+    MOBILE_SERIAL_DATA_PAD,
     MOBILE_SERIAL_CHECKSUM,
     MOBILE_SERIAL_ACKNOWLEDGE,
     MOBILE_SERIAL_IDLE_CHECK,
@@ -22,6 +23,7 @@ enum mobile_serial_state {
     MOBILE_SERIAL_RESPONSE_START,
     MOBILE_SERIAL_RESPONSE_HEADER,
     MOBILE_SERIAL_RESPONSE_DATA,
+    MOBILE_SERIAL_RESPONSE_DATA_PAD,
     MOBILE_SERIAL_RESPONSE_CHECKSUM,
     MOBILE_SERIAL_RESPONSE_ACKNOWLEDGE
 }
@@ -44,18 +46,18 @@ enum mobile_serial_error {
 };
 
 struct mobile_buffer_serial {
-    unsigned current;
-    unsigned data_size;
+    enum mobile_serial_error error;
+    unsigned char current;
+    unsigned char data_size;
     uint16_t checksum;
     unsigned char header[4];
     unsigned char footer[2];
-    unsigned char buffer[MOBILE_MAX_DATA_SIZE + 3];  // content + alignment to 4 bytes
+    unsigned char buffer[MOBILE_MAX_DATA_SIZE];
 };
 
 struct mobile_adapter_serial {
     _Atomic volatile enum mobile_serial_state state;
     _Atomic volatile bool active;
-    enum mobile_serial_error error;
 
     bool mode_32bit : 1;
     bool device_unmetered : 1;
