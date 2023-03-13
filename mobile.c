@@ -43,34 +43,39 @@ static void mobile_reset(struct mobile_adapter *adapter)
     adapter->global.packet_parsed = false;
 }
 
-static void packet_parse(struct mobile_adapter *adapter, struct mobile_packet *packet)
-{
-    struct mobile_buffer_serial *b = &adapter->buffer.serial;
-
-    packet->command = b->header[0];
-    packet->length = b->header[3];
-    packet->data = b->buffer;
-}
-
-static void packet_create(struct mobile_adapter *adapter, const struct mobile_packet *packet)
+static struct mobile_packet packet_parse(struct mobile_adapter *adapter)
 {
     struct mobile_adapter_serial *s = &adapter->serial;
     struct mobile_buffer_serial *b = &adapter->buffer.serial;
 
-    b->header[0] = packet->command | 0x80;
+    struct mobile_packet packet = {
+        .command = b->header[0],
+        .length = b->header[3],
+        .data = s->buffer
+    };
+
+    return packet;
+}
+
+static void packet_create(struct mobile_adapter *adapter, struct mobile_packet packet)
+{
+    struct mobile_adapter_serial *s = &adapter->serial;
+    struct mobile_buffer_serial *b = &adapter->buffer.serial;
+
+    b->header[0] = packet.command | 0x80;
     b->header[1] = 0;
     b->header[2] = 0;
-    b->header[3] = packet->length;
-    memmove(b->buffer, packet->data, packet->length);
+    b->header[3] = packet.length;
+    memmove(s->buffer, packet.data, packet.length);
 
     // Align the packet in 32bit mode
-    if (s->mode_32bit && packet->length % 4 != 0) {
-        memset(b->buffer + packet->length, 0, 4 - (packet->length % 4));
+    if (s->mode_32bit && packet.length % 4 != 0) {
+        memset(s->buffer + packet.length, 0, 4 - (packet.length % 4));
     }
 
     uint16_t checksum = 0;
     for (unsigned i = 0; i < sizeof(b->header); i++) checksum += b->header[i];
-    for (unsigned i = 0; i < packet->length; i++) checksum += b->buffer[i];
+    for (unsigned i = 0; i < packet.length; i++) checksum += s->buffer[i];
     b->footer[0] = checksum >> 8;
     b->footer[1] = checksum;
 }
@@ -83,7 +88,7 @@ static bool command_handle(struct mobile_adapter *adapter)
 
     // If the packet hasn't been parsed yet, parse and store it
     if (!s->packet_parsed) {
-        packet_parse(adapter, packet);
+        *packet = packet_parse(adapter);
         mobile_debug_command(adapter, packet, false);
         adapter->buffer.commands.processing = 0;
         s->packet_parsed = true;
@@ -94,7 +99,7 @@ static bool command_handle(struct mobile_adapter *adapter)
     // If there's a packet to be sent, write it out and return true
     if (send) {
         mobile_debug_command(adapter, send, true);
-        packet_create(adapter, send);
+        packet_create(adapter, *send);
         s->packet_parsed = false;
         return true;
     }

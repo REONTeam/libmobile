@@ -52,12 +52,13 @@ struct mobile_buffer_serial {
     uint16_t checksum;
     unsigned char header[4];
     unsigned char footer[2];
-    unsigned char buffer[MOBILE_MAX_DATA_SIZE];
 };
 
 struct mobile_adapter_serial {
     _Atomic volatile enum mobile_serial_state state;
     _Atomic volatile bool active;
+
+    unsigned char buffer[MOBILE_MAX_DATA_SIZE];
 
     bool mode_32bit : 1;
     bool device_unmetered : 1;

@@ -87,7 +87,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
     case MOBILE_SERIAL_DATA:
         // Receive the data
-        b->buffer[b->current++] = c;
+        s->buffer[b->current++] = c;
         b->checksum += c;
         if (b->current >= b->data_size) {
             if (s->mode_32bit && b->current % 4) {
@@ -200,7 +200,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
     case MOBILE_SERIAL_RESPONSE_DATA:
         // Send all that's in the response buffer.
         // This includes the header, content and the checksum.
-        c = b->buffer[b->current++];
+        c = s->buffer[b->current++];
         if (b->current >= b->data_size) {
             if (s->mode_32bit && b->current % 4) {
                 b->current = 4 - (b->current % 4);

@@ -35,7 +35,9 @@ struct mobile_adapter {
             struct mobile_buffer_dns dns;
             struct mobile_buffer_relay relay;
         };
-        struct mobile_buffer_serial serial;
-        struct mobile_buffer_commands commands;
+        union {
+            struct mobile_buffer_serial serial;
+            struct mobile_buffer_commands commands;
+        };
     } buffer;
 };
