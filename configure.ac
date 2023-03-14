@@ -22,6 +22,8 @@ MY_FEATURE_ENABLE([impl-weak], [MOBILE_ENABLE_IMPL_WEAK],
     [use weak implementation callbacks])
 MY_FEATURE_ENABLE([noalloc], [MOBILE_ENABLE_NOALLOC],
     [disable functions for memory allocation])
+MY_FEATURE_ENABLE([no32bit], [MOBILE_ENABLE_NO32BIT],
+    [prevent games from enabling 32bit serial mode])
 
 # Default cflags
 AS_IF([test "$GCC" = yes], [dnl

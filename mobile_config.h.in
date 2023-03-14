@@ -39,3 +39,15 @@
 // be compiled in tandem with the application using it, in order to ensure the
 // ABI remains compatible. As such, it's recommended to avoid doing this.
 #undef MOBILE_ENABLE_NOALLOC
+
+// MOBILE_ENABLE_NO32BIT - prevent games from enabling 32bit serial mode
+//
+// Enables a trick to fool GBA games into not using 32bit serial. It works by
+// replying to the 0x18 packet, whith a different command in the reply header.
+// The picked command was 0x16, as the official library will always reset the
+// serial mode back to 8-bit when receiving a packet with this command ID.
+//
+// This is a feature flag rather than a runtime configuration, because only
+// very few hardware implementations will need this, and the user really isn't
+// going to want to care.
+#undef MOBILE_ENABLE_NO32BIT

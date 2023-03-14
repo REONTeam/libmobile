@@ -8,6 +8,10 @@
 #include "util.h"
 #include "compat.h"
 
+#ifdef MOBILE_LIBCONF_USE
+#include <mobile_config.h>
+#endif
+
 // Accessible area of the mobile config by the game boy
 #define MOBILE_CONFIG_SIZE_REAL 0x100
 static_assert(MOBILE_CONFIG_SIZE >= MOBILE_CONFIG_SIZE_REAL,
@@ -724,6 +728,14 @@ static struct mobile_packet *command_change_clock(struct mobile_adapter *adapter
     }
 
     s->mode_32bit = packet->data[0] == 1;
+
+#ifdef MOBILE_ENABLE_NO32BIT
+    // Replying with a different command in the header tricks the official GBA
+    // library into never changing its serial mode. Using the REINIT command
+    // forces it to set its serial mode to 8-bit.
+    packet->command = MOBILE_COMMAND_REINIT;
+    s->mode_32bit = false;
+#endif
 
     packet->length = 0;
     return packet;

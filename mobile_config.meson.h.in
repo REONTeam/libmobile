@@ -6,3 +6,4 @@
 
 #mesondefine MOBILE_ENABLE_IMPL_WEAK
 #mesondefine MOBILE_ENABLE_NOALLOC
+#mesondefine MOBILE_ENABLE_NO32BIT
