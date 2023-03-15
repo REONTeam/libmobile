@@ -307,7 +307,7 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
     // This should be picked up by mobile_actions_get/mobile_actions_process
     if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
             adapter->serial.mode_32bit != adapter->commands.mode_32bit) {
-        return 0xD2;
+        return MOBILE_SERIAL_IDLE_BYTE;
     }
 
     return mobile_serial_transfer(adapter, c);

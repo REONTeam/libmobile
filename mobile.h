@@ -23,6 +23,8 @@ struct mobile_adapter;
 #define MOBILE_CONFIG_SIZE 0x200
 #define MOBILE_RELAY_TOKEN_SIZE 0x10
 
+// Utility defines
+#define MOBILE_SERIAL_IDLE_BYTE 0xD2
 #define MOBILE_DNS_PORT 53
 #define MOBILE_DEFAULT_P2P_PORT 1027
 #define MOBILE_DEFAULT_RELAY_PORT 31227

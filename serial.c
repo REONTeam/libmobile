@@ -256,5 +256,5 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         break;
     }
 
-    return 0xD2;
+    return MOBILE_SERIAL_IDLE_BYTE;
 }

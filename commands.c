@@ -49,7 +49,7 @@ void mobile_commands_init(struct mobile_adapter *adapter)
     adapter->commands.mode_32bit = false;
 }
 
-static struct mobile_packet *error_packet(struct mobile_packet *packet, const unsigned char error)
+static struct mobile_packet *error_packet(struct mobile_packet *packet, unsigned char error)
 {
     enum mobile_command command = packet->command;
     packet->command = MOBILE_COMMAND_ERROR;
