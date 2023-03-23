@@ -1,6 +1,8 @@
 AC_PREREQ([2.71])
 LT_PREREQ([2.4.6])
 AC_INIT([libmobile], [0.2.0])
+AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([1.16.5 -Wall foreign])
 AM_SILENT_RULES([yes])
 
@@ -29,7 +31,6 @@ MY_FEATURE_ENABLE([no32bit], [MOBILE_ENABLE_NO32BIT],
 AS_IF([test "$GCC" = yes], [dnl
     EXTRA_CFLAGS="$EXTRA_CFLAGS -std=c11 -Wall -Wextra"])
 
-AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([autoconf.h mobile_config.h])
 AC_CONFIG_FILES([
     Makefile
