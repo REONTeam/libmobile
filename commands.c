@@ -622,14 +622,10 @@ static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct
         }
     }
 
-    int recv_size;
+    int recv_size = 0;
     if (internet || s->call_packets_sent) {
         recv_size = mobile_cb_sock_recv(adapter, conn, data,
             MOBILE_MAX_TRANSFER_SIZE, NULL);
-    } else {
-        // Check if connection is alive
-        recv_size = mobile_cb_sock_recv(adapter, conn, NULL, 0, NULL);
-        if (recv_size >= 0) recv_size = 0;
     }
 
     if (!internet && recv_size > 0) {
