@@ -1,5 +1,5 @@
 project('libmobile', 'c',
-  version : '0.2.0',
+  version : '0.2.1',
   default_options : [
     'warning_level=2',
     'c_std=c11',
@@ -73,7 +73,7 @@ libmobile = library('mobile',
   c_args : c_args,
   pic : false,
   install : true,
-  version : '0.0.0')
+  version : '0.0.1')
 install_headers(headers)
 
 libmobile_dep = declare_dependency(

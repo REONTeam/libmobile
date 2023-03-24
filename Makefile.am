@@ -4,7 +4,7 @@ AM_CPPFLAGS = -DNDEBUG -DMOBILE_LIBCONF_USE
 AM_CFLAGS = $(EXTRA_CFLAGS)
 
 lib_LTLIBRARIES = libmobile.la
-libmobile_la_LDFLAGS = -no-undefined -version-info 0:0:0
+libmobile_la_LDFLAGS = -no-undefined -version-info 0:1:0
 
 libmobile_la_SOURCES = \
 	atomic.h \
