@@ -14,7 +14,8 @@ conf = configuration_data({
   'VERSION': meson.project_version(),
 
   'MOBILE_ENABLE_IMPL_WEAK': get_option('enable_impl_weak'),
-  'MOBILE_ENABLE_NOALLOC': get_option('enable_noalloc')
+  'MOBILE_ENABLE_NOALLOC': get_option('enable_noalloc'),
+  'MOBILE_ENABLE_NO32BIT': get_option('enable_no32bit')
 })
 
 c_args = [
