@@ -1,10 +1,16 @@
 ACLOCAL_AMFLAGS = -I m4
 
+# https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+lt_current  = 0
+lt_revision = 0
+lt_age      = 0
+
 AM_CPPFLAGS = -DNDEBUG -DMOBILE_LIBCONF_USE
 AM_CFLAGS = $(EXTRA_CFLAGS)
 
 lib_LTLIBRARIES = libmobile.la
-libmobile_la_LDFLAGS = -no-undefined -version-info 0:0:0
+libmobile_la_LDFLAGS = -no-undefined \
+	-version-info $(lt_current):$(lt_revision):$(lt_age)
 
 libmobile_la_SOURCES = \
 	atomic.h \

@@ -3,7 +3,23 @@ project('libmobile', 'c',
   default_options : [
     'warning_level=2',
     'c_std=c11',
-    'default_library=both'])
+    'default_library=both',
+    'b_staticpic=false'])
+
+# https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+lt_current  = 0
+lt_revision = 0
+lt_age      = 0
+lt_soversion = lt_current - lt_age
+lt_version = '@0@.@1@.@2@'.format(lt_soversion, lt_current, lt_age)
+
+c_args = [
+  '-DMOBILE_LIBCONF_USE'
+]
+
+if not get_option('debug')
+  c_args += '-DNDEBUG'
+endif
 
 conf = configuration_data({
   'prefix': get_option('prefix'),
@@ -17,14 +33,6 @@ conf = configuration_data({
   'MOBILE_ENABLE_NOALLOC': get_option('enable_noalloc'),
   'MOBILE_ENABLE_NO32BIT': get_option('enable_no32bit')
 })
-
-c_args = [
-  '-DMOBILE_LIBCONF_USE'
-]
-
-if not get_option('debug')
-  c_args += '-DNDEBUG'
-endif
 
 configure_file(
   input : 'mobile_config.meson.h.in',
@@ -72,9 +80,8 @@ libmobile = library('mobile',
   sources,
   headers,
   c_args : c_args,
-  pic : false,
   install : true,
-  version : '0.0.0')
+  version : lt_version)
 install_headers(headers)
 
 libmobile_dep = declare_dependency(

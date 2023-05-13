@@ -6,7 +6,12 @@
 // When the library is compiled alongside the code using it, including this
 // header may provide for an easy method to statically reserve memory for the
 // mobile_adapter structure. Every member of the structure is considered
-// private to the library.
+// private to the library, and as such must not be modified by user code.
+
+// Extra care must be taken to use -DMOBILE_LIBCONF_USE in the project
+// including this file, whenever it's used to build the library. This flag is
+// used to build the library when libmobile is compiled using any of its
+// included build systems.
 
 #include "mobile.h"
 #include "global.h"
