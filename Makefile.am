@@ -46,4 +46,7 @@ pkgconfig_DATA = \
 EXTRA_DIST = \
 	meson.build \
 	meson_options.txt \
-	mobile_config.meson.h.in
+	mobile_config.meson.h.in \
+	CMakeLists.txt \
+	CMakeOptions.txt \
+	mobile_config.cmake.h.in

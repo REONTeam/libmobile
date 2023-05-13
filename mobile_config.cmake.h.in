@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+#pragma once
+
+// Configuration header template for cmake
+// See mobile_config.h.in for documentation
+
+#cmakedefine MOBILE_ENABLE_IMPL_WEAK
+#cmakedefine MOBILE_ENABLE_NOALLOC
+#cmakedefine MOBILE_ENABLE_NO32BIT
