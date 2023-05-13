@@ -15,7 +15,7 @@ EXTRA_CFLAGS=""
 AC_SUBST([EXTRA_CFLAGS])
 
 AC_DEFUN([MY_FEATURE_ENABLE], [dnl
-AC_ARG_ENABLE([$1], AS_HELP_STRING([--enable-$1], [$3]),
+AC_ARG_ENABLE([libmobile-$1], AS_HELP_STRING([--enable-libmobile-$1], [$3]),
     AS_IF([test "$enableval" = yes], AC_DEFINE([$2])))dnl
 ])dnl
 
@@ -32,9 +32,6 @@ AS_IF([test "$GCC" = yes], [dnl
     EXTRA_CFLAGS="$EXTRA_CFLAGS -std=c11 -Wall -Wextra"])
 
 AC_CONFIG_HEADERS([autoconf.h mobile_config.h])
-AC_CONFIG_FILES([
-    Makefile
-    libmobile.pc
-])
+AC_CONFIG_FILES([Makefile libmobile.pc])
 
 AC_OUTPUT
