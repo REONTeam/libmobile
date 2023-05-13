@@ -15,7 +15,8 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 include(CMakeOptions.txt)
 
 set(c_defs
-    MOBILE_LIBCONF_USE)
+    MOBILE_LIBCONF_USE
+)
 
 # Variables for configure_file
 set(prefix ${CMAKE_INSTALL_PREFIX})
@@ -70,3 +71,10 @@ set_target_properties(mobile PROPERTIES
     VERSION ${lt_version} SOVERSION ${lt_soversion})
 install(TARGETS mobile DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES ${headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# Options for projects including this library
+target_include_directories(mobile PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(mobile PRIVATE
+    MOBILE_LIBCONF_USE)

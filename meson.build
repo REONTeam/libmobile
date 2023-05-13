@@ -86,5 +86,6 @@ install_headers(headers)
 
 libmobile_dep = declare_dependency(
   link_with : libmobile,
+  compile_args : ['-DMOBILE_LIBCONF_USE'],
   include_directories: '.')
 meson.override_dependency('libmobile', libmobile_dep)
