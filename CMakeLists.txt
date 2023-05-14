@@ -64,17 +64,17 @@ set(headers
     mobile_inet.h
 )
 
-add_library(mobile ${sources})
-target_include_directories(mobile PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_compile_definitions(mobile PRIVATE ${c_defs})
-set_target_properties(mobile PROPERTIES
+add_library(libmobile ${sources})
+target_include_directories(libmobile PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(libmobile PRIVATE ${c_defs})
+set_target_properties(libmobile PROPERTIES OUTPUT_NAME mobile
     VERSION ${lt_version} SOVERSION ${lt_soversion})
-install(TARGETS mobile DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS libmobile DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES ${headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Options for projects including this library
-target_include_directories(mobile PUBLIC
+target_include_directories(libmobile PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR})
-target_compile_definitions(mobile PRIVATE
+target_compile_definitions(libmobile PRIVATE
     MOBILE_LIBCONF_USE)

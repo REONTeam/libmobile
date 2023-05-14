@@ -3,8 +3,7 @@ project('libmobile', 'c',
   default_options : [
     'warning_level=2',
     'c_std=c11',
-    'default_library=both',
-    'b_staticpic=false'])
+    'default_library=both'])
 
 # https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 lt_current  = 0
@@ -80,6 +79,7 @@ libmobile = library('mobile',
   sources,
   headers,
   c_args : c_args,
+  pic : false,
   install : true,
   version : lt_version)
 install_headers(headers)
