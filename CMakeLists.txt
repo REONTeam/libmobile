@@ -11,7 +11,8 @@ set(lt_version "${lt_soversion}.${lt_current}.${lt_age}")
 include(GNUInstallDirs)
 
 set(CMAKE_C_STANDARD 11)
-option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(LIBMOBILE_BUILD_SHARED "Build shared library" ON)
+option(LIBMOBILE_BUILD_STATIC "Build static library" ON)
 include(CMakeOptions.txt)
 
 set(c_defs
@@ -64,17 +65,38 @@ set(headers
     mobile_inet.h
 )
 
-add_library(libmobile ${sources})
-target_include_directories(libmobile PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_compile_definitions(libmobile PRIVATE ${c_defs})
-set_target_properties(libmobile PROPERTIES OUTPUT_NAME mobile
-    VERSION ${lt_version} SOVERSION ${lt_soversion})
-install(TARGETS libmobile DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES ${headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+foreach(flavor shared static)
+    string(TOUPPER ${flavor} flavor_up)
+    if(NOT LIBMOBILE_BUILD_${flavor_up})
+        continue()
+    endif()
 
-# Options for projects including this library
-target_include_directories(libmobile PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR})
-target_compile_definitions(libmobile PRIVATE
-    MOBILE_LIBCONF_USE)
+    add_library(libmobile_${flavor} ${flavor_up})
+    target_sources(libmobile_${flavor} PRIVATE ${sources})
+    target_include_directories(libmobile_${flavor} PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR})
+    target_compile_definitions(libmobile_${flavor} PRIVATE
+        ${c_defs})
+    set_target_properties(libmobile_${flavor} PROPERTIES
+        OUTPUT_NAME mobile
+        VERSION ${lt_version}
+        SOVERSION ${lt_soversion})
+    install(TARGETS libmobile_${flavor} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+    # Options for projects including this library
+    target_include_directories(libmobile_${flavor} PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR})
+    target_compile_definitions(libmobile_${flavor} PUBLIC
+        MOBILE_LIBCONF_USE)
+endforeach()
+
+# Alias for the default library type
+if(BUILD_SHARED_LIBS AND LIBMOBILE_BUILD_SHARED)
+    add_library(libmobile ALIAS libmobile_shared)
+elseif(LIBMOBILE_BUILD_STATIC)
+    add_library(libmobile ALIAS libmobile_static)
+endif()
+
+# Install the headers
+install(FILES ${headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
