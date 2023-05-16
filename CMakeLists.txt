@@ -15,6 +15,13 @@ option(LIBMOBILE_BUILD_SHARED "Build shared library" ON)
 option(LIBMOBILE_BUILD_STATIC "Build static library" ON)
 include(CMakeOptions.txt)
 
+# Disable shared libs when the target doesn't support it
+get_property(TARGET_SUPPORTS_SHARED_LIBS GLOBAL PROPERTY
+    TARGET_SUPPORTS_SHARED_LIBS)
+if(NOT TARGET_SUPPORTS_SHARED_LIBS)
+    set(LIBMOBILE_BUILD_SHARED OFF)
+endif()
+
 set(c_defs
     MOBILE_LIBCONF_USE
 )
