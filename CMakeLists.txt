@@ -22,9 +22,15 @@ if(NOT TARGET_SUPPORTS_SHARED_LIBS)
     set(LIBMOBILE_BUILD_SHARED OFF)
 endif()
 
+set(c_args)
 set(c_defs
     MOBILE_LIBCONF_USE
 )
+
+# Default cflags
+if(NOT MSVC)
+    list(APPEND c_args -Wall -Wextra)
+endif()
 
 # Variables for configure_file
 set(prefix ${CMAKE_INSTALL_PREFIX})
@@ -82,8 +88,8 @@ foreach(flavor shared static)
     target_sources(libmobile_${flavor} PRIVATE ${sources})
     target_include_directories(libmobile_${flavor} PRIVATE
         ${CMAKE_CURRENT_BINARY_DIR})
-    target_compile_definitions(libmobile_${flavor} PRIVATE
-        ${c_defs})
+    target_compile_options(libmobile_${flavor} PRIVATE ${c_args})
+    target_compile_definitions(libmobile_${flavor} PRIVATE ${c_defs})
     set_target_properties(libmobile_${flavor} PROPERTIES
         OUTPUT_NAME mobile
         VERSION ${lt_version}
