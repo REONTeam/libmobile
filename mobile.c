@@ -73,7 +73,7 @@ static void packet_create(struct mobile_adapter *adapter, struct mobile_packet p
         memset(s->buffer + packet.length, 0, 4 - (packet.length % 4));
     }
 
-    uint16_t checksum = 0;
+    unsigned checksum = 0;
     for (unsigned i = 0; i < sizeof(b->header); i++) checksum += b->header[i];
     for (unsigned i = 0; i < packet.length; i++) checksum += s->buffer[i];
     b->footer[0] = checksum >> 8;
