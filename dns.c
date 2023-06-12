@@ -67,7 +67,7 @@ static bool dns_name_compare(struct mobile_buffer_dns *state, unsigned *offset, 
     const char *pname = name;
     const unsigned char *pcmp = state->data + *offset;
 
-    const unsigned char* end = NULL;
+    const unsigned char *end = NULL;
 
     for (;;) {
         if (!*pcmp) {

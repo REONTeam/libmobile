@@ -41,7 +41,7 @@ enum mobile_adapter_device {
     MOBILE_ADAPTER_BLUE = 8,
     MOBILE_ADAPTER_YELLOW,
     MOBILE_ADAPTER_GREEN,
-    MOBILE_ADAPTER_RED,
+    MOBILE_ADAPTER_RED
 };
 
 enum mobile_action {
@@ -57,13 +57,13 @@ enum mobile_action {
 
 enum mobile_socktype {
     MOBILE_SOCKTYPE_TCP,
-    MOBILE_SOCKTYPE_UDP,
+    MOBILE_SOCKTYPE_UDP
 };
 
 enum mobile_addrtype {
     MOBILE_ADDRTYPE_NONE,
     MOBILE_ADDRTYPE_IPV4,
-    MOBILE_ADDRTYPE_IPV6,
+    MOBILE_ADDRTYPE_IPV6
 };
 
 enum mobile_number {
@@ -279,7 +279,7 @@ void mobile_def_sock_connect(struct mobile_adapter *adapter, mobile_func_sock_co
 //
 // Listening on an UDP socket, or a connected TCP socket should produce an
 // error, libmobile shall never do this.
-// 
+//
 // Returns: true if socket started listening, false on error
 // Parameters:
 // - conn: Socket number

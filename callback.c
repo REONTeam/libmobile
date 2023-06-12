@@ -12,7 +12,7 @@
 //   configuration.
 
 static_assert(_MOBILE_MAX_TIMERS == MOBILE_MAX_TIMERS,
-        "The MOBILE_MAX_TIMERS definition is out of sync");
+    "The MOBILE_MAX_TIMERS definition is out of sync");
 
 // Use weak implementations if requested
 #ifdef MOBILE_ENABLE_IMPL_WEAK
@@ -81,7 +81,7 @@ IMPL bool mobile_impl_sock_listen(A_UNUSED void *user, A_UNUSED unsigned conn)
     return true;
 }
 
-IMPL bool mobile_impl_sock_accept(A_UNUSED void *user, A_UNUSED unsigned conn) 
+IMPL bool mobile_impl_sock_accept(A_UNUSED void *user, A_UNUSED unsigned conn)
 {
     return true;
 }

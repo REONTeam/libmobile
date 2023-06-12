@@ -138,7 +138,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
 
     debug_print("%02X ", packet->command);
 
-    switch(packet->command) {
+    switch (packet->command) {
     case MOBILE_COMMAND_START:
         debug_print("Start session: ");
         debug_write(packet->data, packet->length);
@@ -203,7 +203,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
                 break;
             }
             debug_print(": %02X %02X %02X",
-                    packet->data[0], packet->data[1], packet->data[2]);
+                packet->data[0], packet->data[1], packet->data[2]);
             packet_end(adapter, packet, 3);
         }
         break;
@@ -283,8 +283,8 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
             data += 1 + data[0];
 
             debug_print("; dns1: %u.%u.%u.%u; dns2: %u.%u.%u.%u)",
-                    data[0], data[1], data[2], data[3],
-                    data[4], data[5], data[6], data[7]);
+                data[0], data[1], data[2], data[3],
+                data[4], data[5], data[6], data[7]);
             data += 8;
             packet_end(adapter, packet, data - packet->data);
         } else {
@@ -293,12 +293,12 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
                 break;
             }
             debug_print(" (ip: %u.%u.%u.%u; dns1: %u.%u.%u.%u; dns2: %u.%u.%u.%u)",
-                    packet->data[0], packet->data[1],
-                    packet->data[2], packet->data[3],
-                    packet->data[4], packet->data[5],
-                    packet->data[6], packet->data[7],
-                    packet->data[8], packet->data[9],
-                    packet->data[10], packet->data[11]);
+                packet->data[0], packet->data[1],
+                packet->data[2], packet->data[3],
+                packet->data[4], packet->data[5],
+                packet->data[6], packet->data[7],
+                packet->data[8], packet->data[9],
+                packet->data[10], packet->data[11]);
             packet_end(adapter, packet, 4 * 3);
         }
         break;
@@ -322,9 +322,9 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
                 break;
             }
             debug_print(": %u.%u.%u.%u:%u",
-                    packet->data[0], packet->data[1],
-                    packet->data[2], packet->data[3],
-                    packet->data[4] << 8 | packet->data[5]);
+                packet->data[0], packet->data[1],
+                packet->data[2], packet->data[3],
+                packet->data[4] << 8 | packet->data[5]);
             packet_end(adapter, packet, 6);
         } else {
             if (packet->length < 1) break;

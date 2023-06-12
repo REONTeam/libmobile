@@ -51,7 +51,8 @@ static void debug_prefix(struct mobile_adapter *adapter)
     mobile_debug_print(adapter, PSTR("<RELAY> "));
 }
 
-static void relay_recv_reset(struct mobile_adapter *adapter) {
+static void relay_recv_reset(struct mobile_adapter *adapter)
+{
     adapter->buffer.relay.size = 0;
 }
 

@@ -296,11 +296,13 @@ void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action a
     }
 }
 
-void mobile_loop(struct mobile_adapter *adapter) {
+void mobile_loop(struct mobile_adapter *adapter)
+{
     mobile_actions_process(adapter, mobile_actions_get(adapter));
 }
 
-unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c) {
+unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
+{
     adapter->serial.active = true;
 
     // Nothing should be done while switching the mode_32bit

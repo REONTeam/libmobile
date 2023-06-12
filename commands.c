@@ -336,11 +336,11 @@ static struct mobile_packet *command_tel_relay(struct mobile_adapter *adapter, s
     // Interpret the result
     int errcode;
     switch (rc) {
-    case MOBILE_RELAY_CALL_RESULT_ACCEPTED: errcode = -1; break;
-    case MOBILE_RELAY_CALL_RESULT_INTERNAL: errcode = 3; break;
-    case MOBILE_RELAY_CALL_RESULT_BUSY: errcode = 0; break;
-    case MOBILE_RELAY_CALL_RESULT_UNAVAILABLE: errcode = 0; break;
-    default: errcode = 3; break;
+        case MOBILE_RELAY_CALL_RESULT_ACCEPTED: errcode = -1; break;
+        case MOBILE_RELAY_CALL_RESULT_INTERNAL: errcode = 3; break;
+        case MOBILE_RELAY_CALL_RESULT_BUSY: errcode = 0; break;
+        case MOBILE_RELAY_CALL_RESULT_UNAVAILABLE: errcode = 0; break;
+        default: errcode = 3; break;
     }
     if (errcode != -1) {
         mobile_cb_sock_close(adapter, p2p_conn);
@@ -513,8 +513,8 @@ static struct mobile_packet *command_wait_call(struct mobile_adapter *adapter, s
     if (b->processing == PROCESS_WAIT_CALL_INIT) {
         // If a previous timeout is in effect, wait it out
         if (s->state == MOBILE_CONNECTION_WAIT_TIMEOUT) {
-            if (!mobile_cb_time_check_ms(adapter,
-                    MOBILE_TIMER_COMMAND, 1000)) {
+            if (!mobile_cb_time_check_ms(adapter, MOBILE_TIMER_COMMAND,
+                    1000)) {
                 return NULL;
             }
             s->state = MOBILE_CONNECTION_DISCONNECTED;
@@ -716,9 +716,7 @@ static struct mobile_packet *command_change_clock(struct mobile_adapter *adapter
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
-    if (packet->length < 1) {
-        return error_packet(packet, 2);
-    }
+    if (packet->length < 1) return error_packet(packet, 2);
     if (packet->data[0] != 0 && packet->data[0] != 1) {
         return error_packet(packet, 2);
     }
@@ -886,9 +884,7 @@ static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *ad
     if (s->state != MOBILE_CONNECTION_INTERNET) {
         return error_packet(packet, 1);
     }
-    if (packet->length < 6) {
-        return error_packet(packet, 3);
-    }
+    if (packet->length < 6) return error_packet(packet, 3);
 
     int conn = connection_new(adapter);
     if (conn < 0) return error_packet(packet, 0);
@@ -1028,13 +1024,13 @@ static struct mobile_addr *dns_get_addr(struct mobile_adapter *adapter, unsigned
     id %= 4;
 
     switch (id) {
-    default:
-    // DNS1
-    case 0: return &adapter->config.dns1;
-    case 1: return (struct mobile_addr *)&adapter->commands.dns1;
-    // DNS2
-    case 2: return &adapter->config.dns2;
-    case 3: return (struct mobile_addr *)&adapter->commands.dns2;
+        default:
+        // DNS1
+        case 0: return &adapter->config.dns1;
+        case 1: return (struct mobile_addr *)&adapter->commands.dns1;
+        // DNS2
+        case 2: return &adapter->config.dns2;
+        case 3: return (struct mobile_addr *)&adapter->commands.dns2;
     }
 }
 
