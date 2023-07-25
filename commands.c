@@ -25,8 +25,15 @@ static_assert(MOBILE_CONFIG_SIZE >= MOBILE_CONFIG_SIZE_REAL,
 // Connection number to use for p2p comms
 static const int p2p_conn = 0;
 
+// Static keys
 static const char nintendo[] PROGMEM = {
     'N', 'I', 'N', 'T', 'E', 'N', 'D', 'O'
+};
+static const char happy[] PROGMEM = {
+    0x45, 0x56, 0x45, 0x52, 0x59, 0x4f, 0x4e, 0x45,
+    0x20, 0x48, 0x41, 0x50, 0x50, 0x59, 0x20, 0x4d,
+    0x4f, 0x42, 0x49, 0x4c, 0x45, 0x20, 0x43, 0x4f,
+    0x4e, 0x4e, 0x45, 0x43, 0x54, 0x49, 0x4f, 0x4e
 };
 
 static const char isp_number_pdc_isp[] PROGMEM = "#9677";
@@ -153,6 +160,11 @@ static struct mobile_packet *command_start(struct mobile_adapter *adapter, struc
     struct mobile_adapter_commands *s = &adapter->commands;
 
     if (s->session_started) return error_packet(packet, 1);
+    if (packet->length == sizeof(happy) &&
+            memcmp_P(packet->data, happy, sizeof(happy)) == 0) {
+        do_start_session(adapter);
+        return packet;
+    }
     if (adapter->serial.device != MOBILE_ADAPTER_RED) {
         if (packet->length != sizeof(nintendo)) return error_packet(packet, 2);
     } else {
