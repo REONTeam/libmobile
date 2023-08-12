@@ -10,7 +10,7 @@ void mobile_serial_init(struct mobile_adapter *adapter)
     adapter->serial.active = false;
 }
 
-unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned char c)
+uint8_t mobile_serial_transfer(struct mobile_adapter *adapter, uint8_t c)
 {
     struct mobile_adapter_serial *s = &adapter->serial;
     struct mobile_buffer_serial *b = &adapter->buffer.serial;
@@ -101,6 +101,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         break;
 
     case MOBILE_SERIAL_DATA_PAD:
+        // In 32bit mode, we must add some extra padding
         if (!--b->current) s->state = MOBILE_SERIAL_CHECKSUM;
         break;
 
@@ -124,7 +125,6 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         // The blue adapter doesn't check the device ID apparently,
         //   the other adapters don't check it in 32bit mode.
         if (s->device != MOBILE_ADAPTER_BLUE &&
-                !s->mode_32bit &&
                 c != (MOBILE_ADAPTER_GAMEBOY | 0x80) &&
                 c != (MOBILE_ADAPTER_GAMEBOY_ADVANCE | 0x80)) {
             s->state = MOBILE_SERIAL_WAITING;
@@ -135,12 +135,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
 
         b->current = 1;
         s->state = MOBILE_SERIAL_IDLE_CHECK;
-
-        // We need to add two extra 0 bytes to the transmission
-        if (s->mode_32bit) b->current += 2;
-
-        if (b->error) return b->error;
-        return b->header[0] ^ 0x80;
+        return b->error ? b->error : b->header[0] ^ 0x80;
 
     case MOBILE_SERIAL_IDLE_CHECK:
         // Skip at least one byte
@@ -213,6 +208,7 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
         return c;
 
     case MOBILE_SERIAL_RESPONSE_DATA_PAD:
+        // In 32bit mode, we must add some extra padding
         if (!--b->current) s->state = MOBILE_SERIAL_RESPONSE_CHECKSUM;
         return 0;
 
@@ -257,4 +253,37 @@ unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned ch
     }
 
     return MOBILE_SERIAL_IDLE_BYTE;
+}
+
+uint32_t mobile_serial_transfer_32bit(struct mobile_adapter *adapter, uint32_t c)
+{
+    struct mobile_adapter_serial *s = &adapter->serial;
+    struct mobile_buffer_serial *b = &adapter->buffer.serial;
+
+    // Unpack the data
+    uint8_t d[4] = {c >> 24, c >> 16, c >> 8, c >> 0};
+
+    // Use the 8-bit logic for most things
+    for (unsigned i = 0; i < 4; i++) {
+        d[i] = mobile_serial_transfer(adapter, d[i]);
+    }
+
+    // Handle acknowledgement footer separately
+    // This is the entire reason the functions are split at all, the checksum
+    //   isn't available in the 8bit function by the time the error byte has to
+    //   be sent.
+    // For this same reason, the received device byte can't be verified either.
+    if (s->state == MOBILE_SERIAL_ACKNOWLEDGE) {
+        d[0] = s->device | 0x80;
+        d[1] = b->error ? b->error : b->header[0] ^ 0x80;
+        d[2] = 0;
+        d[3] = 0;
+
+        // Ignore the next packet, we can't do anything with it.
+        b->current = 4;
+        s->state = MOBILE_SERIAL_IDLE_CHECK;
+    }
+
+    // Repack the data
+    return d[0] << 24 | d[1] << 16 | d[2] << 8 | d[3] << 0;
 }

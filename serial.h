@@ -66,6 +66,7 @@ struct mobile_adapter_serial {
 };
 
 void mobile_serial_init(struct mobile_adapter *adapter);
-unsigned char mobile_serial_transfer(struct mobile_adapter *adapter, unsigned char c);
+uint8_t mobile_serial_transfer(struct mobile_adapter *adapter, uint8_t c);
+uint32_t mobile_serial_transfer_32bit(struct mobile_adapter *adapter, uint32_t c);
 
 #undef _Atomic  // "atomic.h"

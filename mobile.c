@@ -301,7 +301,7 @@ void mobile_loop(struct mobile_adapter *adapter)
     mobile_actions_process(adapter, mobile_actions_get(adapter));
 }
 
-unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
+uint8_t mobile_transfer(struct mobile_adapter *adapter, uint8_t c)
 {
     adapter->serial.active = true;
 
@@ -313,6 +313,20 @@ unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c)
     }
 
     return mobile_serial_transfer(adapter, c);
+}
+
+uint32_t mobile_transfer_32bit(struct mobile_adapter *adapter, uint32_t c)
+{
+    adapter->serial.active = true;
+
+    // Nothing should be done while switching the mode_32bit
+    // This should be picked up by mobile_actions_get/mobile_actions_process
+    if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
+            adapter->serial.mode_32bit != adapter->commands.mode_32bit) {
+        return MOBILE_SERIAL_IDLE_BYTE;
+    }
+
+    return mobile_serial_transfer_32bit(adapter, c);
 }
 
 void mobile_start(struct mobile_adapter *adapter)

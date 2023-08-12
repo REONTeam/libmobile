@@ -130,8 +130,10 @@ void mobile_def_serial_disable(struct mobile_adapter *adapter, mobile_func_seria
 //
 // The <mode_32bit> parameter indicates in which mode the serial peripheral
 // should be initialized. It indicates whether each serial transmission by the
-// console will contain 8 or 32 bits. This information is relevant for hardware
-// implementations, which must account for this.
+// console will contain 8 or 32 bits. When <mode_32bit> is ON, the
+// mobile_transfer_32bit() function must be used instead of mobile_transfer().
+// This information is also relevant for hardware implementations, which must
+// configure their hardware to receive bursts of 32 bits of data.
 typedef void (*mobile_func_serial_enable)(void *user, bool mode_32bit);
 void mobile_impl_serial_enable(void *user, bool mode_32bit);
 void mobile_def_serial_enable(struct mobile_adapter *adapter, mobile_func_serial_enable func);
@@ -474,9 +476,10 @@ void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action a
 void mobile_loop(struct mobile_adapter *adapter);
 
 // mobile_transfer - Exchange a byte between the adapter and the console
+// mobile_transfer_32bit - Exchange a word between the adapter and the console
 //
-// This function takes the byte received during the last exchange with the
-// console, and returns the byte that must be sent during the next exchange.
+// These functions take the data received during the last exchange with the
+// console, and return the data that must be sent during the next exchange.
 //
 // In simpler terms, here's what a serial slave interrupt service routine would
 // look like (e.g. on a game boy or other hardware):
@@ -493,25 +496,29 @@ void mobile_loop(struct mobile_adapter *adapter);
 //         slave_SB = mobile_transfer(adapter, temp_SB);
 //     }
 //
-// This is the only thread-safe function in the library, and as such, may be
+// These are the only thread-safe functions in the library, and as such, may be
 // called wherever and whenever. The recommended practice on hardware devices
-// is to have this function be called during an interrupt. On emulators, one
-// can opt to execute this function in the main emulation thread, while
-// delegating the rest of the library to for example the GUI thread, or simply
-// run the entire library in the same thread.
+// is to call these during an interrupt. On emulators, one can opt to execute
+// these functions in the main emulation thread, while delegating the rest of
+// the library to for example the GUI thread, or simply run the entire library
+// in the same thread.
 //
-// To ensure thread-safety, this function may NEVER be executed until
+// To ensure thread-safety, these functions may NEVER be executed until
 // mobile_func_serial_enable() is called for the first time, or whenever
 // mobile_func_serial_disable() is called, before the serial is enabled again.
 // The user may use a mutex-like locking mechanism or disable interrupts to
 // achieve this. See the documentation on mobile_func_serial_disable() for more
 // information.
 //
+// mobile_transfer_32bit() must be called instead of mobile_transfer() whenever
+// the <mode_32bit> parameter of mobile_func_serial_enable() is ON.
+//
 // Parameters:
 // - adapter: Library state
-// - c: Byte received in previous exchange
-// Returns: Byte to send in next exchange
-unsigned char mobile_transfer(struct mobile_adapter *adapter, unsigned char c);
+// - c: Data received in previous exchange
+// Returns: Data to send in next exchange
+uint8_t mobile_transfer(struct mobile_adapter *adapter, uint8_t c);
+uint32_t mobile_transfer_32bit(struct mobile_adapter *adapter, uint32_t c);
 
 // mobile_start - Begin the library operation
 //
