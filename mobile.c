@@ -323,7 +323,7 @@ uint32_t mobile_transfer_32bit(struct mobile_adapter *adapter, uint32_t c)
     // This should be picked up by mobile_actions_get/mobile_actions_process
     if (adapter->serial.state == MOBILE_SERIAL_WAITING &&
             adapter->serial.mode_32bit != adapter->commands.mode_32bit) {
-        return MOBILE_SERIAL_IDLE_BYTE;
+        return MOBILE_SERIAL_IDLE_WORD;
     }
 
     return mobile_serial_transfer_32bit(adapter, c);

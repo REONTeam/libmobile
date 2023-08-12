@@ -25,6 +25,7 @@ struct mobile_adapter;
 
 // Utility defines
 #define MOBILE_SERIAL_IDLE_BYTE 0xD2
+#define MOBILE_SERIAL_IDLE_WORD 0xD2D2D2D2
 #define MOBILE_DNS_PORT 53
 #define MOBILE_DEFAULT_P2P_PORT 1027
 #define MOBILE_DEFAULT_RELAY_PORT 31227
