@@ -183,9 +183,9 @@ static struct mobile_packet *command_start(struct mobile_adapter *adapter, struc
 // 2 - Still connected/failed to disconnect(?)
 static struct mobile_packet *command_end(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    // TODO: Reset mode_32bit here? Verify on hardware.
-    //       Currently reset in MOBILE_ACTION_RESET_SERIAL
     do_end_session(adapter);
+    struct mobile_adapter_commands *s = &adapter->commands;
+    s->mode_32bit = false;
 
     packet->length = 0;
     return packet;
