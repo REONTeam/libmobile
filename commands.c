@@ -675,8 +675,6 @@ static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct
 // 2 - Still connected/failed to disconnect(?)
 static struct mobile_packet *command_reinit(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
-    struct mobile_adapter_commands *s = &adapter->commands;
-
     // Reset everything without ending the session
     do_end_session(adapter);
     do_start_session(adapter);
