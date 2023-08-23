@@ -20,4 +20,4 @@ As this is a community-ran project that will keep changing, I ask that this libr
 If, however, for whatever reason (e.g. platform requirements) you cannot comply with the license, please open an issue on github, or send me an [email](mailto:esteve.varela@gmail.com).
 
 Exemptions:
-- Nintendo and its subsidiaries (e.g. NERD) may use and modify this code under the terms of the zero-clause BSD license. Sending an email as a thanks is appreciated :)
+- Nintendo and its subsidiaries (e.g. NERD) may use and modify this code under the terms of the zero-clause BSD license.
