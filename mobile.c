@@ -68,11 +68,6 @@ static void packet_create(struct mobile_adapter *adapter, struct mobile_packet p
     b->header[3] = packet.length;
     memmove(s->buffer, packet.data, packet.length);
 
-    // Align the packet in 32bit mode
-    if (s->mode_32bit && packet.length % 4 != 0) {
-        memset(s->buffer + packet.length, 0, 4 - (packet.length % 4));
-    }
-
     unsigned checksum = 0;
     for (unsigned i = 0; i < sizeof(b->header); i++) checksum += b->header[i];
     for (unsigned i = 0; i < packet.length; i++) checksum += s->buffer[i];
