@@ -245,10 +245,9 @@ void mobile_actions_process(struct mobile_adapter *adapter, enum mobile_action a
             !adapter->commands.session_started) {
         mobile_cb_serial_disable(adapter);
 
+        // Assume the command subsystem is already reset
         // Avoid resetting the serial subsystem, and retain the parsed packet
         adapter->global.active = false;
-        adapter->commands.mode_32bit = false;
-        mode_32bit_change(adapter);
 
         mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
         mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);

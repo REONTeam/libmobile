@@ -131,6 +131,7 @@ static void do_end_session(struct mobile_adapter *adapter)
     if (s->connections[p2p_conn]) mobile_cb_sock_close(adapter, p2p_conn);
 
     s->session_started = false;
+    s->mode_32bit = false;
 }
 
 static void do_start_session(struct mobile_adapter *adapter)
@@ -149,7 +150,6 @@ void mobile_commands_reset(struct mobile_adapter *adapter)
     struct mobile_adapter_commands *s = &adapter->commands;
 
     if (s->session_started) do_end_session(adapter);
-    s->mode_32bit = false;
 }
 
 // Errors:
@@ -680,7 +680,6 @@ static struct mobile_packet *command_reinit(struct mobile_adapter *adapter, stru
     // Reset everything without ending the session
     do_end_session(adapter);
     do_start_session(adapter);
-    s->mode_32bit = false;
 
     packet->length = 0;
     return packet;
