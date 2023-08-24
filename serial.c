@@ -3,6 +3,10 @@
 
 #include "mobile_data.h"
 
+#ifdef MOBILE_LIBCONF_USE
+#include <mobile_config.h>
+#endif
+
 void mobile_serial_init(struct mobile_adapter *adapter)
 {
     adapter->serial.state = MOBILE_SERIAL_INIT;
@@ -10,7 +14,7 @@ void mobile_serial_init(struct mobile_adapter *adapter)
     adapter->serial.active = false;
 }
 
-uint8_t mobile_serial_transfer(struct mobile_adapter *adapter, uint8_t c)
+uint8_t MOBILE_TIME_SENSITIVE(mobile_serial_transfer)(struct mobile_adapter *adapter, uint8_t c)
 {
     struct mobile_adapter_serial *s = &adapter->serial;
     struct mobile_buffer_serial *b = &adapter->buffer.serial;
@@ -255,7 +259,7 @@ uint8_t mobile_serial_transfer(struct mobile_adapter *adapter, uint8_t c)
     return MOBILE_SERIAL_IDLE_BYTE;
 }
 
-uint32_t mobile_serial_transfer_32bit(struct mobile_adapter *adapter, uint32_t c)
+uint32_t MOBILE_TIME_SENSITIVE(mobile_serial_transfer_32bit)(struct mobile_adapter *adapter, uint32_t c)
 {
     struct mobile_adapter_serial *s = &adapter->serial;
     struct mobile_buffer_serial *b = &adapter->buffer.serial;

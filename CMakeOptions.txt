@@ -1,3 +1,4 @@
 option(LIBMOBILE_ENABLE_IMPL_WEAK "use weak implementation callbacks" OFF)
 option(LIBMOBILE_ENABLE_NOALLOC "disable functions for memory allocation" OFF)
 option(LIBMOBILE_ENABLE_NO32BIT "prevent games from enabling 32bit serial mode" OFF)
+set(LIBMOBILE_TIME_SENSITIVE "x" CACHE STRING "attributes to use for libmobile's time sensitive functions")

@@ -295,7 +295,7 @@ void mobile_loop(struct mobile_adapter *adapter)
     mobile_actions_process(adapter, mobile_actions_get(adapter));
 }
 
-uint8_t mobile_transfer(struct mobile_adapter *adapter, uint8_t c)
+uint8_t MOBILE_TIME_SENSITIVE(mobile_transfer)(struct mobile_adapter *adapter, uint8_t c)
 {
     adapter->serial.active = true;
 
@@ -309,7 +309,7 @@ uint8_t mobile_transfer(struct mobile_adapter *adapter, uint8_t c)
     return mobile_serial_transfer(adapter, c);
 }
 
-uint32_t mobile_transfer_32bit(struct mobile_adapter *adapter, uint32_t c)
+uint32_t MOBILE_TIME_SENSITIVE(mobile_transfer_32bit)(struct mobile_adapter *adapter, uint32_t c)
 {
     adapter->serial.active = true;
 

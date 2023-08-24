@@ -4,3 +4,5 @@ option('enable_noalloc', type : 'boolean', value : false,
   description : 'disable functions for memory allocation')
 option('enable_no32bit', type : 'boolean', value : false,
   description : 'prevent games from enabling 32bit serial mode')
+option('mobile_time_sensitive', type : 'string', value : 'x',
+  description : 'attributes for time sensitive functions')

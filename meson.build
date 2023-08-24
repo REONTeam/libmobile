@@ -30,7 +30,8 @@ conf = configuration_data({
 
   'MOBILE_ENABLE_IMPL_WEAK': get_option('enable_impl_weak'),
   'MOBILE_ENABLE_NOALLOC': get_option('enable_noalloc'),
-  'MOBILE_ENABLE_NO32BIT': get_option('enable_no32bit')
+  'MOBILE_ENABLE_NO32BIT': get_option('enable_no32bit'),
+  'MOBILE_TIME_SENSITIVE': get_option('mobile_time_sensitive')
 })
 
 configure_file(

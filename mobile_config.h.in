@@ -51,3 +51,7 @@
 // very few hardware implementations will need this, and the user really isn't
 // going to want to care.
 #undef MOBILE_ENABLE_NO32BIT
+
+// MOBILE_TIME_SENSITIVE - attributes to use for this library's time sensitive functions
+#undef MOBILE_TIME_SENSITIVE
+#define MOBILE_TIME_SENSITIVE(x) x
