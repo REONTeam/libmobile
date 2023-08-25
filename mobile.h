@@ -72,6 +72,11 @@ enum mobile_number {
     MOBILE_NUMBER_PEER
 };
 
+enum mobile_dns {
+    MOBILE_DNS1,
+    MOBILE_DNS2
+};
+
 struct mobile_addr4 {
     enum mobile_addrtype type;
     unsigned port;
@@ -399,8 +404,8 @@ void mobile_def_update_number(struct mobile_adapter *adapter, mobile_func_update
 
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered);
 void mobile_config_get_device(struct mobile_adapter *adapter, enum mobile_adapter_device *device, bool *unmetered);
-void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns1, const struct mobile_addr *dns2);
-void mobile_config_get_dns(struct mobile_adapter *adapter, struct mobile_addr *dns1, struct mobile_addr *dns2);
+void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns, enum mobile_dns num);
+void mobile_config_get_dns(struct mobile_adapter *adapter, struct mobile_addr *dns, enum mobile_dns num);
 void mobile_config_set_p2p_port(struct mobile_adapter *adapter, unsigned p2p_port);
 void mobile_config_get_p2p_port(struct mobile_adapter *adapter, unsigned *p2p_port);
 void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile_addr *relay);

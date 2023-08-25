@@ -231,19 +231,30 @@ void mobile_config_get_device(struct mobile_adapter *adapter, enum mobile_adapte
     *unmetered = adapter->config.device & MOBILE_CONFIG_DEVICE_UNMETERED;
 }
 
-void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns1, const struct mobile_addr *dns2)
+static struct mobile_addr *get_dns(struct mobile_adapter *adapter, enum mobile_dns num)
+{
+    switch (num) {
+    case MOBILE_DNS1: return &adapter->config.dns1;
+    case MOBILE_DNS2: return &adapter->config.dns2;
+    }
+    return NULL;
+}
+
+void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns, enum mobile_dns num)
 {
     // Latched for each dns query
-    mobile_addr_copy(&adapter->config.dns1, dns1);
-    mobile_addr_copy(&adapter->config.dns2, dns2);
+    struct mobile_addr *cfg = get_dns(adapter, num);
+    if (!cfg) return;
+    mobile_addr_copy(cfg, dns);
 
     mobile_config_apply(adapter);
 }
 
-void mobile_config_get_dns(struct mobile_adapter *adapter, struct mobile_addr *dns1, struct mobile_addr *dns2)
+void mobile_config_get_dns(struct mobile_adapter *adapter, struct mobile_addr *dns, enum mobile_dns num)
 {
-    mobile_addr_copy(dns1, &adapter->config.dns1);
-    mobile_addr_copy(dns2, &adapter->config.dns2);
+    struct mobile_addr *cfg = get_dns(adapter, num);
+    if (!cfg) return;
+    mobile_addr_copy(dns, cfg);
 }
 
 void mobile_config_set_p2p_port(struct mobile_adapter *adapter, unsigned p2p_port)
