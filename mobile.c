@@ -326,9 +326,10 @@ uint32_t mobile_transfer_32bit(struct mobile_adapter *adapter, uint32_t c)
 void mobile_start(struct mobile_adapter *adapter)
 {
     if (adapter->global.start) return;
-    adapter->global.start = true;
 
-    mobile_config_load(adapter);
+    if (!adapter->config.loaded) mobile_config_load(adapter);
+
+    adapter->global.start = true;
     mobile_cb_time_latch(adapter, MOBILE_TIMER_SERIAL);
     mobile_cb_serial_enable(adapter, adapter->serial.mode_32bit);
 }
@@ -336,9 +337,9 @@ void mobile_start(struct mobile_adapter *adapter)
 void mobile_stop(struct mobile_adapter *adapter)
 {
     if (!adapter->global.start) return;
-    adapter->global.start = false;
 
     mobile_cb_serial_disable(adapter);
+    adapter->global.start = false;
 
     if (adapter->commands.session_started) {
         mobile_debug_print(adapter, PSTR("!!! 11 End session (forced)"));

@@ -415,9 +415,10 @@ bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char
 
 // mobile_config_load - Manually force a load of the configuration values
 //
-// Makes sure the configuration has been loaded. The configuration is loaded
-// only once per instance of the library, and calling this function will
-// guarantee this.
+// Makes sure the configuration has been loaded, by forcing the configuration
+// to be re-read. This function is a no-op after mobile_start() and before
+// mobile_stop(), as the configuration has already been loaded, and is
+// currently in use.
 //
 // The necessary callback functions must be set up before this function is ran.
 //

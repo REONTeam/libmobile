@@ -196,7 +196,7 @@ void mobile_config_init(struct mobile_adapter *adapter)
 
 void mobile_config_load(struct mobile_adapter *adapter)
 {
-    if (adapter->config.loaded) return;
+    if (adapter->global.start) return;
     if (!config_internal_verify(adapter)) config_internal_clear(adapter);
     if (config_library_load(adapter)) adapter->config.dirty = false;
     adapter->config.loaded = true;
