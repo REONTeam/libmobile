@@ -122,6 +122,15 @@ uint8_t mobile_serial_transfer(struct mobile_adapter *adapter, uint8_t c)
     case MOBILE_SERIAL_ACKNOWLEDGE:
         // Receive the acknowledgement byte, send error if applicable.
 
+        // The acknowledgement header is only properly handled by 32bit mode
+        //   in mobile_serial_transfer_32bit(). This exists for software
+        //   emulators that only implement 8-bit mode.
+        if (s->mode_32bit) {
+            b->current = 2;
+            s->state = MOBILE_SERIAL_ACKNOWLEDGE_PAD;
+            return b->error ? b->error : b->header[0] ^ 0x80;
+        }
+
         // The blue adapter doesn't check the device ID apparently,
         //   the other adapters don't check it in 32bit mode.
         if (s->device != MOBILE_ADAPTER_BLUE &&
@@ -136,6 +145,14 @@ uint8_t mobile_serial_transfer(struct mobile_adapter *adapter, uint8_t c)
         b->current = 1;
         s->state = MOBILE_SERIAL_IDLE_CHECK;
         return b->error ? b->error : b->header[0] ^ 0x80;
+
+    case MOBILE_SERIAL_ACKNOWLEDGE_PAD:
+        // In 32bit mode, we must add some extra padding
+        if (!--b->current) {
+            b->current = 1;
+            s->state = MOBILE_SERIAL_IDLE_CHECK;
+        }
+        return 0;
 
     case MOBILE_SERIAL_IDLE_CHECK:
         // Skip at least one byte
