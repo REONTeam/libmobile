@@ -364,13 +364,18 @@ void mobile_init(struct mobile_adapter *adapter, void *user)
     mobile_dns_init(adapter);
 }
 
+#define VER_MAJOR 0
+#define VER_MINOR 2
+#define VER_PATCH 0
+const uint32_t mobile_version = VER_MAJOR << 16 | VER_MINOR << 8 | VER_PATCH;
+
 const size_t mobile_sizeof PROGMEM = sizeof(struct mobile_adapter);
 
 #ifndef MOBILE_ENABLE_NOALLOC
 #include <stdlib.h>
 struct mobile_adapter *mobile_new(void *user)
 {
-    struct mobile_adapter *adapter = malloc(sizeof(struct mobile_adapter));
+    struct mobile_adapter *adapter = malloc(mobile_sizeof);
     mobile_init(adapter, user);
     return adapter;
 }

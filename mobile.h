@@ -100,6 +100,20 @@ struct mobile_addr {
     };
 };
 
+// Global const variables
+
+// The version number of the library, encoded as an integer. Use this number
+// for user-facing diagnostics (e.g. an "about" screen)
+#define mobile_version_major ((mobile_version >> 16) & 0xffff)
+#define mobile_version_minor ((mobile_version >> 8) & 0xff)
+#define mobile_version_patch ((mobile_version >> 0) & 0xff)
+extern const uint32_t mobile_version;
+
+// In case anyone ever needs to reserve memory for the library state
+// themselves, here is a sizeof(struct mobile_adapter).
+// See mobile_new() and mobile_init().
+extern const size_t mobile_sizeof;
+
 // Board-specific function prototypes (make sure these are defined elsewhere!)
 
 // mobile_func_debug_log - Output a line of text for debug
@@ -591,10 +605,6 @@ void mobile_init(struct mobile_adapter *adapter, void *user);
 // - user: User data pointer for callbacks
 // Returns: Library state
 struct mobile_adapter *mobile_new(void *user);
-
-// In case anyone ever needs to reserve memory for the library state
-// themselves, here is a sizeof(struct mobile_adapter).
-extern const size_t mobile_sizeof;
 
 #ifdef __cplusplus
 }
