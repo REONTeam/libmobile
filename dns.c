@@ -160,10 +160,10 @@ static int dns_verify_response(struct mobile_adapter_dns *state, unsigned *offse
     // Make sure:
     // - We've got a response (bit 0) for a QUERY opcode (bits 1-4)
     // - It's not a truncated message (bit 6)
-    // - The server supports recursion (bits 7 and 8)
+    // - The recursion bit is set (bit 7)
     // - No error has happened (bits 12-15)
     unsigned flags = state->buffer[2] << 8 | state->buffer[3];
-    if ((flags & 0xFB8F) != 0x8180) {
+    if ((flags & 0xFB0F) != 0x8100) {
         return -2 - (flags & 0xF);
     }
 
