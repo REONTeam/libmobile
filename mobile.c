@@ -366,7 +366,7 @@ void mobile_init(struct mobile_adapter *adapter, void *user)
 
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_PATCH 0
+#define VER_PATCH 99
 const uint32_t mobile_version = VER_MAJOR << 16 | VER_MINOR << 8 | VER_PATCH;
 
 const size_t mobile_sizeof PROGMEM = sizeof(struct mobile_adapter);

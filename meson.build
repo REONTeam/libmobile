@@ -1,5 +1,5 @@
 project('libmobile', 'c',
-  version : '0.2.0',
+  version : '0.2.99',
   default_options : [
     'warning_level=2',
     'c_std=c11',

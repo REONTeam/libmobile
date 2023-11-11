@@ -1,6 +1,6 @@
 AC_PREREQ([2.71])
 LT_PREREQ([2.4.6])
-AC_INIT([libmobile], [0.2.0])
+AC_INIT([libmobile], [0.2.99])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([1.16.5 -Wall foreign])
