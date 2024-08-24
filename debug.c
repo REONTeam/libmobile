@@ -324,7 +324,7 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
             debug_print(": %u.%u.%u.%u:%u",
                 packet->data[0], packet->data[1],
                 packet->data[2], packet->data[3],
-                packet->data[4] << 8 | packet->data[5]);
+                ((packet->data[4] << 8 | packet->data[5]) == 25) ? 587 : (packet->data[4] << 8 | packet->data[5]));
             packet_end(adapter, packet, 6);
         } else {
             if (packet->length < 1) break;

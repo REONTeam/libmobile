@@ -922,6 +922,11 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
     };
     memcpy(addr.host, packet->data, 4);
 
+    if (addr.port == 25){
+        // printf("Port 25 detected. Replacing to 587\n");
+        addr.port=587;
+    }
+
     int rc = mobile_cb_sock_connect(adapter, conn,
         (struct mobile_addr *)&addr);
     if (rc == 0) return NULL;
