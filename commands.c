@@ -736,6 +736,8 @@ static struct mobile_packet *command_change_clock(struct mobile_adapter *adapter
     // Replying with a different command in the header tricks the official GBA
     // library into never changing its serial mode. Using the REINIT command
     // forces it to set its serial mode to 8-bit.
+    mobile_debug_print(adapter,PSTR("<NO32BIT> Forcing adapter to keep using 8-bit mode!"));
+    mobile_debug_endl(adapter);
     packet->command = MOBILE_COMMAND_REINIT;
     s->mode_32bit = false;
 #endif
@@ -923,7 +925,8 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
     memcpy(addr.host, packet->data, 4);
 
     if (addr.port == 25){
-        // printf("Port 25 detected. Replacing to 587\n");
+        mobile_debug_print(adapter,PSTR("<SMTP> Replacing port 25 to 587!"));
+        mobile_debug_endl(adapter);
         addr.port=587;
     }
 
