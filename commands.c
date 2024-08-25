@@ -906,6 +906,11 @@ static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *ad
     }
     s->connections[conn] = true;
 
+    if ((packet->data[4] << 8 | packet->data[5]) == 25){
+        mobile_debug_print(adapter,PSTR("<SMTP> Replacing port 25 to 587!"));
+        mobile_debug_endl(adapter);
+    }
+
     b->processing_data[PROCDATA_TCP_CONNECT_CONN] = conn;
     b->processing = PROCESS_TCP_CONNECT_CONNECTING;
     return NULL;
@@ -920,15 +925,9 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
 
     struct mobile_addr4 addr = {
         .type = MOBILE_ADDRTYPE_IPV4,
-        .port = packet->data[4] << 8 | packet->data[5],
+        .port = ((packet->data[4] << 8 | packet->data[5]) == 25 ? 587 : (packet->data[4] << 8 | packet->data[5])),
     };
     memcpy(addr.host, packet->data, 4);
-
-    if (addr.port == 25){
-        mobile_debug_print(adapter,PSTR("<SMTP> Replacing port 25 to 587!"));
-        mobile_debug_endl(adapter);
-        addr.port=587;
-    }
 
     int rc = mobile_cb_sock_connect(adapter, conn,
         (struct mobile_addr *)&addr);
