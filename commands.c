@@ -906,7 +906,7 @@ static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *ad
     }
     s->connections[conn] = true;
 
-    if ((packet->data[4] << 8 | packet->data[5]) == 25){
+    if ((packet->data[4] << 8 | packet->data[5]) == 25) {
         mobile_debug_print(adapter, PSTR("<SMTP> Replacing port 25 to 587!"));
         mobile_debug_endl(adapter);
     }
