@@ -925,8 +925,10 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
 
     struct mobile_addr4 addr = {
         .type = MOBILE_ADDRTYPE_IPV4,
-        .port = ((packet->data[4] << 8 | packet->data[5]) == 25 ? 587 : (packet->data[4] << 8 | packet->data[5])),
+        .port = packet->data[4] << 8 | packet->data[5],
     };
+    if (addr.port == 25) addr.port = 587;
+    
     memcpy(addr.host, packet->data, 4);
 
     int rc = mobile_cb_sock_connect(adapter, conn,
