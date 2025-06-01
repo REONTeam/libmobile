@@ -47,6 +47,8 @@ void mobile_debug_print(struct mobile_adapter *adapter, const char *fmt, ...)
     if (s->current >= MOBILE_DEBUG_BUFFER_SIZE) {
         s->current = MOBILE_DEBUG_BUFFER_SIZE - 1;
     }
+
+    va_end(ap);
 }
 
 void mobile_debug_print_hex(struct mobile_adapter *adapter, const void *data, size_t size)
