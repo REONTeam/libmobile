@@ -34,6 +34,9 @@ struct mobile_adapter_config {
     //   for p2p communication, instead of direct TCP connections
     struct mobile_addr relay;
 
+    // Makes the adapter use port 587 instead 25 for SMTP connections.
+    bool mail_port: 1;
+
     // Authentication token used for relay connections
     unsigned char relay_token[MOBILE_RELAY_TOKEN_SIZE];
 };
