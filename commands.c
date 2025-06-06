@@ -736,10 +736,8 @@ static struct mobile_packet *command_change_clock(struct mobile_adapter *adapter
     // Replying with a different command in the header tricks the official GBA
     // library into never changing its serial mode. Using the REINIT command
     // forces it to set its serial mode to 8-bit.
-    if (adapter->config.mail_port) {
-        mobile_debug_print(adapter, PSTR("<NO32BIT> Forcing adapter to keep using 8-bit mode!"));
-        mobile_debug_endl(adapter);
-    }
+    mobile_debug_print(adapter, PSTR("<NO32BIT> Forcing adapter to keep using 8-bit mode!"));
+    mobile_debug_endl(adapter);
     packet->command = MOBILE_COMMAND_REINIT;
     s->mode_32bit = false;
 #endif
