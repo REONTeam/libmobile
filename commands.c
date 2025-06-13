@@ -884,7 +884,8 @@ enum process_tcp_connect {
 };
 
 enum procdata_tcp_connect {
-    PROCDATA_TCP_CONNECT_CONN
+    PROCDATA_TCP_CONNECT_CONN,
+    PROCDATA_TCP_CONNECT_FALLBACK
 };
 
 static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -914,6 +915,7 @@ static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *ad
     }
 
     b->processing_data[PROCDATA_TCP_CONNECT_CONN] = conn;
+    b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 0;
     b->processing = PROCESS_TCP_CONNECT_CONNECTING;
     return NULL;
 }
@@ -931,7 +933,9 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
     };
     
     if (adapter->config.mail_port) {
-        if (addr.port == 25) addr.port = 587;
+        if (!b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK]) {
+            if (addr.port == 25) addr.port = 587;
+        } 
     }
 
     memcpy(addr.host, packet->data, 4);
@@ -940,6 +944,16 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
         (struct mobile_addr *)&addr);
     if (rc == 0) return NULL;
     if (rc < 0) {
+           
+        if (adapter->config.mail_port && addr.port == 587 && !b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK]) {
+            mobile_debug_print(adapter, PSTR("<SMTP> Failed to connect to port 587, trying port 25!"));
+            mobile_debug_endl(adapter);
+            b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 1;
+            addr.port = 25;
+            rc = mobile_cb_sock_connect(adapter, conn, (struct mobile_addr *)&addr);
+            if (rc == 0) return NULL;
+        }
+
         mobile_cb_sock_close(adapter, conn);
         s->connections[conn] = false;
         return error_packet(packet, 3);
