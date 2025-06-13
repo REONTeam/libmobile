@@ -191,6 +191,7 @@ void mobile_config_init(struct mobile_adapter *adapter)
     adapter->config.p2p_port = MOBILE_DEFAULT_P2P_PORT;
     adapter->config.relay = (struct mobile_addr){.type = MOBILE_ADDRTYPE_NONE};
     adapter->config.relay_token_init = false;
+    adapter->config.mail_port = true;
     memset(adapter->config.relay_token, 0, MOBILE_RELAY_TOKEN_SIZE);
 }
 
