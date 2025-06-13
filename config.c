@@ -107,6 +107,7 @@ static bool config_library_load(struct mobile_adapter *adapter)
     config->p2p_port |= buffer[0x09] << 8;
     config->relay.type = buffer[0x0a];
     config->relay_token_init = buffer[0x0b];
+    config->mail_port = buffer[0x0c];
 
     if (!config_check_addrtype(config->dns1.type)) return false;
     if (!config_check_addrtype(config->dns2.type)) return false;
@@ -159,8 +160,9 @@ static void config_library_save(struct mobile_adapter *adapter)
     buffer[0x09] = config->p2p_port >> 8;
     buffer[0x0a] = config->relay.type;
     buffer[0x0b] = config->relay_token_init;
+    buffer[0x0c] = config->mail_port;
 
-    // 0x0c - 0x19 unused
+    // 0x0d - 0x19 unused
 
     config_library_save_host(&config->dns1, buffer + 0x20, buffer + 0x1a);
     config_library_save_host(&config->dns2, buffer + 0x30, buffer + 0x1c);
@@ -312,6 +314,7 @@ bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char
 void mobile_config_set_alt_mail(struct mobile_adapter *adapter, bool alt_mail) 
 {
     adapter->config.mail_port = alt_mail;
+    mobile_config_apply(adapter);
 }
 
 void mobile_config_get_alt_mail(struct mobile_adapter *adapter, bool *alt_mail) 
