@@ -308,7 +308,12 @@ bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char
     return true;
 }
 
-void mobile_config_alt_mail(struct mobile_adapter *adapter, bool alt_mail) 
+void mobile_config_set_alt_mail(struct mobile_adapter *adapter, bool alt_mail) 
 {
     adapter->config.mail_port = alt_mail;
+}
+
+bool mobile_config_get_alt_mail(struct mobile_adapter *adapter, bool *alt_mail) 
+{
+    *alt_mail = adapter->config.mail_port;
 }
