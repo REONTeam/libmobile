@@ -907,16 +907,15 @@ static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *ad
     }
     s->connections[conn] = true;
 
-    b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 1;
     if (adapter->config.mail_port) {
         if ((packet->data[4] << 8 | packet->data[5]) == 25) {
             mobile_debug_print(adapter, PSTR("<SMTP> Replacing port 25 to 587!"));
             mobile_debug_endl(adapter);
-            b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 0;
         }
     }
 
     b->processing_data[PROCDATA_TCP_CONNECT_CONN] = conn;
+    b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 0;
     b->processing = PROCESS_TCP_CONNECT_CONNECTING;
     return NULL;
 }
@@ -946,28 +945,18 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
     if (rc == 0) return NULL;
     if (rc < 0) {
            
-        if (!b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK]) {
+        if (adapter->config.mail_port && addr.port == 587 && !b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK]) {
             mobile_debug_print(adapter, PSTR("<SMTP> Failed to connect to port 587, trying port 25!"));
             mobile_debug_endl(adapter);
-
-            mobile_cb_sock_close(adapter, conn);
-            if (!mobile_cb_sock_open(adapter, conn, MOBILE_SOCKTYPE_TCP,
-                    MOBILE_ADDRTYPE_IPV4, 0)) {
-                s->connections[conn] = false;
-                return error_packet(packet, 3);
-            }
-
             b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 1;
             addr.port = 25;
             rc = mobile_cb_sock_connect(adapter, conn, (struct mobile_addr *)&addr);
             if (rc == 0) return NULL;
         }
 
-        if (rc < 0) {
-            mobile_cb_sock_close(adapter, conn);
-            s->connections[conn] = false;
-            return error_packet(packet, 3);
-        }
+        mobile_cb_sock_close(adapter, conn);
+        s->connections[conn] = false;
+        return error_packet(packet, 3);
     }
 
     packet->data[0] = conn;
