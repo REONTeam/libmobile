@@ -720,6 +720,8 @@ static struct mobile_packet *command_change_clock(struct mobile_adapter *adapter
     // Replying with a different command in the header tricks the official GBA
     // library into never changing its serial mode. Using the REINIT command
     // forces it to set its serial mode to 8-bit.
+    mobile_debug_print(adapter, PSTR("<NO32BIT> Forcing adapter to keep using 8-bit mode!"));
+    mobile_debug_endl(adapter);
     packet->command = MOBILE_COMMAND_REINIT;
     s->mode_32bit = false;
 #endif
@@ -866,7 +868,8 @@ enum process_tcp_connect {
 };
 
 enum procdata_tcp_connect {
-    PROCDATA_TCP_CONNECT_CONN
+    PROCDATA_TCP_CONNECT_CONN,
+    PROCDATA_TCP_CONNECT_FALLBACK
 };
 
 static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *adapter, struct mobile_packet *packet)
@@ -888,6 +891,15 @@ static struct mobile_packet *command_tcp_connect_begin(struct mobile_adapter *ad
     }
     s->connections[conn] = true;
 
+    b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 1;
+    if (adapter->config.mail_port) {
+        if ((packet->data[4] << 8 | packet->data[5]) == 25) {
+            mobile_debug_print(adapter, PSTR("<SMTP> Replacing port 25 to 587!"));
+            mobile_debug_endl(adapter);
+            b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 0;
+        }
+    }
+
     b->processing_data[PROCDATA_TCP_CONNECT_CONN] = conn;
     b->processing = PROCESS_TCP_CONNECT_CONNECTING;
     return NULL;
@@ -904,15 +916,42 @@ static struct mobile_packet *command_tcp_connect_connecting(struct mobile_adapte
         .type = MOBILE_ADDRTYPE_IPV4,
         .port = packet->data[4] << 8 | packet->data[5],
     };
+    
+    if (adapter->config.mail_port) {
+        if (!b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK]) {
+            if (addr.port == 25) addr.port = 587;
+        } 
+    }
+
     memcpy(addr.host, packet->data, 4);
 
     int rc = mobile_cb_sock_connect(adapter, conn,
         (struct mobile_addr *)&addr);
     if (rc == 0) return NULL;
     if (rc < 0) {
-        mobile_cb_sock_close(adapter, conn);
-        s->connections[conn] = false;
-        return error_packet(packet, 3);
+           
+        if (!b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK]) {
+            mobile_debug_print(adapter, PSTR("<SMTP> Failed to connect to port 587, trying port 25!"));
+            mobile_debug_endl(adapter);
+
+            mobile_cb_sock_close(adapter, conn);
+            if (!mobile_cb_sock_open(adapter, conn, MOBILE_SOCKTYPE_TCP,
+                    MOBILE_ADDRTYPE_IPV4, 0)) {
+                s->connections[conn] = false;
+                return error_packet(packet, 3);
+            }
+
+            b->processing_data[PROCDATA_TCP_CONNECT_FALLBACK] = 1;
+            addr.port = 25;
+            rc = mobile_cb_sock_connect(adapter, conn, (struct mobile_addr *)&addr);
+            if (rc == 0) return NULL;
+        }
+
+        if (rc < 0) {
+            mobile_cb_sock_close(adapter, conn);
+            s->connections[conn] = false;
+            return error_packet(packet, 3);
+        }
     }
 
     packet->data[0] = conn;

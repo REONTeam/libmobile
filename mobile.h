@@ -426,6 +426,8 @@ void mobile_config_set_relay(struct mobile_adapter *adapter, const struct mobile
 void mobile_config_get_relay(struct mobile_adapter *adapter, struct mobile_addr *relay);
 void mobile_config_set_relay_token(struct mobile_adapter *adapter, const unsigned char *token);
 bool mobile_config_get_relay_token(struct mobile_adapter *adapter, unsigned char *token);
+void mobile_config_set_alt_mail(struct mobile_adapter *adapter, bool alt_mail);
+void mobile_config_get_alt_mail(struct mobile_adapter *adapter, bool *alt_mail);
 
 // mobile_config_load - Manually force a load of the configuration values
 //
