@@ -31,6 +31,8 @@ libmobile_la_SOURCES = \
 	mobile_data.h \
 	relay.c \
 	relay.h \
+	reon.c \
+	reon.h \
 	serial.c \
 	serial.h \
 	util.c \

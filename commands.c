@@ -7,6 +7,7 @@
 #include "mobile_inet.h"
 #include "util.h"
 #include "compat.h"
+#include "reon.h"
 
 #ifdef MOBILE_LIBCONF_USE
 #include <mobile_config.h>
@@ -134,11 +135,12 @@ static void do_end_session(struct mobile_adapter *adapter)
     s->mode_32bit = false;
 }
 
-static void do_start_session(struct mobile_adapter *adapter)
+static void do_start_session(struct mobile_adapter *adapter, bool reon_mode)
 {
     struct mobile_adapter_commands *s = &adapter->commands;
 
     s->session_started = true;
+    s->reon_mode = reon_mode;
     s->state = MOBILE_CONNECTION_DISCONNECTED;
     memset(s->connections, false, sizeof(s->connections));
 
@@ -162,7 +164,7 @@ static struct mobile_packet *command_start(struct mobile_adapter *adapter, struc
     if (s->session_started) return error_packet(packet, 1);
     if (packet->length == sizeof(happy) &&
             memcmp_P(packet->data, happy, sizeof(happy)) == 0) {
-        do_start_session(adapter);
+        do_start_session(adapter, true);  // REON mode enabled
         return packet;
     }
     if (adapter->serial.device != MOBILE_ADAPTER_RED) {
@@ -175,7 +177,7 @@ static struct mobile_packet *command_start(struct mobile_adapter *adapter, struc
         return error_packet(packet, 2);
     }
 
-    do_start_session(adapter);
+    do_start_session(adapter, false);  // Standard mode
     return packet;
 }
 
@@ -659,9 +661,14 @@ static struct mobile_packet *command_data(struct mobile_adapter *adapter, struct
 // 2 - Still connected/failed to disconnect(?)
 static struct mobile_packet *command_reinit(struct mobile_adapter *adapter, struct mobile_packet *packet)
 {
+    struct mobile_adapter_commands *s = &adapter->commands;
+
+    // Preserve REON mode across reinit
+    bool reon_mode = s->reon_mode;
+
     // Reset everything without ending the session
     do_end_session(adapter);
-    do_start_session(adapter);
+    do_start_session(adapter, reon_mode);
 
     packet->length = 0;
     return packet;
@@ -1205,6 +1212,12 @@ struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, st
         return command_udp_disconnect(adapter, packet);
     case MOBILE_COMMAND_DNS_REQUEST:
         return command_dns_request(adapter, packet);
+    case MOBILE_COMMAND_REON_GET_OPTIONS:
+        return command_reon_get_options(adapter, packet);
+    case MOBILE_COMMAND_REON_GET_VALUE:
+        return command_reon_get_value(adapter, packet);
+    case MOBILE_COMMAND_REON_SET_VALUE:
+        return command_reon_set_value(adapter, packet);
     case MOBILE_COMMAND_TEST_MODE:
         return command_test_mode(adapter, packet);
     default:
@@ -1213,7 +1226,7 @@ struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, st
     }
 }
 
-bool mobile_commands_exists(enum mobile_command command)
+bool mobile_commands_exists(struct mobile_adapter *adapter, enum mobile_command command)
 {
     // Used by serial.c:mobile_serial_transfer() to check if a command may be used
 
@@ -1239,6 +1252,11 @@ bool mobile_commands_exists(enum mobile_command command)
     case MOBILE_COMMAND_DNS_REQUEST:
     case MOBILE_COMMAND_TEST_MODE:
         return true;
+    // REON commands only exist when in REON mode
+    case MOBILE_COMMAND_REON_GET_OPTIONS:
+    case MOBILE_COMMAND_REON_GET_VALUE:
+    case MOBILE_COMMAND_REON_SET_VALUE:
+        return adapter->commands.reon_mode;
     default:
         return false;
     }

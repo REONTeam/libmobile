@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "mobile_data.h"
+#include "commands.h"
 #include "compat.h"
 
 void mobile_debug_init(struct mobile_adapter *adapter)
@@ -374,6 +375,75 @@ void mobile_debug_command(struct mobile_adapter *adapter, const struct mobile_pa
         }
         debug_print(": %02X", packet->data[1]);
         packet_end(adapter, packet, 2);
+        break;
+
+    case MOBILE_COMMAND_REON_GET_OPTIONS:
+        debug_print("REON Get Options");
+        if (!send) {
+            if (packet->length < 2) {
+                packet_end(adapter, packet, 0);
+                break;
+            }
+            debug_print(" (offset: %u, count: %u)",
+                packet->data[0], packet->data[1]);
+            packet_end(adapter, packet, 2);
+        } else {
+            if (packet->length < 2) {
+                packet_end(adapter, packet, 0);
+                break;
+            }
+            debug_print(" (total: %u, returned: %u)",
+                packet->data[0], packet->data[1]);
+            packet_end(adapter, packet, packet->length);
+        }
+        break;
+
+    case MOBILE_COMMAND_REON_GET_VALUE:
+        debug_print("REON Get Value");
+        if (!send) {
+            if (packet->length < 1) {
+                packet_end(adapter, packet, 0);
+                break;
+            }
+            debug_print(" (option: 0x%02X)", packet->data[0]);
+            packet_end(adapter, packet, packet->length);
+        } else {
+            if (packet->length < 3) {
+                packet_end(adapter, packet, 0);
+                break;
+            }
+            debug_print(" (option: 0x%02X, type: 0x%02X, len: %u)",
+                packet->data[0], packet->data[1], packet->data[2]);
+            if (packet->length > 3) {
+                dump_hex(adapter, packet->data + 3, packet->length - 3);
+            } else {
+                debug_endl();
+            }
+        }
+        break;
+
+    case MOBILE_COMMAND_REON_SET_VALUE:
+        debug_print("REON Set Value");
+        if (!send) {
+            if (packet->length < 3) {
+                packet_end(adapter, packet, 0);
+                break;
+            }
+            debug_print(" (option: 0x%02X, type: 0x%02X, len: %u)",
+                packet->data[0], packet->data[1], packet->data[2]);
+            if (packet->length > 3) {
+                dump_hex(adapter, packet->data + 3, packet->length - 3);
+            } else {
+                debug_endl();
+            }
+        } else {
+            if (packet->length < 1) {
+                packet_end(adapter, packet, 0);
+                break;
+            }
+            debug_print(" (option: 0x%02X) OK", packet->data[0]);
+            packet_end(adapter, packet, 1);
+        }
         break;
 
     default:

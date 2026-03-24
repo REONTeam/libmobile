@@ -5,6 +5,7 @@
 
 #include "mobile_data.h"
 #include "compat.h"
+#include "reon.h"
 
 // Optional implementations of the callback functions.
 // Library internals will always call `mobile_impl_` functions, which will be
@@ -100,6 +101,78 @@ IMPL void mobile_impl_update_number(A_UNUSED void *user, A_UNUSED enum mobile_nu
 {
     return;
 }
+
+IMPL const char *mobile_impl_reon_impl_name(A_UNUSED void *user)
+{
+    return NULL;
+}
+
+IMPL const char *mobile_impl_reon_get_number(A_UNUSED void *user)
+{
+    return NULL;
+}
+
+IMPL bool mobile_impl_reon_get_current_ip(A_UNUSED void *user, A_UNUSED struct mobile_addr *addr)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_get_baud_rate(A_UNUSED void *user, A_UNUSED unsigned *baud_rate, A_UNUSED bool *writable)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_set_baud_rate(A_UNUSED void *user, A_UNUSED unsigned baud_rate)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_wifi_ap_count(A_UNUSED void *user, A_UNUSED unsigned *count)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_wifi_ap_get(A_UNUSED void *user, A_UNUSED unsigned index,
+    A_UNUSED char *ssid, A_UNUSED signed char *rssi, A_UNUSED unsigned char *security)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_bt_device_count(A_UNUSED void *user, A_UNUSED unsigned *count)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_bt_device_get(A_UNUSED void *user, A_UNUSED unsigned index,
+    A_UNUSED unsigned char *mac, A_UNUSED char *name)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_custom_count(A_UNUSED void *user, A_UNUSED unsigned *count)
+{
+    return false;
+}
+
+IMPL bool mobile_impl_reon_custom_get_desc(A_UNUSED void *user, A_UNUSED unsigned index,
+    A_UNUSED unsigned char *id, A_UNUSED unsigned char *type,
+    A_UNUSED unsigned char *flags, A_UNUSED char *name)
+{
+    return false;
+}
+
+IMPL int mobile_impl_reon_custom_get_value(A_UNUSED void *user, A_UNUSED unsigned char id,
+    A_UNUSED unsigned char *buffer, A_UNUSED size_t buffer_size)
+{
+    return 0;
+}
+
+IMPL int mobile_impl_reon_custom_set_value(A_UNUSED void *user, A_UNUSED unsigned char id,
+    A_UNUSED unsigned char type, A_UNUSED const unsigned char *value,
+    A_UNUSED unsigned char value_len)
+{
+    return MOBILE_REON_ERROR_INVALID_PARAM;
+}
 #endif
 
 void mobile_callback_init(struct mobile_adapter *adapter)
@@ -121,6 +194,19 @@ void mobile_callback_init(struct mobile_adapter *adapter)
     adapter->callback.sock_send = mobile_impl_sock_send;
     adapter->callback.sock_recv = mobile_impl_sock_recv;
     adapter->callback.update_number = mobile_impl_update_number;
+    adapter->callback.reon_impl_name = mobile_impl_reon_impl_name;
+    adapter->callback.reon_get_number = mobile_impl_reon_get_number;
+    adapter->callback.reon_get_current_ip = mobile_impl_reon_get_current_ip;
+    adapter->callback.reon_get_baud_rate = mobile_impl_reon_get_baud_rate;
+    adapter->callback.reon_set_baud_rate = mobile_impl_reon_set_baud_rate;
+    adapter->callback.reon_wifi_ap_count = mobile_impl_reon_wifi_ap_count;
+    adapter->callback.reon_wifi_ap_get = mobile_impl_reon_wifi_ap_get;
+    adapter->callback.reon_bt_device_count = mobile_impl_reon_bt_device_count;
+    adapter->callback.reon_bt_device_get = mobile_impl_reon_bt_device_get;
+    adapter->callback.reon_custom_count = mobile_impl_reon_custom_count;
+    adapter->callback.reon_custom_get_desc = mobile_impl_reon_custom_get_desc;
+    adapter->callback.reon_custom_get_value = mobile_impl_reon_custom_get_value;
+    adapter->callback.reon_custom_set_value = mobile_impl_reon_custom_set_value;
 #endif
 }
 
@@ -146,4 +232,17 @@ def(sock_accept)
 def(sock_send)
 def(sock_recv)
 def(update_number)
+def(reon_impl_name)
+def(reon_get_number)
+def(reon_get_current_ip)
+def(reon_get_baud_rate)
+def(reon_set_baud_rate)
+def(reon_wifi_ap_count)
+def(reon_wifi_ap_get)
+def(reon_bt_device_count)
+def(reon_bt_device_get)
+def(reon_custom_count)
+def(reon_custom_get_desc)
+def(reon_custom_get_value)
+def(reon_custom_set_value)
 #endif

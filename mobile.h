@@ -416,6 +416,198 @@ typedef void (*mobile_func_update_number)(void *user, enum mobile_number type, c
 void mobile_impl_update_number(void *user, enum mobile_number type, const char *number);
 void mobile_def_update_number(struct mobile_adapter *adapter, mobile_func_update_number func);
 
+// REON Config Protocol callbacks
+//
+// These callbacks provide implementation-specific information for the REON
+// config protocol. They are optional but highly recommended for proper
+// identification of the adapter/emulator by configuration ROMs.
+
+// mobile_func_reon_impl_name - Get implementation name
+//
+// Returns the name of the frontend/implementation (e.g., "mGBA", "PicoAdapterGB").
+// If not set, returns NULL and the option will not be available.
+//
+// Returns: NULL-terminated string, or NULL if not available
+typedef const char *(*mobile_func_reon_impl_name)(void *user);
+const char *mobile_impl_reon_impl_name(void *user);
+void mobile_def_reon_impl_name(struct mobile_adapter *adapter, mobile_func_reon_impl_name func);
+
+// mobile_func_reon_get_number - Get user's phone number/friend code
+//
+// Returns the user's current phone number or relay-assigned friend code.
+// This is typically set by the relay server and stored by the implementation.
+// If not set, returns NULL and the option will not be available.
+//
+// Returns: NULL-terminated string (max MOBILE_MAX_NUMBER_SIZE chars), or NULL
+typedef const char *(*mobile_func_reon_get_number)(void *user);
+const char *mobile_impl_reon_get_number(void *user);
+void mobile_def_reon_get_number(struct mobile_adapter *adapter, mobile_func_reon_get_number func);
+
+// mobile_func_reon_get_current_ip - Get adapter's current IP address
+//
+// Returns the adapter's current IP address for display or P2P purposes.
+// The addr parameter must be filled with the current IP address.
+// If not available, returns false and the option will not be available.
+//
+// Parameters:
+// - addr: Address structure to fill with current IP
+// Returns: true if address is available, false otherwise
+typedef bool (*mobile_func_reon_get_current_ip)(void *user, struct mobile_addr *addr);
+bool mobile_impl_reon_get_current_ip(void *user, struct mobile_addr *addr);
+void mobile_def_reon_get_current_ip(struct mobile_adapter *adapter, mobile_func_reon_get_current_ip func);
+
+// mobile_func_reon_get_baud_rate - Get serial baud rate
+//
+// Returns the current serial baud rate and whether it can be changed.
+// If the implementation does not support baud rate reporting, return false.
+//
+// Parameters:
+// - baud_rate: Pointer to store the current baud rate
+// - writable: Pointer to store whether the baud rate can be changed
+// Returns: true if baud rate is available, false otherwise
+typedef bool (*mobile_func_reon_get_baud_rate)(void *user, unsigned *baud_rate, bool *writable);
+bool mobile_impl_reon_get_baud_rate(void *user, unsigned *baud_rate, bool *writable);
+void mobile_def_reon_get_baud_rate(struct mobile_adapter *adapter, mobile_func_reon_get_baud_rate func);
+
+// mobile_func_reon_set_baud_rate - Set serial baud rate
+//
+// Sets the serial baud rate. Only called if reon_get_baud_rate indicated
+// the baud rate is writable. The implementation should validate the rate.
+//
+// Parameters:
+// - baud_rate: The new baud rate to set
+// Returns: true on success, false if the rate is invalid or unsupported
+typedef bool (*mobile_func_reon_set_baud_rate)(void *user, unsigned baud_rate);
+bool mobile_impl_reon_set_baud_rate(void *user, unsigned baud_rate);
+void mobile_def_reon_set_baud_rate(struct mobile_adapter *adapter, mobile_func_reon_set_baud_rate func);
+
+// WiFi security types for reon_wifi_ap_get
+enum mobile_reon_wifi_security {
+    MOBILE_REON_WIFI_OPEN = 0,
+    MOBILE_REON_WIFI_WEP = 1,
+    MOBILE_REON_WIFI_WPA_PSK = 2,
+    MOBILE_REON_WIFI_WPA2_PSK = 3,
+    MOBILE_REON_WIFI_WPA_WPA2_PSK = 4,
+    MOBILE_REON_WIFI_WPA3_PSK = 5
+};
+
+// mobile_func_reon_wifi_ap_count - Get number of WiFi access points
+//
+// Returns whether WiFi scanning is supported, and if so, the current count.
+// If scanning is supported but no networks are visible, returns true with count=0.
+//
+// Parameters:
+// - count: Pointer to store the number of access points
+// Returns: true if WiFi scanning is supported, false otherwise
+typedef bool (*mobile_func_reon_wifi_ap_count)(void *user, unsigned *count);
+bool mobile_impl_reon_wifi_ap_count(void *user, unsigned *count);
+void mobile_def_reon_wifi_ap_count(struct mobile_adapter *adapter, mobile_func_reon_wifi_ap_count func);
+
+// mobile_func_reon_wifi_ap_get - Get WiFi access point information
+//
+// Retrieves information about a specific WiFi access point by index.
+//
+// Parameters:
+// - index: Index of the access point (0 to count-1)
+// - ssid: Buffer for SSID (at least 33 bytes)
+// - rssi: Pointer to store signal strength in dBm (typically -100 to 0)
+// - security: Pointer to store security type (mobile_reon_wifi_security)
+// Returns: true on success, false if index is out of range
+typedef bool (*mobile_func_reon_wifi_ap_get)(void *user, unsigned index,
+    char *ssid, signed char *rssi, unsigned char *security);
+bool mobile_impl_reon_wifi_ap_get(void *user, unsigned index,
+    char *ssid, signed char *rssi, unsigned char *security);
+void mobile_def_reon_wifi_ap_get(struct mobile_adapter *adapter, mobile_func_reon_wifi_ap_get func);
+
+// mobile_func_reon_bt_device_count - Get number of Bluetooth devices
+//
+// Returns whether Bluetooth scanning is supported, and if so, the current count.
+// If scanning is supported but no devices are visible, returns true with count=0.
+//
+// Parameters:
+// - count: Pointer to store the number of devices
+// Returns: true if Bluetooth scanning is supported, false otherwise
+typedef bool (*mobile_func_reon_bt_device_count)(void *user, unsigned *count);
+bool mobile_impl_reon_bt_device_count(void *user, unsigned *count);
+void mobile_def_reon_bt_device_count(struct mobile_adapter *adapter, mobile_func_reon_bt_device_count func);
+
+// mobile_func_reon_bt_device_get - Get Bluetooth device information
+//
+// Retrieves information about a specific Bluetooth device by index.
+//
+// Parameters:
+// - index: Index of the device (0 to count-1)
+// - mac: Buffer for MAC address (6 bytes)
+// - name: Buffer for device name (at least 249 bytes)
+// Returns: true on success, false if index is out of range
+typedef bool (*mobile_func_reon_bt_device_get)(void *user, unsigned index,
+    unsigned char *mac, char *name);
+bool mobile_impl_reon_bt_device_get(void *user, unsigned index,
+    unsigned char *mac, char *name);
+void mobile_def_reon_bt_device_get(struct mobile_adapter *adapter, mobile_func_reon_bt_device_get func);
+
+// mobile_func_reon_custom_count - Get number of custom options
+//
+// Returns whether the adapter has custom options (0x30+), and if so, how many.
+//
+// Parameters:
+// - count: Pointer to store the number of custom options
+// Returns: true if custom options are supported, false otherwise
+typedef bool (*mobile_func_reon_custom_count)(void *user, unsigned *count);
+bool mobile_impl_reon_custom_count(void *user, unsigned *count);
+void mobile_def_reon_custom_count(struct mobile_adapter *adapter, mobile_func_reon_custom_count func);
+
+// mobile_func_reon_custom_get_desc - Get custom option descriptor
+//
+// Retrieves the descriptor for a custom option by index (not by ID).
+// Option IDs should be in the range 0x30+.
+//
+// Parameters:
+// - index: Index of the custom option (0 to count-1)
+// - id: Pointer to store the option ID (should be >= 0x30)
+// - type: Pointer to store the option type
+// - flags: Pointer to store the option flags
+// - name: Buffer for option name (at least 64 bytes recommended)
+// Returns: true on success, false if index is out of range
+typedef bool (*mobile_func_reon_custom_get_desc)(void *user, unsigned index,
+    unsigned char *id, unsigned char *type, unsigned char *flags, char *name);
+bool mobile_impl_reon_custom_get_desc(void *user, unsigned index,
+    unsigned char *id, unsigned char *type, unsigned char *flags, char *name);
+void mobile_def_reon_custom_get_desc(struct mobile_adapter *adapter, mobile_func_reon_custom_get_desc func);
+
+// mobile_func_reon_custom_get_value - Get custom option value
+//
+// Retrieves the value for a custom option. The adapter writes the value
+// directly to the output buffer in wire format: [type:1] [len:1] [value:N]
+//
+// Parameters:
+// - id: Option ID (>= 0x30)
+// - buffer: Output buffer for the value (at least 255 bytes)
+// - buffer_size: Size of the output buffer
+// Returns: Number of bytes written (type + len + value), or 0 on error
+typedef int (*mobile_func_reon_custom_get_value)(void *user, unsigned char id,
+    unsigned char *buffer, size_t buffer_size);
+int mobile_impl_reon_custom_get_value(void *user, unsigned char id,
+    unsigned char *buffer, size_t buffer_size);
+void mobile_def_reon_custom_get_value(struct mobile_adapter *adapter, mobile_func_reon_custom_get_value func);
+
+// mobile_func_reon_custom_set_value - Set custom option value
+//
+// Sets the value for a custom option. The adapter receives the value
+// in wire format.
+//
+// Parameters:
+// - id: Option ID (>= 0x30)
+// - type: Value type from the request
+// - value: Pointer to the value data
+// - value_len: Length of the value data
+// Returns: 0 on success, MOBILE_REON_ERROR_* on error
+typedef int (*mobile_func_reon_custom_set_value)(void *user, unsigned char id,
+    unsigned char type, const unsigned char *value, unsigned char value_len);
+int mobile_impl_reon_custom_set_value(void *user, unsigned char id,
+    unsigned char type, const unsigned char *value, unsigned char value_len);
+void mobile_def_reon_custom_set_value(struct mobile_adapter *adapter, mobile_func_reon_custom_set_value func);
+
 void mobile_config_set_device(struct mobile_adapter *adapter, enum mobile_adapter_device device, bool unmetered);
 void mobile_config_get_device(struct mobile_adapter *adapter, enum mobile_adapter_device *device, bool *unmetered);
 void mobile_config_set_dns(struct mobile_adapter *adapter, const struct mobile_addr *dns, enum mobile_dns num);
