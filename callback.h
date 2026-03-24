@@ -32,6 +32,19 @@ struct mobile_adapter_callback {
     mobile_func_sock_send sock_send;
     mobile_func_sock_recv sock_recv;
     mobile_func_update_number update_number;
+    mobile_func_reon_impl_name reon_impl_name;
+    mobile_func_reon_get_number reon_get_number;
+    mobile_func_reon_get_current_ip reon_get_current_ip;
+    mobile_func_reon_get_baud_rate reon_get_baud_rate;
+    mobile_func_reon_set_baud_rate reon_set_baud_rate;
+    mobile_func_reon_wifi_ap_count reon_wifi_ap_count;
+    mobile_func_reon_wifi_ap_get reon_wifi_ap_get;
+    mobile_func_reon_bt_device_count reon_bt_device_count;
+    mobile_func_reon_bt_device_get reon_bt_device_get;
+    mobile_func_reon_custom_count reon_custom_count;
+    mobile_func_reon_custom_get_desc reon_custom_get_desc;
+    mobile_func_reon_custom_get_value reon_custom_get_value;
+    mobile_func_reon_custom_set_value reon_custom_set_value;
 #endif
 };
 void mobile_callback_init(struct mobile_adapter *adapter);
@@ -63,3 +76,16 @@ void mobile_callback_init(struct mobile_adapter *adapter);
 #define mobile_cb_sock_send(...) _mobile_cb(sock_send, __VA_ARGS__)
 #define mobile_cb_sock_recv(...) _mobile_cb(sock_recv, __VA_ARGS__)
 #define mobile_cb_update_number(...) _mobile_cb(update_number, __VA_ARGS__)
+#define mobile_cb_reon_impl_name(...) _mobile_cb(reon_impl_name, __VA_ARGS__)
+#define mobile_cb_reon_get_number(...) _mobile_cb(reon_get_number, __VA_ARGS__)
+#define mobile_cb_reon_get_current_ip(...) _mobile_cb(reon_get_current_ip, __VA_ARGS__)
+#define mobile_cb_reon_get_baud_rate(...) _mobile_cb(reon_get_baud_rate, __VA_ARGS__)
+#define mobile_cb_reon_set_baud_rate(...) _mobile_cb(reon_set_baud_rate, __VA_ARGS__)
+#define mobile_cb_reon_wifi_ap_count(...) _mobile_cb(reon_wifi_ap_count, __VA_ARGS__)
+#define mobile_cb_reon_wifi_ap_get(...) _mobile_cb(reon_wifi_ap_get, __VA_ARGS__)
+#define mobile_cb_reon_bt_device_count(...) _mobile_cb(reon_bt_device_count, __VA_ARGS__)
+#define mobile_cb_reon_bt_device_get(...) _mobile_cb(reon_bt_device_get, __VA_ARGS__)
+#define mobile_cb_reon_custom_count(...) _mobile_cb(reon_custom_count, __VA_ARGS__)
+#define mobile_cb_reon_custom_get_desc(...) _mobile_cb(reon_custom_get_desc, __VA_ARGS__)
+#define mobile_cb_reon_custom_get_value(...) _mobile_cb(reon_custom_get_value, __VA_ARGS__)
+#define mobile_cb_reon_custom_set_value(...) _mobile_cb(reon_custom_set_value, __VA_ARGS__)

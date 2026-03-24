@@ -73,7 +73,7 @@ uint8_t mobile_serial_transfer(struct mobile_adapter *adapter, uint8_t c)
         }
 
         // If the command doesn't exist, set the error...
-        if (!mobile_commands_exists(b->header[0])) {
+        if (!mobile_commands_exists(adapter, b->header[0])) {
             b->error = MOBILE_SERIAL_ERROR_UNKNOWN_COMMAND;
         }
 

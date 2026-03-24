@@ -27,6 +27,9 @@ enum mobile_command {
     MOBILE_COMMAND_UDP_CONNECT,
     MOBILE_COMMAND_UDP_DISCONNECT,
     MOBILE_COMMAND_DNS_REQUEST = 0x28,
+    MOBILE_COMMAND_REON_GET_OPTIONS = 0x30,
+    MOBILE_COMMAND_REON_GET_VALUE,
+    MOBILE_COMMAND_REON_SET_VALUE,
     MOBILE_COMMAND_TEST_MODE = 0x3F,
     MOBILE_COMMAND_ERROR = 0x6E
 };
@@ -65,6 +68,7 @@ struct mobile_adapter_commands {
     enum mobile_connection_state state;
     bool connections[MOBILE_MAX_CONNECTIONS];
     bool dns2_use;
+    bool reon_mode;
     struct mobile_addr4 dns1;
     struct mobile_addr4 dns2;
 };
@@ -72,6 +76,6 @@ struct mobile_adapter_commands {
 void mobile_commands_init(struct mobile_adapter *adapter);
 void mobile_commands_reset(struct mobile_adapter *adapter);
 struct mobile_packet *mobile_commands_process(struct mobile_adapter *adapter, struct mobile_packet *packet);
-bool mobile_commands_exists(enum mobile_command command);
+bool mobile_commands_exists(struct mobile_adapter *adapter, enum mobile_command command);
 
 #undef _Atomic  // "atomic.h"
